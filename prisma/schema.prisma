@@ -1,0 +1,459 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users      User[]
+  contacts   Contact[]
+  locals     Local[]
+  categorias Categoria[]
+  itens      Item[]
+  marcas     Marca[]
+  orcamentos Orcamento[]
+  membros    Membro[]
+  tarefas    Tarefa[]
+  transacoes Transacao[]
+  faturas    Fatura[]
+  links      Link[]
+  veiculos   Veiculo[]
+  eventos    Evento[]
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          String    @default("USER")
+  companyId     String?
+  company       Company?  @relation(fields: [companyId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts       Account[]
+  sessions       Session[]
+  tarefasCriadas Tarefa[]  @relation("TarefaCriador")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ── Contacts (Clientes + Fornecedores) ────────────────────────────────────────
+
+model Contact {
+  id                 String        @id @default(cuid())
+  type               String
+  razaoSocial        String
+  nomeFantasia       String
+  cnpj               String?
+  inscricaoEstadual  String?
+  inscricaoMunicipal String?
+  cep                String?
+  rua                String?
+  numero             String?
+  semNumero          Boolean       @default(false)
+  bairro             String?
+  complemento        String?
+  cidade             String?
+  estado             String?
+  perfil             String?
+  isPostoServico     Boolean       @default(false)
+  companyId          String
+  company            Company       @relation(fields: [companyId], references: [id])
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  subContacts SubContact[]
+  orcamentos  Orcamento[]
+  faturas     Fatura[]
+}
+
+model SubContact {
+  id        String   @id @default(cuid())
+  nome      String
+  telefone  String?
+  email     String?
+  cargo     String?
+  contactId String
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+// ── Locais ────────────────────────────────────────────────────────────────────
+
+model Local {
+  id          String   @id @default(cuid())
+  nome        String
+  cep         String?
+  rua         String?
+  numero      String?
+  bairro      String?
+  complemento String?
+  cidade      String?
+  estado      String?
+  lat         Float?
+  lng         Float?
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orcamentos Orcamento[]
+}
+
+// ── Ativos ────────────────────────────────────────────────────────────────────
+
+model Categoria {
+  id        String        @id @default(cuid())
+  nome      String
+  tipo      String
+  companyId String
+  company   Company       @relation(fields: [companyId], references: [id])
+  createdAt DateTime      @default(now())
+
+  subCategorias SubCategoria[]
+  itens         Item[]
+  transacoes    Transacao[]
+}
+
+model SubCategoria {
+  id          String    @id @default(cuid())
+  nome        String
+  categoriaId String
+  categoria   Categoria @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  itens Item[]
+}
+
+model Marca {
+  id        String   @id @default(cuid())
+  nome      String
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  createdAt DateTime @default(now())
+
+  itens Item[]
+}
+
+model Item {
+  id             String       @id @default(cuid())
+  codigo         String
+  nome           String
+  valorAluguel   Float        @default(0)
+  tipo           String
+  categoriaId    String?
+  categoria      Categoria?   @relation(fields: [categoriaId], references: [id])
+  subCategoriaId String?
+  subCategoria   SubCategoria? @relation(fields: [subCategoriaId], references: [id])
+  marcaId        String?
+  marca          Marca?       @relation(fields: [marcaId], references: [id])
+  quantidade     Int          @default(0)
+  especificacoes String?
+  fotos          String       @default("[]")
+  emCatalogo     Boolean      @default(true)
+  companyId      String
+  company        Company      @relation(fields: [companyId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  acessoriosBase ItemAcessorio[] @relation("ItemBase")
+  acessoriosVinc ItemAcessorio[] @relation("ItemAcessorio")
+  salaItens      SalaItem[]
+}
+
+model ItemAcessorio {
+  id          String @id @default(cuid())
+  itemBaseId  String
+  itemBase    Item   @relation("ItemBase", fields: [itemBaseId], references: [id], onDelete: Cascade)
+  acessorioId String
+  acessorio   Item   @relation("ItemAcessorio", fields: [acessorioId], references: [id])
+
+  @@unique([itemBaseId, acessorioId])
+}
+
+// ── Orçamentos ────────────────────────────────────────────────────────────────
+
+model Evento {
+  id        String   @id @default(cuid())
+  nome      String
+  tipo      String?
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  createdAt DateTime @default(now())
+
+  orcamentos Orcamento[]
+}
+
+model Orcamento {
+  id             String   @id @default(cuid())
+  numero         Int
+  clienteId      String
+  cliente        Contact  @relation(fields: [clienteId], references: [id])
+  status         String   @default("PENDENTE")
+  eventoId       String?
+  evento         Evento?  @relation(fields: [eventoId], references: [id])
+  eventoNome     String?
+  localId        String?
+  local          Local?   @relation(fields: [localId], references: [id])
+  tipoEvento     String?
+  dataInicio     DateTime?
+  dataFim        DateTime?
+  observacoes    String?
+  obsInternas    String?
+  formaPagamento String?
+  condicoes      String?
+  desconto       Float?
+  descontoTipo   String?  @default("valor")
+  total          Float    @default(0)
+  companyId      String
+  company        Company  @relation(fields: [companyId], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  salas      Sala[]
+  transacoes Transacao[]
+  faturas    Fatura[]
+  os         OrdemServico?
+}
+
+model Sala {
+  id          String    @id @default(cuid())
+  nome        String
+  orcamentoId String
+  orcamento   Orcamento @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  itens SalaItem[]
+}
+
+model SalaItem {
+  id            String @id @default(cuid())
+  salaId        String
+  sala          Sala   @relation(fields: [salaId], references: [id], onDelete: Cascade)
+  itemId        String
+  item          Item   @relation(fields: [itemId], references: [id])
+  quantidade    Int    @default(1)
+  valorUnitario Float  @default(0)
+  subtotal      Float  @default(0)
+}
+
+// ── Ordem de Serviço ──────────────────────────────────────────────────────────
+
+model OrdemServico {
+  id                 String   @id @default(cuid())
+  orcamentoId        String   @unique
+  orcamento          Orcamento @relation(fields: [orcamentoId], references: [id])
+  status             String   @default("ABERTA")
+  horarioMontagem    DateTime?
+  horarioDesmontagem DateTime?
+  observacoes        String?
+  companyId          String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  escala EscalaMembro[]
+}
+
+model EscalaMembro {
+  id             String       @id @default(cuid())
+  osId           String
+  os             OrdemServico @relation(fields: [osId], references: [id], onDelete: Cascade)
+  membroId       String
+  membro         Membro       @relation(fields: [membroId], references: [id])
+  horarioEntrada DateTime?
+  horarioSaida   DateTime?
+  funcao         String?
+  cache          Float?
+}
+
+// ── Equipe ────────────────────────────────────────────────────────────────────
+
+model Especialidade {
+  id        String   @id @default(cuid())
+  nome      String
+  createdAt DateTime @default(now())
+
+  membros MembroEspecialidade[]
+}
+
+model Membro {
+  id        String   @id @default(cuid())
+  nome      String
+  telefone  String?
+  rg        String?
+  cpf       String?
+  tipo      String
+  pix       String?
+  cache     Float?
+  fotoUrl   String?
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  especialidades MembroEspecialidade[]
+  avaliacoes     Avaliacao[]
+  tarefas        TarefaMembro[]
+  escala         EscalaMembro[]
+}
+
+model MembroEspecialidade {
+  id              String        @id @default(cuid())
+  membroId        String
+  membro          Membro        @relation(fields: [membroId], references: [id], onDelete: Cascade)
+  especialidadeId String
+  especialidade   Especialidade @relation(fields: [especialidadeId], references: [id])
+
+  @@unique([membroId, especialidadeId])
+}
+
+model Avaliacao {
+  id         String   @id @default(cuid())
+  membroId   String
+  membro     Membro   @relation(fields: [membroId], references: [id], onDelete: Cascade)
+  nota       Int
+  comentario String?
+  createdAt  DateTime @default(now())
+}
+
+model Veiculo {
+  id              String   @id @default(cuid())
+  placa           String
+  modelo          String
+  ano             Int?
+  tipo            String?
+  capacidadeCarga String?
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id])
+  createdAt       DateTime @default(now())
+}
+
+// ── Financeiro ────────────────────────────────────────────────────────────────
+
+model Transacao {
+  id              String    @id @default(cuid())
+  dataRecebimento DateTime
+  nome            String
+  tipo            String
+  categoriaId     String?
+  categoria       Categoria? @relation(fields: [categoriaId], references: [id])
+  orcamentoId     String?
+  orcamento       Orcamento? @relation(fields: [orcamentoId], references: [id])
+  valor           Float
+  observacao      String?
+  notaFiscal      Boolean   @default(false)
+  status          String    @default("PENDENTE")
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Fatura {
+  id             String    @id @default(cuid())
+  numero         Int
+  isPostoServico Boolean   @default(false)
+  orcamentoId    String?
+  orcamento      Orcamento? @relation(fields: [orcamentoId], references: [id])
+  clienteId      String?
+  cliente        Contact?  @relation(fields: [clienteId], references: [id])
+  clienteNome    String
+  mesRef         String
+  dataEmissao    DateTime
+  dataVencimento DateTime
+  valor          Float
+  descritivo     String?
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+// ── Tarefas ───────────────────────────────────────────────────────────────────
+
+model Tarefa {
+  id          String   @id @default(cuid())
+  nome        String
+  instrucoes  String?
+  dataInicio  DateTime
+  dataEntrega DateTime
+  obsExecucao String?
+  status      String   @default("NAO_INICIADA")
+  criadorId   String
+  criador     User     @relation("TarefaCriador", fields: [criadorId], references: [id])
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  responsaveis TarefaMembro[]
+}
+
+model TarefaMembro {
+  id       String @id @default(cuid())
+  tarefaId String
+  tarefa   Tarefa @relation(fields: [tarefaId], references: [id], onDelete: Cascade)
+  membroId String
+  membro   Membro @relation(fields: [membroId], references: [id])
+
+  @@unique([tarefaId, membroId])
+}
+
+// ── Links ─────────────────────────────────────────────────────────────────────
+
+model Link {
+  id         String   @id @default(cuid())
+  nome       String
+  url        String
+  observacao String?
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
