@@ -167,7 +167,7 @@ export function TransacaoFormModal({
     >
       <ModalBody>
         <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="col-span-2">
               <Input
                 label="Nome da Transação *"
@@ -185,7 +185,7 @@ export function TransacaoFormModal({
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Input
               label="Data *"
               type="date"
@@ -210,7 +210,7 @@ export function TransacaoFormModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Select
               label="Categoria"
               value={form.categoriaId}

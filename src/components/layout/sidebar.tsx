@@ -21,6 +21,8 @@ import {
   Wrench,
   ChevronDown,
   ChevronRight,
+  Menu,
+  X,
 } from "lucide-react";
 import React from "react";
 
@@ -182,9 +184,9 @@ function NavItem({
   );
 }
 
-export function Sidebar() {
+function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
-    <aside className="fixed left-0 top-0 h-screen w-60 border-r border-slate-100 bg-white flex flex-col z-30">
+    <>
       {/* Logo */}
       <div className="flex items-center gap-2 px-4 py-4 border-b border-slate-100">
         <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
@@ -194,7 +196,13 @@ export function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-0.5">
+      <nav
+        className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-0.5"
+        onClick={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.closest("a")) onNavigate?.();
+        }}
+      >
         {navItems.map((item, i) => (
           <NavItem key={i} item={item} />
         ))}
@@ -202,10 +210,56 @@ export function Sidebar() {
 
       {/* Footer */}
       <div className="px-3 py-3 border-t border-slate-100">
-        <p className="text-xs text-slate-400 text-center">
-          LocadoraFácil v1.0
-        </p>
+        <p className="text-xs text-slate-400 text-center">LocadoraFácil v1.0</p>
       </div>
-    </aside>
+    </>
+  );
+}
+
+export function Sidebar() {
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+  const pathname = usePathname();
+
+  // Fecha o drawer ao trocar de rota
+  React.useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  return (
+    <>
+      {/* Botão hamburguer — só mobile */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="md:hidden fixed left-3 top-3 z-40 h-9 w-9 rounded-lg bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-600"
+        aria-label="Abrir menu"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+
+      {/* Sidebar fixa — desktop */}
+      <aside className="hidden md:flex fixed left-0 top-0 h-screen w-60 border-r border-slate-100 bg-white flex-col z-30">
+        <SidebarContent />
+      </aside>
+
+      {/* Drawer — mobile */}
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-50">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setMobileOpen(false)}
+          />
+          <aside className="absolute left-0 top-0 h-full w-72 max-w-[85vw] bg-white flex flex-col shadow-2xl">
+            <button
+              onClick={() => setMobileOpen(false)}
+              className="absolute right-3 top-3.5 h-9 w-9 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600"
+              aria-label="Fechar menu"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <SidebarContent onNavigate={() => setMobileOpen(false)} />
+          </aside>
+        </div>
+      )}
+    </>
   );
 }

@@ -117,7 +117,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-x-auto">
       <button
         type="button"
         onClick={onToggle}
@@ -353,7 +353,7 @@ export function OrcamentoForm({
         onToggle={() => toggle("evento")}
       >
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               label="Nome do Evento"
               value={form.eventoNome}
@@ -367,7 +367,7 @@ export function OrcamentoForm({
               placeholder="Ex: Corporativo, Show, Feira..."
             />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Input
               label="Data de Início"
               type="date"
@@ -519,7 +519,7 @@ export function OrcamentoForm({
         open={open.pagamento}
         onToggle={() => toggle("pagamento")}
       >
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Select
             label="Forma de Pagamento"
             value={form.formaPagamento}
@@ -544,7 +544,7 @@ export function OrcamentoForm({
         open={open.desconto}
         onToggle={() => toggle("desconto")}
       >
-        <div className="grid grid-cols-3 gap-3 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
           <Input
             label="Desconto"
             type="number"

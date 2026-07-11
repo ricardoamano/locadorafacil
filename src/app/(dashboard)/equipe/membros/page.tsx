@@ -146,7 +146,7 @@ export default function MembrosPage() {
           </Button>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-x-auto">
           {loading ? (
             <div className="flex items-center justify-center h-40">
               <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full" />
@@ -161,7 +161,7 @@ export default function MembrosPage() {
               </Button>
             </div>
           ) : (
-            <table className="w-full">
+            <table className="w-full min-w-[640px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
                   {["Nome", "Tipo", "Telefone", "PIX", "Cachê", "Ações"].map((h, i) => (
@@ -226,7 +226,7 @@ export default function MembrosPage() {
         >
           <ModalBody>
             <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="col-span-2">
                   <Input
                     label="Nome *"
@@ -242,7 +242,7 @@ export default function MembrosPage() {
                   options={Object.entries(tipoLabels).map(([value, label]) => ({ value, label }))}
                 />
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Input
                   label="Telefone"
                   value={form.telefone}
@@ -261,7 +261,7 @@ export default function MembrosPage() {
                   placeholder="000.000.000-00"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input
                   label="Chave PIX"
                   value={form.pix}

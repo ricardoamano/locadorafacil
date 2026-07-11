@@ -139,7 +139,7 @@ export function ItemFormModal({
     >
       <ModalBody>
         <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="col-span-2">
               <Input
                 label="Nome do Item *"
@@ -157,7 +157,7 @@ export function ItemFormModal({
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Input
               label="Valor de Aluguel (R$)"
               type="number"
@@ -180,7 +180,7 @@ export function ItemFormModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Select
               label="Categoria"
               value={form.categoriaId}

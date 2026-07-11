@@ -171,7 +171,7 @@ export function FaturaFormModal({
             <span className="text-sm text-slate-700">É posto de serviço?</span>
           </label>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Select
               label="Orçamento Vinculado"
               value={form.orcamentoId}
@@ -188,7 +188,7 @@ export function FaturaFormModal({
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Input
               label="Mês de Referência"
               value={form.mesRef}
@@ -211,7 +211,7 @@ export function FaturaFormModal({
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Input
               label="Valor Total (R$) *"
               type="number"

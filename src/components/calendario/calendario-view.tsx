@@ -190,7 +190,7 @@ export function CalendarioView() {
       </div>
 
       {/* Calendário */}
-      <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-x-auto">
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full" />

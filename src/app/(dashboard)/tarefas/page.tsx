@@ -184,7 +184,7 @@ export default function TarefasPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-x-auto">
           {loading ? (
             <div className="flex items-center justify-center h-40">
               <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full" />
@@ -199,7 +199,7 @@ export default function TarefasPage() {
               </Button>
             </div>
           ) : (
-            <table className="w-full">
+            <table className="w-full min-w-[640px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
                   {["Tarefa", "Responsáveis", "Criador", "Início", "Entrega", "Status", "Ações"].map(
@@ -289,7 +289,7 @@ export default function TarefasPage() {
         >
           <ModalBody>
             <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="col-span-2">
                   <Input
                     label="Nome da Tarefa *"
@@ -309,7 +309,7 @@ export default function TarefasPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input
                   label="Data de Início *"
                   type="date"

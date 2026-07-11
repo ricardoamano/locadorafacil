@@ -222,7 +222,7 @@ export function ContactFormModal({
         {tab === "dados" && (
           <div className="space-y-4">
             {/* Section: Dados Principais */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input
                 label="Razão Social *"
                 value={form.razaoSocial}
@@ -239,7 +239,7 @@ export function ContactFormModal({
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Input
                 label="CNPJ"
                 value={form.cnpj}
@@ -265,7 +265,7 @@ export function ContactFormModal({
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
                 Endereço
               </p>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="col-span-1">
                   <div className="relative">
                     <Input
@@ -290,7 +290,7 @@ export function ContactFormModal({
                 </div>
               </div>
 
-              <div className="grid grid-cols-4 gap-3 mt-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
                 <div>
                   {form.semNumero ? (
                     <div className="flex flex-col gap-1">
@@ -360,7 +360,7 @@ export function ContactFormModal({
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
                   Classificação
                 </p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Select
                     label="Perfil de Cliente"
                     value={form.perfil}
@@ -426,7 +426,7 @@ export function ContactFormModal({
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Input
                     label="Nome"
                     value={contact.nome}
@@ -440,7 +440,7 @@ export function ContactFormModal({
                     placeholder="Ex: Gerente"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Input
                     label="Telefone"
                     value={contact.telefone}

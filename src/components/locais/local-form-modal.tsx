@@ -164,7 +164,7 @@ export function LocalFormModal({
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
               Endereço
             </p>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="col-span-1">
                 <div className="relative">
                   <Input
@@ -189,7 +189,7 @@ export function LocalFormModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-4 gap-3 mt-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
               <Input
                 label="Número"
                 value={form.numero}
@@ -229,7 +229,7 @@ export function LocalFormModal({
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
               Coordenadas GPS (opcional)
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input
                 label="Latitude"
                 value={form.lat}

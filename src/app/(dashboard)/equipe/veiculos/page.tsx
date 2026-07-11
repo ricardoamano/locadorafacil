@@ -116,7 +116,7 @@ export default function VeiculosPage() {
           </Button>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-x-auto">
           {loading ? (
             <div className="flex items-center justify-center h-40">
               <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full" />
@@ -127,7 +127,7 @@ export default function VeiculosPage() {
               <p className="text-sm">Nenhum veículo cadastrado ainda</p>
             </div>
           ) : (
-            <table className="w-full">
+            <table className="w-full min-w-[640px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
                   {["Placa", "Modelo", "Ano", "Tipo", "Capacidade", "Ações"].map((h, i) => (
@@ -193,7 +193,7 @@ export default function VeiculosPage() {
         >
           <ModalBody>
             <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Input
                   label="Placa *"
                   value={form.placa}
@@ -209,7 +209,7 @@ export default function VeiculosPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Input
                   label="Ano"
                   type="number"

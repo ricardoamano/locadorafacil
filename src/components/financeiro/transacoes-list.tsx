@@ -116,7 +116,7 @@ export function TransacoesList() {
     <div>
       {/* Saldo Panel */}
       {showSaldo && (
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-green-50 flex items-center justify-center">
               <TrendingUp className="h-5 w-5 text-green-600" />
@@ -219,7 +219,7 @@ export function TransacoesList() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-x-auto">
         {loading ? (
           <div className="flex items-center justify-center h-40">
             <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full" />
@@ -246,7 +246,7 @@ export function TransacoesList() {
             )}
           </div>
         ) : (
-          <table className="w-full">
+          <table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50">
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">

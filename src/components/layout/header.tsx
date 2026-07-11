@@ -19,7 +19,7 @@ export function Header({ breadcrumbs = [] }: HeaderProps) {
   const [menuOpen, setMenuOpen] = React.useState(false);
 
   return (
-    <header className="fixed top-0 right-0 left-60 h-14 bg-white border-b border-slate-100 flex items-center justify-between px-6 z-20">
+    <header className="fixed top-0 right-0 left-0 md:left-60 h-14 bg-white border-b border-slate-100 flex items-center justify-between pl-14 pr-4 md:px-6 z-20">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1.5 text-sm">
         <Link href="/dashboard" className="text-slate-400 hover:text-slate-600">

@@ -102,7 +102,7 @@ export default function MarcasPage() {
           </Button>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-x-auto">
           {loading ? (
             <div className="flex items-center justify-center h-40">
               <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full" />
@@ -113,7 +113,7 @@ export default function MarcasPage() {
               <p className="text-sm">Nenhuma marca cadastrada</p>
             </div>
           ) : (
-            <table className="w-full">
+            <table className="w-full min-w-[640px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
