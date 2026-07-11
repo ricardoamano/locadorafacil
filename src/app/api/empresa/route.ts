@@ -32,21 +32,23 @@ export async function PUT(req: NextRequest) {
 
   const b = await req.json();
 
-  // Slug do catálogo público: informado ou derivado do nome; único entre empresas
+  // Slug do catálogo público: sempre derivado do nome da empresa (automático)
   let slugFinal: string | undefined = undefined;
-  if (b.slug !== undefined) {
-    slugFinal = slugify(String(b.slug || b.name || ""));
-    if (!slugFinal)
-      return NextResponse.json({ error: "Slug inválido" }, { status: 400 });
-    const emUso = await prisma.company.findFirst({
-      where: { slug: slugFinal, NOT: { id: user.companyId } },
-      select: { id: true },
-    });
-    if (emUso)
-      return NextResponse.json(
-        { error: `O endereço "${slugFinal}" já está em uso por outra empresa.` },
-        { status: 400 }
-      );
+  if (b.name?.trim()) {
+    const base = slugify(b.name.trim());
+    if (base) {
+      slugFinal = base;
+      let n = 1;
+      while (
+        await prisma.company.findFirst({
+          where: { slug: slugFinal, NOT: { id: user.companyId } },
+          select: { id: true },
+        })
+      ) {
+        n += 1;
+        slugFinal = `${base}-${n}`;
+      }
+    }
   }
 
   const empresa = await prisma.company.update({

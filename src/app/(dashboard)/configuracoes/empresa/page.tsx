@@ -8,7 +8,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { ImageUpload } from "@/components/ui/image-upload";
-import { fetchAddressByCEP, formatCEP } from "@/lib/utils";
+import { fetchAddressByCEP, formatCEP, slugify } from "@/lib/utils";
 import { Loader2, Building2, Landmark, ReceiptText } from "lucide-react";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -22,7 +22,7 @@ const campos = [
   "name","razaoSocial","cnpj","inscricaoEstadual","inscricaoMunicipal",
   "cep","rua","numero","bairro","complemento","cidade","estado",
   "telefone","email","site","logoUrl","banco","agencia","conta","pix",
-  "responsavel","naturezaOperacao","observacaoFatura","slug",
+  "responsavel","naturezaOperacao","observacaoFatura",
 ] as const;
 
 type Form = Record<(typeof campos)[number], string>;
@@ -151,22 +151,17 @@ export default function EmpresaConfigPage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-slate-700 block mb-1">
-                    Endereço do catálogo público (URL amigável)
+                    Endereço do catálogo público
                   </label>
-                  <div className="flex items-center gap-0">
-                    <span className="h-9 inline-flex items-center rounded-l-md border border-r-0 border-slate-200 bg-slate-50 px-3 text-sm text-slate-400 whitespace-nowrap">
-                      locadorafacil.app/catalogo/
+                  <p className="h-9 inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-500 max-w-full overflow-x-auto">
+                    locadorafacil.app/catalogo/
+                    <span className="font-medium text-slate-700">
+                      {slugify(form.name || "") || "nome-da-empresa"}
                     </span>
-                    <input
-                      value={form.slug}
-                      onChange={(e) => set("slug", e.target.value)}
-                      placeholder="nome-da-sua-empresa"
-                      className="h-9 w-full rounded-r-md border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                  </p>
                   <p className="text-xs text-slate-400 mt-1">
-                    Só letras minúsculas, números e hífens. Atenção: ao mudar, os links
-                    antigos do catálogo deixam de funcionar.
+                    Gerado automaticamente a partir do Nome da Empresa ao salvar. Se
+                    renomear a empresa, os links antigos do catálogo mudam.
                   </p>
                 </div>
               </div>
