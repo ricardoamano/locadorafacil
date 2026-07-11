@@ -261,6 +261,7 @@ model Item {
   faturaItens    FaturaItem[]
   conferencias   OsConferencia[]
   unidades       ItemUnidade[]
+  osExtras       OsItemExtra[]
 
   @@unique([companyId, slug])
 }
@@ -364,6 +365,22 @@ model OrdemServico {
   escala       EscalaMembro[]
   conferencias OsConferencia[]
   unidadesNoEvento ItemUnidade[]
+  itensExtras  OsItemExtra[]
+}
+
+// Item lançado direto na OS (fora do orçamento): esquecido pelo comercial ou acessório operacional
+model OsItemExtra {
+  id            String       @id @default(cuid())
+  osId          String
+  os            OrdemServico @relation(fields: [osId], references: [id], onDelete: Cascade)
+  itemId        String
+  item          Item         @relation(fields: [itemId], references: [id])
+  quantidade    Int          @default(1)
+  observacao    String?
+  adicionadoPor String?
+  createdAt     DateTime     @default(now())
+
+  @@unique([osId, itemId])
 }
 
 // Registro de entrada/saída de equipamentos do estoque na OS (auditável)

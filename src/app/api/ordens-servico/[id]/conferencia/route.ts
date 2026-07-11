@@ -41,12 +41,20 @@ async function getOsComItens(osId: string, companyId: string) {
   });
 }
 
+type ItemEsperado = {
+  itemId: string;
+  nome: string;
+  codigo: string;
+  apelidos: string | null;
+  descricaoComercial: string | null;
+  quantidade: number;
+  extra: boolean;
+};
+
+// Itens da OS = itens do orçamento + itens lançados direto na OS (extras)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function itensDaOs(os: any) {
-  const esperado = new Map<
-    string,
-    { itemId: string; nome: string; codigo: string; apelidos: string | null; descricaoComercial: string | null; quantidade: number }
-  >();
+async function itensDaOs(os: any): Promise<Map<string, ItemEsperado>> {
+  const esperado = new Map<string, ItemEsperado>();
   for (const sala of os.orcamento?.salas || []) {
     for (const si of sala.itens || []) {
       if (!si.item) continue;
@@ -60,15 +68,38 @@ function itensDaOs(os: any) {
           apelidos: si.item.apelidos || null,
           descricaoComercial: si.descricaoComercial || si.item.descricaoComercial || null,
           quantidade: si.quantidade || 0,
+          extra: false,
         });
     }
+  }
+
+  const extras = await prisma.osItemExtra.findMany({
+    where: { osId: os.id },
+    include: {
+      item: { select: { id: true, nome: true, codigo: true, apelidos: true, descricaoComercial: true } },
+    },
+  });
+  for (const ex of extras) {
+    const atual = esperado.get(ex.itemId);
+    if (atual) atual.quantidade += ex.quantidade;
+    else
+      esperado.set(ex.itemId, {
+        itemId: ex.itemId,
+        nome: ex.item.nome,
+        codigo: ex.item.codigo || "",
+        apelidos: ex.item.apelidos || null,
+        descricaoComercial: ex.item.descricaoComercial || null,
+        quantidade: ex.quantidade,
+        extra: true,
+      });
   }
   return esperado;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function montarResumo(os: any, eventos: { itemId: string; tipo: string; quantidade: number }[]) {
-  const esperado = itensDaOs(os);
+function montarResumo(
+  esperado: Map<string, ItemEsperado>,
+  eventos: { itemId: string; tipo: string; quantidade: number }[]
+) {
   const saidas = new Map<string, number>();
   const entradas = new Map<string, number>();
   for (const ev of eventos) {
@@ -125,11 +156,11 @@ export async function GET(
     orderBy: { createdAt: "desc" },
   });
 
-  const itemIds = Array.from(itensDaOs(os).keys());
+  const esperado = await itensDaOs(os);
   return NextResponse.json({
-    resumo: montarResumo(os, eventos),
+    resumo: montarResumo(esperado, eventos),
     eventos: eventos.slice(0, 30),
-    unidades: await unidadesDaOs(id, itemIds),
+    unidades: await unidadesDaOs(id, Array.from(esperado.keys())),
   });
 }
 
@@ -147,7 +178,7 @@ export async function POST(
 
   const os = await getOsComItens(id, sessao.companyId);
   if (!os) return NextResponse.json({ error: "OS não encontrada" }, { status: 404 });
-  const esperado = itensDaOs(os);
+  const esperado = await itensDaOs(os);
 
   // 1) Resolve unidade específica (bipada por QR ou escolhida na busca)
   let unidade = null;
@@ -185,7 +216,7 @@ export async function POST(
   if (!esperado.has(itemId)) {
     const item = await prisma.item.findUnique({ where: { id: itemId }, select: { nome: true } });
     return NextResponse.json(
-      { error: `"${item?.nome || "Item"}" não faz parte dos equipamentos desta OS.` },
+      { error: `"${item?.nome || "Item"}" não faz parte desta OS — lance-o em "Adicionar item avulso" para poder movimentá-lo.` },
       { status: 400 }
     );
   }
@@ -251,7 +282,7 @@ export async function POST(
 
   const eventos = await prisma.osConferencia.findMany({ where: { osId: id } });
   return NextResponse.json(
-    { evento, resumo: montarResumo(os, eventos) },
+    { evento, resumo: montarResumo(esperado, eventos) },
     { status: 201 }
   );
 }

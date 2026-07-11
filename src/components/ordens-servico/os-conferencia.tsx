@@ -12,6 +12,7 @@ import {
   Trash2,
   CheckCircle2,
   X,
+  Plus,
 } from "lucide-react";
 
 interface ResumoItem {
@@ -23,6 +24,7 @@ interface ResumoItem {
   quantidade: number;
   saida: number;
   entrada: number;
+  extra?: boolean;
 }
 
 interface Evento {
@@ -33,6 +35,21 @@ interface Evento {
   createdAt: string;
   item: { nome: string; codigo: string };
   unidade?: { codigo: string } | null;
+}
+
+interface ItemExtra {
+  id: string;
+  quantidade: number;
+  observacao: string | null;
+  adicionadoPor: string | null;
+  item: { id: string; nome: string; codigo: string };
+}
+
+interface ItemCatalogo {
+  id: string;
+  nome: string;
+  codigo: string;
+  apelidos?: string | null;
 }
 
 interface Unidade {
@@ -56,6 +73,12 @@ export function OsConferencia({ osId }: { osId: string }) {
   const [resumo, setResumo] = useState<ResumoItem[]>([]);
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
+  const [extras, setExtras] = useState<ItemExtra[]>([]);
+  const [catalogo, setCatalogo] = useState<ItemCatalogo[]>([]);
+  const [extraSel, setExtraSel] = useState("");
+  const [extraQtd, setExtraQtd] = useState(1);
+  const [extraObs, setExtraObs] = useState("");
+  const [addExtra, setAddExtra] = useState(false);
   const [tipo, setTipo] = useState<"SAIDA" | "ENTRADA">("SAIDA");
   const [itemSel, setItemSel] = useState("");
   const [qtd, setQtd] = useState(1);
@@ -76,12 +99,63 @@ export function OsConferencia({ osId }: { osId: string }) {
       setResumo(d.resumo || []);
       setEventos(d.eventos || []);
       setUnidades(d.unidades || []);
+      const re = await fetch(`/api/ordens-servico/${osId}/itens-extras`);
+      if (re.ok) {
+        const de = await re.json();
+        setExtras(de.extras || []);
+      }
     } catch {}
   }, [osId]);
 
   useEffect(() => {
     carregar();
+    fetch("/api/itens?limit=500")
+      .then((r) => r.json())
+      .then((d) => setCatalogo(d.itens || []))
+      .catch(() => {});
   }, [carregar]);
+
+  async function adicionarExtra() {
+    if (!extraSel) return;
+    try {
+      const res = await fetch(`/api/ordens-servico/${osId}/itens-extras`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemId: extraSel, quantidade: extraQtd, observacao: extraObs }),
+      });
+      const d = await res.json();
+      if (!res.ok) {
+        toast(d.error || "Erro ao adicionar item.", "error");
+        return;
+      }
+      toast(`${d.item?.nome || "Item"} adicionado à OS!`, "success");
+      setExtraSel("");
+      setExtraQtd(1);
+      setExtraObs("");
+      setAddExtra(false);
+      carregar();
+    } catch {
+      toast("Erro ao adicionar item.", "error");
+    }
+  }
+
+  async function removerExtra(extraId: string) {
+    try {
+      const res = await fetch(
+        `/api/ordens-servico/${osId}/itens-extras?extraId=${extraId}`,
+        { method: "DELETE" }
+      );
+      const d = await res.json();
+      if (!res.ok) {
+        toast(d.error || "Erro ao remover.", "error");
+        return;
+      }
+      toast("Item avulso removido da OS.", "success");
+      carregar();
+    } catch {
+      toast("Erro ao remover.", "error");
+    }
+  }
 
   const registrar = useCallback(
     async (payload: { itemId?: string; unidadeId?: string; codigo?: string; quantidade?: number }) => {
@@ -342,6 +416,115 @@ export function OsConferencia({ osId }: { osId: string }) {
         </div>
       </div>
 
+      {/* Itens avulsos (fora do orçamento) */}
+      <div className="mb-5 border border-dashed border-slate-200 rounded-lg p-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            Itens avulsos nesta OS (fora do orçamento)
+          </p>
+          {!addExtra && (
+            <Button variant="outline" size="sm" onClick={() => setAddExtra(true)}>
+              <Plus className="h-4 w-4" />
+              Adicionar item avulso
+            </Button>
+          )}
+        </div>
+
+        {extras.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {extras.map((ex) => (
+              <li
+                key={ex.id}
+                className="flex items-center justify-between text-sm text-slate-700 border-b border-slate-50 pb-1"
+              >
+                <span className="text-red-600">
+                  {ex.quantidade}x {ex.item.nome}
+                  {ex.item.codigo ? (
+                    <span className="text-red-400 text-xs"> ({ex.item.codigo})</span>
+                  ) : null}
+                  {ex.observacao ? (
+                    <span className="text-slate-400 text-xs italic"> — {ex.observacao}</span>
+                  ) : null}
+                  {ex.adicionadoPor ? (
+                    <span className="text-slate-300 text-xs"> · por {ex.adicionadoPor}</span>
+                  ) : null}
+                </span>
+                <button
+                  onClick={() => removerExtra(ex.id)}
+                  className="p-1 rounded text-slate-300 hover:text-red-500 transition-colors shrink-0"
+                  title="Remover item avulso"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {extras.length === 0 && !addExtra && (
+          <p className="text-xs text-slate-400 mt-1">
+            Item esquecido no orçamento ou acessório operacional (ex.: escada, notebook)?
+            Lance aqui para poder dar saída e entrada no estoque.
+          </p>
+        )}
+
+        {addExtra && (
+          <div className="grid grid-cols-12 gap-2 items-end mt-3">
+            <div className="col-span-12 sm:col-span-5">
+              <Select
+                label="Item"
+                searchable
+                value={extraSel}
+                onChange={(e) => setExtraSel(e.target.value)}
+                options={catalogo.map((i) => ({
+                  value: i.id,
+                  label: `${i.codigo ? i.codigo + " — " : ""}${i.nome}`,
+                  keywords: i.apelidos || "",
+                }))}
+                placeholder="Digite código, nome ou apelido"
+              />
+            </div>
+            <div className="col-span-3 sm:col-span-1">
+              <label className="text-sm font-medium text-slate-700 block mb-1">Qtd</label>
+              <input
+                type="number"
+                min={1}
+                value={extraQtd}
+                onChange={(e) => setExtraQtd(Math.max(1, parseInt(e.target.value) || 1))}
+                className="h-9 w-full rounded-md border border-slate-200 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div className="col-span-9 sm:col-span-3">
+              <label className="text-sm font-medium text-slate-700 block mb-1">
+                Motivo (opcional)
+              </label>
+              <input
+                value={extraObs}
+                onChange={(e) => setExtraObs(e.target.value.slice(0, 100))}
+                placeholder="Ex: acessório de montagem"
+                className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div className="col-span-6 sm:col-span-2">
+              <Button className="w-full" disabled={!extraSel} onClick={adicionarExtra}>
+                Adicionar
+              </Button>
+            </div>
+            <div className="col-span-6 sm:col-span-1">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setAddExtra(false);
+                  setExtraSel("");
+                }}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Progresso por item */}
       {resumo.length > 0 && (
         <div className="border border-slate-100 rounded-lg overflow-x-auto mb-4">
@@ -362,9 +545,18 @@ export function OsConferencia({ osId }: { osId: string }) {
                 return (
                   <tr key={r.itemId}>
                     <td className="px-3 py-2">
-                      <span className="font-medium text-slate-800">{r.nome}</span>
+                      <span className={`font-medium ${r.extra ? "text-red-600" : "text-slate-800"}`}>
+                        {r.nome}
+                      </span>
                       {r.codigo && (
-                        <span className="text-slate-400 text-xs"> ({r.codigo})</span>
+                        <span className={`text-xs ${r.extra ? "text-red-400" : "text-slate-400"}`}>
+                          {" "}({r.codigo})
+                        </span>
+                      )}
+                      {r.extra && (
+                        <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full">
+                          extra / acessório
+                        </span>
                       )}
                     </td>
                     <td className="px-3 py-2 text-center text-slate-600">{r.quantidade}</td>
