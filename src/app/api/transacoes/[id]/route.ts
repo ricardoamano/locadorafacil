@@ -10,6 +10,29 @@ async function getCompanyId() {
   return (session.user as SessionUser).companyId ?? null;
 }
 
+// Atualização parcial (ex.: marcar como pago com 1 clique)
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const companyId = await getCompanyId();
+  if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+  const body = await req.json();
+  const existing = await prisma.transacao.findFirst({ where: { id, companyId } });
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const status = ["PAGO", "PENDENTE", "ATRASADO"].includes(body.status)
+    ? body.status
+    : undefined;
+  const transacao = await prisma.transacao.update({
+    where: { id },
+    data: { ...(status ? { status } : {}) },
+  });
+  return NextResponse.json(transacao);
+}
+
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

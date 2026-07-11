@@ -18,6 +18,11 @@ import {
   TrendingUp,
   TrendingDown,
   Wallet,
+  CheckCircle2,
+  AlertTriangle,
+  Download,
+  Landmark,
+  Clock,
 } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; variant: "success" | "warning" | "danger" }> = {
@@ -45,11 +50,32 @@ interface Saldo {
   total: number;
 }
 
+interface Resumo {
+  saldoCaixa: number;
+  aReceber: { valor: number; qtd: number };
+  aPagar: { valor: number; qtd: number };
+  atrasadas: { valor: number; qtd: number };
+  porBanco: { id: string; nome: string; saldo: number }[];
+  fluxoMensal: { mes: string; entradas: number; saidas: number }[];
+  porCategoria: { categoria: string; tipo: string; valor: number }[];
+}
+
+function atrasada(t: Transacao) {
+  if (t.status === "PAGO") return false;
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  return t.status === "ATRASADO" || new Date(t.dataRecebimento) < hoje;
+}
+
 export function TransacoesList() {
   const { toast } = useToast();
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
   const [saldo, setSaldo] = useState<Saldo>({ entradas: 0, saidas: 0, total: 0 });
-  const [showSaldo, setShowSaldo] = useState(false);
+  const [resumo, setResumo] = useState<Resumo | null>(null);
+  const [showSaldo, setShowSaldo] = useState(true);
+  const [bancoFilter, setBancoFilter] = useState("");
+  const [mesFilter, setMesFilter] = useState("");
+  const [bancosOpts, setBancosOpts] = useState<{ id: string; nome: string }[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -74,22 +100,89 @@ export function TransacoesList() {
         search,
         tipo: tipoFilter,
         status: statusFilter,
+        bancoId: bancoFilter,
+        mes: mesFilter,
       });
       const res = await fetch(`/api/transacoes?${params}`);
       const data = await res.json();
       setTransacoes(data.transacoes || []);
       setTotal(data.total || 0);
       if (data.saldo) setSaldo(data.saldo);
+      if (data.resumo) setResumo(data.resumo);
     } catch {
       toast("Erro ao carregar transações.", "error");
     } finally {
       setLoading(false);
     }
-  }, [page, search, tipoFilter, statusFilter, toast]);
+  }, [page, search, tipoFilter, statusFilter, bancoFilter, mesFilter, toast]);
 
   useEffect(() => {
     fetchTransacoes();
   }, [fetchTransacoes]);
+
+  useEffect(() => {
+    fetch("/api/bancos")
+      .then((r) => r.json())
+      .then((d) => setBancosOpts(d.bancos || []))
+      .catch(() => {});
+  }, []);
+
+  async function marcarPago(t: Transacao) {
+    try {
+      const res = await fetch(`/api/transacoes/${t.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "PAGO" }),
+      });
+      if (!res.ok) throw new Error();
+      toast(`"${t.nome}" marcada como paga!`, "success");
+      fetchTransacoes();
+    } catch {
+      toast("Erro ao atualizar.", "error");
+    }
+  }
+
+  async function exportarCsv() {
+    try {
+      const params = new URLSearchParams({
+        page: "1",
+        limit: "1000",
+        search,
+        tipo: tipoFilter,
+        status: statusFilter,
+        bancoId: bancoFilter,
+        mes: mesFilter,
+      });
+      const res = await fetch(`/api/transacoes?${params}`);
+      const data = await res.json();
+      const linhas = (data.transacoes || []) as Transacao[];
+      const esc = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+      const csv = [
+        ["Data", "Nome", "Tipo", "Categoria", "Banco", "Orcamento", "Status", "Valor"].join(";"),
+        ...linhas.map((t) =>
+          [
+            new Date(t.dataRecebimento).toLocaleDateString("pt-BR"),
+            esc(t.nome),
+            t.tipo,
+            esc(t.categoria?.nome || ""),
+            esc(t.banco?.nome || ""),
+            t.orcamento ? `#${t.orcamento.numero}` : "",
+            atrasada(t) ? "ATRASADO" : t.status,
+            String(t.valor).replace(".", ","),
+          ].join(";")
+        ),
+      ].join("\n");
+      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `financeiro-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast(`${linhas.length} transações exportadas.`, "success");
+    } catch {
+      toast("Erro ao exportar.", "error");
+    }
+  }
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -115,46 +208,139 @@ export function TransacoesList() {
 
   return (
     <div>
-      {/* Saldo Panel */}
-      {showSaldo && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-green-50 flex items-center justify-center">
-              <TrendingUp className="h-5 w-5 text-green-600" />
+      {/* Painel financeiro */}
+      {showSaldo && resumo && (
+        <div className="space-y-4 mb-6">
+          {/* Cards principais */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                <Wallet className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-400">Saldo em caixa (pago)</p>
+                <p className={`text-lg font-bold ${resumo.saldoCaixa >= 0 ? "text-slate-900" : "text-red-600"}`}>
+                  {formatCurrency(resumo.saldoCaixa)}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-slate-400">Entradas</p>
-              <p className="text-lg font-bold text-green-600">
-                {formatCurrency(saldo.entradas)}
-              </p>
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-green-50 flex items-center justify-center shrink-0">
+                <TrendingUp className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-400">A receber ({resumo.aReceber.qtd})</p>
+                <p className="text-lg font-bold text-green-600">{formatCurrency(resumo.aReceber.valor)}</p>
+              </div>
+            </div>
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
+                <TrendingDown className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-400">A pagar ({resumo.aPagar.qtd})</p>
+                <p className="text-lg font-bold text-red-600">{formatCurrency(resumo.aPagar.valor)}</p>
+              </div>
+            </div>
+            <div className={`rounded-xl border shadow-sm p-4 flex items-center gap-3 ${
+              resumo.atrasadas.qtd > 0 ? "bg-amber-50 border-amber-200" : "bg-white border-slate-100"
+            }`}>
+              <div className="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+                <AlertTriangle className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Atrasadas ({resumo.atrasadas.qtd})</p>
+                <p className="text-lg font-bold text-amber-700">{formatCurrency(resumo.atrasadas.valor)}</p>
+              </div>
             </div>
           </div>
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-red-50 flex items-center justify-center">
-              <TrendingDown className="h-5 w-5 text-red-600" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Saídas</p>
-              <p className="text-lg font-bold text-red-600">
-                {formatCurrency(saldo.saidas)}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Fluxo mensal */}
+            <div className="lg:col-span-2 bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5" /> Fluxo de caixa — últimos 6 meses (pagas)
               </p>
+              {(() => {
+                const max = Math.max(1, ...resumo.fluxoMensal.flatMap((m) => [m.entradas, m.saidas]));
+                return (
+                  <div className="flex items-end justify-between gap-2 h-36">
+                    {resumo.fluxoMensal.map((m) => (
+                      <div key={m.mes} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                        <div className="flex items-end gap-1 h-28 w-full justify-center">
+                          <div
+                            className="w-3 sm:w-5 rounded-t bg-green-500/80"
+                            style={{ height: `${Math.round((m.entradas / max) * 100)}%` }}
+                            title={`Entradas: ${formatCurrency(m.entradas)}`}
+                          />
+                          <div
+                            className="w-3 sm:w-5 rounded-t bg-red-400/80"
+                            style={{ height: `${Math.round((m.saidas / max) * 100)}%` }}
+                            title={`Saídas: ${formatCurrency(m.saidas)}`}
+                          />
+                        </div>
+                        <span className="text-[10px] text-slate-400 truncate">{m.mes}</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Saldo por banco */}
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <Landmark className="h-3.5 w-3.5" /> Saldo por banco (pagas)
+              </p>
+              {resumo.porBanco.length === 0 ? (
+                <p className="text-xs text-slate-400">
+                  Nenhuma transação paga com banco informado — cadastre bancos em
+                  Configurações e informe nas transações.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {resumo.porBanco.map((b) => (
+                    <li key={b.id} className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600">{b.nome}</span>
+                      <span className={`font-semibold ${b.saldo >= 0 ? "text-slate-900" : "text-red-600"}`}>
+                        {formatCurrency(b.saldo)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center">
-              <Wallet className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Saldo Total</p>
-              <p
-                className={`text-lg font-bold ${
-                  saldo.total >= 0 ? "text-slate-900" : "text-red-600"
-                }`}
-              >
-                {formatCurrency(saldo.total)}
+
+          {/* Por categoria (período) */}
+          {resumo.porCategoria.length > 0 && (
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                Por categoria {mesFilter ? `— ${mesFilter.split("-").reverse().join("/")}` : "— geral"}
               </p>
+              {(() => {
+                const max = Math.max(1, ...resumo.porCategoria.map((c) => c.valor));
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5">
+                    {resumo.porCategoria.slice(0, 10).map((c, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs">
+                        <span className="w-36 truncate text-slate-600">{c.categoria}</span>
+                        <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${c.tipo === "RECEITA" ? "bg-green-500/70" : "bg-red-400/70"}`}
+                            style={{ width: `${Math.round((c.valor / max) * 100)}%` }}
+                          />
+                        </div>
+                        <span className="w-24 text-right font-medium text-slate-700">
+                          {formatCurrency(c.valor)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -202,9 +388,40 @@ export function TransacoesList() {
             <option value="ATRASADO">Atrasado</option>
           </select>
 
+          <input
+            type="month"
+            value={mesFilter}
+            onChange={(e) => {
+              setMesFilter(e.target.value);
+              setPage(1);
+            }}
+            className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            title="Filtrar por mês"
+          />
+          <select
+            value={bancoFilter}
+            onChange={(e) => {
+              setBancoFilter(e.target.value);
+              setPage(1);
+            }}
+            className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Todos os bancos</option>
+            {bancosOpts.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.nome}
+              </option>
+            ))}
+          </select>
+
+          <Button variant="outline" onClick={exportarCsv} title="Exportar CSV com os filtros atuais">
+            <Download className="h-4 w-4" />
+            CSV
+          </Button>
+
           <Button variant="outline" onClick={() => setShowSaldo((s) => !s)}>
             <Wallet className="h-4 w-4" />
-            {showSaldo ? "Ocultar saldo" : "Ver saldo"}
+            {showSaldo ? "Ocultar painel" : "Ver painel"}
           </Button>
 
           <Button
@@ -272,7 +489,9 @@ export function TransacoesList() {
             </thead>
             <tbody className="divide-y divide-slate-50">
               {transacoes.map((t) => {
-                const cfg = statusConfig[t.status] || statusConfig.PENDENTE;
+                const cfg = atrasada(t)
+                  ? statusConfig.ATRASADO
+                  : statusConfig[t.status] || statusConfig.PENDENTE;
                 const isReceita = t.tipo === "RECEITA";
                 return (
                   <tr key={t.id} className="hover:bg-slate-50 transition-colors">
@@ -317,6 +536,15 @@ export function TransacoesList() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
+                        {t.status !== "PAGO" && (
+                          <button
+                            onClick={() => marcarPago(t)}
+                            className="p-1.5 rounded-md text-slate-400 hover:text-green-600 hover:bg-green-50 transition-colors"
+                            title="Marcar como pago"
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                          </button>
+                        )}
                         <button
                           onClick={() => {
                             setEditItem(t);

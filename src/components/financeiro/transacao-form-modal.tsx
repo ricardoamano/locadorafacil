@@ -31,6 +31,7 @@ interface TransacaoFormData {
   orcamentoId: string;
   bancoId: string;
   valor: string;
+  repetirMeses: string;
   observacao: string;
   notaFiscal: boolean;
   status: string;
@@ -56,6 +57,7 @@ function emptyForm(): TransacaoFormData {
     orcamentoId: "",
     bancoId: "",
     valor: "",
+    repetirMeses: "1",
     observacao: "",
     notaFiscal: false,
     status: "PENDENTE",
@@ -255,15 +257,42 @@ export function TransacaoFormModal({
             rows={2}
           />
 
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.notaFiscal}
-              onChange={(e) => setField("notaFiscal", e.target.checked)}
-              className="h-4 w-4 rounded"
-            />
-            <span className="text-sm text-slate-700">Precisa de nota fiscal?</span>
-          </label>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.notaFiscal}
+                onChange={(e) => setField("notaFiscal", e.target.checked)}
+                className="h-4 w-4 rounded"
+              />
+              <span className="text-sm text-slate-700">Precisa de nota fiscal?</span>
+            </label>
+
+            {!form.id && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-700">Repetir mensalmente:</span>
+                <select
+                  value={form.repetirMeses}
+                  onChange={(e) => setField("repetirMeses", e.target.value)}
+                  className="h-8 rounded-md border border-slate-200 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="1">Não repetir</option>
+                  {[2, 3, 4, 5, 6, 9, 12, 18, 24].map((n) => (
+                    <option key={n} value={String(n)}>
+                      {n} meses
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+          {!form.id && parseInt(form.repetirMeses) > 1 && (
+            <p className="text-xs text-slate-400">
+              Serão criados {form.repetirMeses} lançamentos mensais numerados (1/
+              {form.repetirMeses}...), a partir da data informada. Só o primeiro mantém o
+              status escolhido; os demais nascem pendentes.
+            </p>
+          )}
         </div>
       </ModalBody>
 
