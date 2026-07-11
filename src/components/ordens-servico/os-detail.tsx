@@ -226,6 +226,12 @@ export function OsDetail({
                         {it.item?.codigo ? (
                           <span className="text-slate-400"> ({it.item.codigo})</span>
                         ) : null}
+                        {(it.descricaoComercial || it.item?.descricaoComercial) ? (
+                          <span className="text-slate-500 italic">
+                            {" — "}
+                            {it.descricaoComercial || it.item?.descricaoComercial}
+                          </span>
+                        ) : null}
                       </span>
                       <span className="text-slate-500">{formatCurrency(it.subtotal)}</span>
                     </li>

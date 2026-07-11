@@ -28,7 +28,7 @@ export async function GET(
           salas: {
             include: {
               itens: {
-                include: { item: { select: { id: true, nome: true, codigo: true } } },
+                include: { item: { select: { id: true, nome: true, codigo: true, descricaoComercial: true } } },
               },
             },
           },

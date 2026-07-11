@@ -340,6 +340,7 @@ model SalaItem {
   quantidade    Int    @default(1)
   valorUnitario Float  @default(0)
   subtotal      Float  @default(0)
+  descricaoComercial String?
 }
 
 // ── Ordem de Serviço ──────────────────────────────────────────────────────────

@@ -35,6 +35,7 @@ interface ItemOpt {
   id: string;
   nome: string;
   apelidos?: string | null;
+  descricaoComercial?: string | null;
   codigo: string;
   valorAluguel: number;
 }
@@ -43,6 +44,7 @@ interface SalaItemForm {
   itemId: string;
   quantidade: number;
   valorUnitario: number;
+  descricaoComercial: string;
 }
 interface SalaForm {
   nome: string;
@@ -170,6 +172,17 @@ export function OrcamentoForm({
   const [novoLocalOpen, setNovoLocalOpen] = useState(false);
   const [novoLocal, setNovoLocal] = useState({ nome: "", rua: "", cidade: "", observacoes: "" });
   const [salvandoLocal, setSalvandoLocal] = useState(false);
+  const [novoClienteOpen, setNovoClienteOpen] = useState(false);
+  const [novoCliente, setNovoCliente] = useState({
+    razaoSocial: "", cnpj: "", email: "", telefone: "", rua: "", cidade: "",
+  });
+  const [salvandoCliente, setSalvandoCliente] = useState(false);
+  const [novoItemAlvo, setNovoItemAlvo] = useState<{ si: number; ii: number } | null>(null);
+  const [novoItem, setNovoItem] = useState({
+    codigo: "", nome: "", descricaoComercial: "", categoriaId: "", valor: "", especificacoes: "",
+  });
+  const [salvandoItem, setSalvandoItem] = useState(false);
+  const [categorias, setCategorias] = useState<{ id: string; nome: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState<Record<string, boolean>>({
     cliente: true,
@@ -205,6 +218,10 @@ export function OrcamentoForm({
       .then((r) => r.json())
       .then((d) => setTiposEvento(d.tipos || []))
       .catch(() => {});
+    fetch("/api/categorias")
+      .then((r) => r.json())
+      .then((d) => setCategorias(d.categorias || d || []))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -227,12 +244,13 @@ export function OrcamentoForm({
         desconto: initial.desconto != null ? String(initial.desconto) : "",
         descontoTipo: initial.descontoTipo || "valor",
         salas: (initial.salas || []).map(
-          (s: { nome: string; itens: { itemId: string; quantidade: number; valorUnitario: number }[] }) => ({
+          (s: { nome: string; itens: { itemId: string; quantidade: number; valorUnitario: number; descricaoComercial?: string | null }[] }) => ({
             nome: s.nome,
             itens: (s.itens || []).map((i) => ({
               itemId: i.itemId,
               quantidade: i.quantidade,
               valorUnitario: i.valorUnitario,
+              descricaoComercial: i.descricaoComercial || "",
             })),
           })
         ),
@@ -264,7 +282,7 @@ export function OrcamentoForm({
     const salas = [...form.salas];
     salas[si] = {
       ...salas[si],
-      itens: [...salas[si].itens, { itemId: "", quantidade: 1, valorUnitario: 0 }],
+      itens: [...salas[si].itens, { itemId: "", quantidade: 1, valorUnitario: 0, descricaoComercial: "" }],
     };
     set("salas", salas);
   }
@@ -307,6 +325,107 @@ export function OrcamentoForm({
       toast("Erro ao criar local.", "error");
     } finally {
       setSalvandoLocal(false);
+    }
+  }
+
+  async function salvarNovoCliente() {
+    if (!novoCliente.razaoSocial.trim()) {
+      toast("Informe a razão social ou nome do cliente.", "error");
+      return;
+    }
+    if (novoCliente.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(novoCliente.email.trim())) {
+      toast("E-mail inválido.", "error");
+      return;
+    }
+    setSalvandoCliente(true);
+    try {
+      const temContato = novoCliente.email.trim() || novoCliente.telefone.trim();
+      const res = await fetch("/api/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "CLIENTE",
+          razaoSocial: novoCliente.razaoSocial.trim(),
+          nomeFantasia: novoCliente.razaoSocial.trim(),
+          cnpj: novoCliente.cnpj.trim() || null,
+          rua: novoCliente.rua.trim() || null,
+          cidade: novoCliente.cidade.trim() || null,
+          subContacts: temContato
+            ? [
+                {
+                  nome: novoCliente.razaoSocial.trim(),
+                  email: novoCliente.email.trim() || null,
+                  telefone: novoCliente.telefone.trim() || null,
+                },
+              ]
+            : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || "Erro ao criar cliente.", "error");
+        return;
+      }
+      setClientes((prev) => [...prev, { id: data.id, nomeFantasia: data.nomeFantasia }]);
+      set("clienteId", data.id);
+      setNovoClienteOpen(false);
+      setNovoCliente({ razaoSocial: "", cnpj: "", email: "", telefone: "", rua: "", cidade: "" });
+      toast("Cliente criado e selecionado no orçamento!", "success");
+    } catch {
+      toast("Erro ao criar cliente.", "error");
+    } finally {
+      setSalvandoCliente(false);
+    }
+  }
+
+  async function salvarNovoItem() {
+    if (!novoItem.codigo.trim() || !novoItem.nome.trim() || !novoItem.categoriaId || !novoItem.valor.trim()) {
+      toast("Preencha código, nome, categoria e valor padrão.", "error");
+      return;
+    }
+    // Aceita vírgula ou ponto como separador decimal (ex.: 350,00 / 350.00 / 1.234,56)
+    const valorTxt = novoItem.valor.trim();
+    const valor = valorTxt.includes(",")
+      ? parseFloat(valorTxt.replace(/\./g, "").replace(",", "."))
+      : parseFloat(valorTxt);
+    if (!valor || valor <= 0) {
+      toast("Valor padrão inválido.", "error");
+      return;
+    }
+    setSalvandoItem(true);
+    try {
+      const res = await fetch("/api/itens", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          codigo: novoItem.codigo.trim(),
+          nome: novoItem.nome.trim(),
+          descricaoComercial: novoItem.descricaoComercial.trim() || null,
+          categoriaId: novoItem.categoriaId,
+          valorAluguel: valor,
+          especificacoes: novoItem.especificacoes.trim() || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || "Erro ao criar item.", "error");
+        return;
+      }
+      setItens((prev) => [...prev, data]);
+      if (novoItemAlvo) {
+        setSalaItem(novoItemAlvo.si, novoItemAlvo.ii, {
+          itemId: data.id,
+          valorUnitario: data.valorAluguel || valor,
+          descricaoComercial: data.descricaoComercial || "",
+        });
+      }
+      setNovoItemAlvo(null);
+      setNovoItem({ codigo: "", nome: "", descricaoComercial: "", categoriaId: "", valor: "", especificacoes: "" });
+      toast("Item criado e selecionado no orçamento!", "success");
+    } catch {
+      toast("Erro ao criar item.", "error");
+    } finally {
+      setSalvandoItem(false);
     }
   }
 
@@ -403,14 +522,27 @@ export function OrcamentoForm({
         open={open.cliente}
         onToggle={() => toggle("cliente")}
       >
-        <Select
-          label="Cliente *"
-          searchable
-          value={form.clienteId}
-          onChange={(e) => set("clienteId", e.target.value)}
-          options={clienteOptions}
-          placeholder="Digite para buscar o cliente"
-        />
+        <div className="flex items-end gap-2">
+          <Select
+            label="Cliente *"
+            searchable
+            value={form.clienteId}
+            onChange={(e) => set("clienteId", e.target.value)}
+            options={clienteOptions}
+            placeholder="Digite para buscar o cliente"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 shrink-0"
+            onClick={() => setNovoClienteOpen(true)}
+            title="Cadastrar novo cliente"
+          >
+            <Plus className="h-4 w-4" />
+            Novo
+          </Button>
+        </div>
       </Section>
 
       {/* 2. Evento */}
@@ -520,19 +652,39 @@ export function OrcamentoForm({
                 {sala.itens.map((it, ii) => (
                   <div key={ii} className="grid grid-cols-12 gap-2 items-end">
                     <div className="col-span-6">
-                      <Select
-                        label={ii === 0 ? "Item" : undefined}
-                        searchable
-                        value={it.itemId}
-                        onChange={(e) => {
-                          const sel = itens.find((x) => x.id === e.target.value);
-                          setSalaItem(si, ii, {
-                            itemId: e.target.value,
-                            valorUnitario: sel ? sel.valorAluguel : it.valorUnitario,
-                          });
-                        }}
-                        options={itemOptions}
-                        placeholder="Digite para buscar o item"
+                      <div className="flex items-end gap-1.5">
+                        <Select
+                          label={ii === 0 ? "Item" : undefined}
+                          searchable
+                          value={it.itemId}
+                          onChange={(e) => {
+                            const sel = itens.find((x) => x.id === e.target.value);
+                            setSalaItem(si, ii, {
+                              itemId: e.target.value,
+                              valorUnitario: sel ? sel.valorAluguel : it.valorUnitario,
+                              descricaoComercial:
+                                it.descricaoComercial || sel?.descricaoComercial || "",
+                            });
+                          }}
+                          options={itemOptions}
+                          placeholder="Digite para buscar o item"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setNovoItemAlvo({ si, ii })}
+                          className="h-9 w-9 shrink-0 rounded-md border border-slate-200 flex items-center justify-center text-slate-400 hover:text-blue-600 hover:border-blue-300 transition-colors"
+                          title="Cadastrar novo item"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <input
+                        value={it.descricaoComercial}
+                        onChange={(e) =>
+                          setSalaItem(si, ii, { descricaoComercial: e.target.value.slice(0, 100) })
+                        }
+                        placeholder="Descrição comercial (visível ao cliente e à equipe)..."
+                        className="mt-1 h-7 w-full rounded-md border border-dashed border-slate-200 bg-transparent px-2 text-xs italic text-slate-600 placeholder:not-italic placeholder:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-400"
                       />
                     </div>
                     <div className="col-span-2">
@@ -720,6 +872,137 @@ export function OrcamentoForm({
             Cancelar
           </Button>
           <Button onClick={salvarNovoLocal} loading={salvandoLocal}>
+            Criar e selecionar
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Modal de cadastro rápido de cliente */}
+      <Modal
+        open={novoClienteOpen}
+        onClose={() => setNovoClienteOpen(false)}
+        title="Novo Cliente"
+      >
+        <ModalBody>
+          <div className="space-y-3">
+            <Input
+              label="Razão Social / Nome *"
+              value={novoCliente.razaoSocial}
+              onChange={(e) => setNovoCliente((p) => ({ ...p, razaoSocial: e.target.value }))}
+              placeholder="Ex: Eventos Brasil Ltda"
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="CNPJ / CPF"
+                value={novoCliente.cnpj}
+                onChange={(e) => setNovoCliente((p) => ({ ...p, cnpj: e.target.value }))}
+              />
+              <Input
+                label="Telefone"
+                value={novoCliente.telefone}
+                onChange={(e) => setNovoCliente((p) => ({ ...p, telefone: e.target.value }))}
+                placeholder="(11) 99999-9999"
+              />
+            </div>
+            <Input
+              label="E-mail"
+              type="email"
+              value={novoCliente.email}
+              onChange={(e) => setNovoCliente((p) => ({ ...p, email: e.target.value }))}
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Endereço"
+                value={novoCliente.rua}
+                onChange={(e) => setNovoCliente((p) => ({ ...p, rua: e.target.value }))}
+                placeholder="Rua, número"
+              />
+              <Input
+                label="Cidade"
+                value={novoCliente.cidade}
+                onChange={(e) => setNovoCliente((p) => ({ ...p, cidade: e.target.value }))}
+              />
+            </div>
+            <p className="text-xs text-slate-400">
+              O cliente será criado e selecionado automaticamente neste orçamento. Complete os
+              demais dados depois em Cadastros → Clientes.
+            </p>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setNovoClienteOpen(false)} disabled={salvandoCliente}>
+            Cancelar
+          </Button>
+          <Button onClick={salvarNovoCliente} loading={salvandoCliente}>
+            Criar e selecionar
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Modal de cadastro rápido de item */}
+      <Modal
+        open={novoItemAlvo !== null}
+        onClose={() => setNovoItemAlvo(null)}
+        title="Novo Item"
+      >
+        <ModalBody>
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Input
+                label="Código / SKU *"
+                value={novoItem.codigo}
+                onChange={(e) => setNovoItem((p) => ({ ...p, codigo: e.target.value }))}
+                placeholder="Ex: #336-1"
+              />
+              <div className="sm:col-span-2">
+                <Input
+                  label="Nome do Item *"
+                  value={novoItem.nome}
+                  onChange={(e) => setNovoItem((p) => ({ ...p, nome: e.target.value }))}
+                  placeholder="Ex: Caixa de Som Line Array"
+                />
+              </div>
+            </div>
+            <Input
+              label="Descrição Comercial"
+              value={novoItem.descricaoComercial}
+              onChange={(e) =>
+                setNovoItem((p) => ({ ...p, descricaoComercial: e.target.value.slice(0, 100) }))
+              }
+              placeholder="Ex: Caixa de som para retorno de palco"
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Select
+                label="Categoria *"
+                value={novoItem.categoriaId}
+                onChange={(e) => setNovoItem((p) => ({ ...p, categoriaId: e.target.value }))}
+                options={categorias.map((c) => ({ value: c.id, label: c.nome }))}
+                placeholder="Selecione"
+              />
+              <Input
+                label="Valor Padrão (diária) *"
+                value={novoItem.valor}
+                onChange={(e) => setNovoItem((p) => ({ ...p, valor: e.target.value }))}
+                placeholder="Ex: 350,00"
+              />
+            </div>
+            <Textarea
+              label="Observações"
+              value={novoItem.especificacoes}
+              onChange={(e) => setNovoItem((p) => ({ ...p, especificacoes: e.target.value }))}
+              rows={2}
+            />
+            <p className="text-xs text-slate-400">
+              O item será criado e selecionado automaticamente na linha do orçamento. O código não
+              pode repetir um item já cadastrado.
+            </p>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setNovoItemAlvo(null)} disabled={salvandoItem}>
+            Cancelar
+          </Button>
+          <Button onClick={salvarNovoItem} loading={salvandoItem}>
             Criar e selecionar
           </Button>
         </ModalFooter>

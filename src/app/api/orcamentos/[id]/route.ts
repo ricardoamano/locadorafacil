@@ -12,7 +12,7 @@ async function getCompanyId() {
 
 type SalaInput = {
   nome: string;
-  itens: { itemId: string; quantidade: number; valorUnitario: number }[];
+  itens: { itemId: string; quantidade: number; valorUnitario: number; descricaoComercial?: string }[];
 };
 
 function computeTotal(salas: SalaInput[], desconto: number, descontoTipo: string) {
@@ -41,7 +41,7 @@ export async function GET(
       local: { select: { id: true, nome: true } },
       salas: {
         include: {
-          itens: { include: { item: { select: { id: true, nome: true, codigo: true } } } },
+          itens: { include: { item: { select: { id: true, nome: true, codigo: true, descricaoComercial: true } } } },
         },
       },
     },
@@ -107,6 +107,9 @@ export async function PUT(
                   quantidade: Number(i.quantidade) || 1,
                   valorUnitario: Number(i.valorUnitario) || 0,
                   subtotal: (Number(i.quantidade) || 1) * (Number(i.valorUnitario) || 0),
+                  descricaoComercial: i.descricaoComercial?.trim()
+                    ? i.descricaoComercial.trim().slice(0, 100)
+                    : null,
                 })),
             },
           })),

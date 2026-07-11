@@ -6,7 +6,7 @@ type SessionUser = { companyId?: string };
 
 type SalaInput = {
   nome: string;
-  itens: { itemId: string; quantidade: number; valorUnitario: number }[];
+  itens: { itemId: string; quantidade: number; valorUnitario: number; descricaoComercial?: string }[];
 };
 
 function computeTotals(salas: SalaInput[], desconto: number, descontoTipo: string) {
@@ -117,6 +117,9 @@ export async function POST(req: NextRequest) {
                 quantidade: Number(i.quantidade) || 1,
                 valorUnitario: Number(i.valorUnitario) || 0,
                 subtotal: (Number(i.quantidade) || 1) * (Number(i.valorUnitario) || 0),
+                descricaoComercial: i.descricaoComercial?.trim()
+                  ? i.descricaoComercial.trim().slice(0, 100)
+                  : null,
               })),
           },
         })),

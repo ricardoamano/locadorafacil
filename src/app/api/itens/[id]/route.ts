@@ -26,6 +26,19 @@ export async function PUT(
   const existing = await prisma.item.findFirst({ where: { id, companyId } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // Código/SKU não pode ser duplicado na empresa
+  if (data.codigo?.trim()) {
+    const codigoExiste = await prisma.item.findFirst({
+      where: { companyId, codigo: data.codigo.trim(), NOT: { id } },
+      select: { id: true },
+    });
+    if (codigoExiste)
+      return NextResponse.json(
+        { error: `Já existe um item com o código "${data.codigo.trim()}".` },
+        { status: 400 }
+      );
+  }
+
   const diaria = Number(data.valorAluguel) || 0;
   const precoManual = !!data.precoManual;
   const empresa = await prisma.company.findUnique({ where: { id: companyId } });
