@@ -9,10 +9,32 @@ datasource db {
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 model Company {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  name               String
+  razaoSocial        String?
+  cnpj               String?
+  inscricaoEstadual  String?
+  inscricaoMunicipal String?
+  cep                String?
+  rua                String?
+  numero             String?
+  bairro             String?
+  complemento        String?
+  cidade             String?
+  estado             String?
+  telefone           String?
+  email              String?
+  site               String?
+  logoUrl            String?
+  banco              String?
+  agencia            String?
+  conta              String?
+  pix                String?
+  responsavel        String?
+  naturezaOperacao   String?  @default("LOCAÇÃO DE BENS MÓVEIS")
+  observacaoFatura   String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   users      User[]
   contacts   Contact[]
@@ -39,6 +61,7 @@ model User {
   image         String?
   password      String?
   role          String    @default("USER")
+  isOwner       Boolean   @default(false)
   companyId     String?
   company       Company?  @relation(fields: [companyId], references: [id])
   createdAt     DateTime  @default(now())
@@ -401,6 +424,9 @@ model Transacao {
 model Fatura {
   id             String    @id @default(cuid())
   numero         Int
+  snapshot       Json?
+  emitidaEm      DateTime?
+  emitidaPor     String?
   isPostoServico Boolean   @default(false)
   orcamentoId    String?
   orcamento      Orcamento? @relation(fields: [orcamentoId], references: [id])

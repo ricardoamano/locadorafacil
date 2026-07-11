@@ -7,6 +7,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FaturaFormModal } from "./fatura-form-modal";
 import { useToast } from "@/components/ui/toast";
 import { formatCurrency } from "@/lib/utils";
+import Link from "next/link";
 import {
   Plus,
   Search,
@@ -15,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Receipt,
+  Printer,
 } from "lucide-react";
 
 interface Fatura {
@@ -221,6 +223,13 @@ export function FaturasList() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
+                        <Link
+                          href={`/faturas/${f.id}/imprimir`}
+                          className="p-1.5 rounded-md text-slate-400 hover:text-green-600 hover:bg-green-50 transition-colors"
+                          title="Visualizar / Emitir PDF"
+                        >
+                          <Printer className="h-4 w-4" />
+                        </Link>
                         <button
                           onClick={() => {
                             setEditItem(f);

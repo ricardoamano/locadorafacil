@@ -23,6 +23,7 @@ import {
   ChevronRight,
   Menu,
   X,
+  Settings,
 } from "lucide-react";
 import React from "react";
 
@@ -102,6 +103,13 @@ const navItems = [
     href: "/links",
     label: "Links",
     icon: Link2,
+  },
+  {
+    label: "Configurações",
+    icon: Settings,
+    children: [
+      { href: "/configuracoes/empresa", label: "Dados da Empresa", icon: Settings },
+    ],
   },
 ];
 
