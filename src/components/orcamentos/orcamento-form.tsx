@@ -287,10 +287,18 @@ export function OrcamentoForm({
         body: JSON.stringify(form),
       });
       if (!res.ok) throw new Error();
-      toast(
-        form.id ? "Orçamento atualizado com sucesso!" : "Orçamento criado com sucesso!",
-        "success"
-      );
+      const data = await res.json();
+      if (data.vinculos?.criouOs || data.vinculos?.criouReceita) {
+        toast(
+          "Orçamento aprovado! Ordem de Serviço e receita no Financeiro geradas automaticamente.",
+          "success"
+        );
+      } else {
+        toast(
+          form.id ? "Orçamento atualizado com sucesso!" : "Orçamento criado com sucesso!",
+          "success"
+        );
+      }
       router.push("/orcamentos");
     } catch {
       toast("Erro ao salvar. Tente novamente.", "error");

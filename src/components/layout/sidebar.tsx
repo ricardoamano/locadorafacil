@@ -109,6 +109,7 @@ const navItems = [
     icon: Settings,
     children: [
       { href: "/configuracoes/empresa", label: "Dados da Empresa", icon: Settings },
+      { href: "/configuracoes/usuarios", label: "Usuários", icon: Users },
     ],
   },
 ];

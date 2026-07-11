@@ -62,6 +62,7 @@ model User {
   password      String?
   role          String    @default("USER")
   isOwner       Boolean   @default(false)
+  ativo         Boolean   @default(true)
   companyId     String?
   company       Company?  @relation(fields: [companyId], references: [id])
   createdAt     DateTime  @default(now())
@@ -276,6 +277,8 @@ model Orcamento {
   desconto       Float?
   descontoTipo   String?  @default("valor")
   total          Float    @default(0)
+  aprovadoEm     DateTime?
+  aprovadoPor    String?
   companyId      String
   company        Company  @relation(fields: [companyId], references: [id])
   createdAt      DateTime @default(now())
