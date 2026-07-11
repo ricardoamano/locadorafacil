@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
-import { formatCurrency } from "@/lib/utils";
+import { OsConferencia } from "./os-conferencia";
 import {
   User,
   CalendarDays,
@@ -137,7 +137,7 @@ export function OsDetail({
             OS #{orc.numero} — {orc.cliente?.nomeFantasia}
           </p>
           <p className="text-xs text-slate-400">
-            Valor do orçamento: {formatCurrency(orc.total)}
+            Gerada do orçamento #{orc.numero}
           </p>
         </div>
         <div className="w-48">
@@ -233,7 +233,7 @@ export function OsDetail({
                           </span>
                         ) : null}
                       </span>
-                      <span className="text-slate-500">{formatCurrency(it.subtotal)}</span>
+                      <span className="text-slate-400 text-xs">{it.quantidade} un.</span>
                     </li>
                   ))}
                 </ul>
@@ -242,6 +242,9 @@ export function OsDetail({
           </div>
         )}
       </div>
+
+      {/* Conferência de estoque (saída/entrada por QR ou busca) */}
+      <OsConferencia osId={os.id} />
 
       {/* Escala de Equipe */}
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">

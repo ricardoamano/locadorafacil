@@ -258,6 +258,7 @@ model Item {
   acessoriosVinc ItemAcessorio[] @relation("ItemAcessorio")
   salaItens      SalaItem[]
   faturaItens    FaturaItem[]
+  conferencias   OsConferencia[]
 
   @@unique([companyId, slug])
 }
@@ -357,7 +358,21 @@ model OrdemServico {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  escala EscalaMembro[]
+  escala       EscalaMembro[]
+  conferencias OsConferencia[]
+}
+
+// Registro de entrada/saída de equipamentos do estoque na OS (auditável)
+model OsConferencia {
+  id            String       @id @default(cuid())
+  osId          String
+  os            OrdemServico @relation(fields: [osId], references: [id], onDelete: Cascade)
+  itemId        String
+  item          Item         @relation(fields: [itemId], references: [id])
+  tipo          String       // SAIDA (foi para o evento) | ENTRADA (voltou ao estoque)
+  quantidade    Int          @default(1)
+  registradoPor String?
+  createdAt     DateTime     @default(now())
 }
 
 model EscalaMembro {

@@ -8,7 +8,6 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
-import { formatCurrency } from "@/lib/utils";
 import {
   Plus,
   Pencil,
@@ -206,9 +205,6 @@ export function OsList() {
                   Status
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Valor
-                </th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   Ações
                 </th>
               </tr>
@@ -245,9 +241,6 @@ export function OsList() {
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant={cfg.variant}>{cfg.label}</Badge>
-                    </td>
-                    <td className="px-4 py-3 text-right text-sm font-medium text-slate-900">
-                      {formatCurrency(os.orcamento.total)}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
