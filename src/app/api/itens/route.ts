@@ -41,6 +41,8 @@ export async function GET(req: NextRequest) {
       include: {
         categoria: { select: { id: true, nome: true } },
         marca: { select: { id: true, nome: true } },
+        // Disponibilidade em tempo real calculada pelas unidades serializadas
+        unidades: { select: { status: true } },
       },
       orderBy: { nome: "asc" },
       skip,
