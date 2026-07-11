@@ -30,6 +30,7 @@ export async function GET() {
       role: true,
       isOwner: true,
       ativo: true,
+      permissions: true,
       createdAt: true,
     },
     orderBy: { createdAt: "asc" },
@@ -63,6 +64,10 @@ export async function POST(req: NextRequest) {
       password: hashed,
       role: body.role === "ADMIN" ? "ADMIN" : "USER",
       ativo: true,
+      permissions:
+        Array.isArray(body.modulos) && body.role !== "ADMIN"
+          ? { modulos: body.modulos }
+          : undefined,
       companyId,
     },
     select: { id: true, name: true, email: true, role: true, ativo: true },

@@ -20,6 +20,9 @@ export const { auth: authEdge } = NextAuth({
           token.companyId as string;
         (session.user as { companyName?: string }).companyName =
           token.companyName as string;
+        (session.user as { role?: string }).role = token.role as string;
+        (session.user as { modulos?: string[] | null }).modulos =
+          (token.modulos as string[] | null) ?? null;
       }
       return session;
     },

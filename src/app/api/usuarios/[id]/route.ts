@@ -49,6 +49,9 @@ export async function PUT(
   if (body.name !== undefined) data.name = body.name;
   if (body.role !== undefined) data.role = body.role === "ADMIN" ? "ADMIN" : "USER";
   if (body.ativo !== undefined) data.ativo = !!body.ativo;
+  if (body.modulos !== undefined) {
+    data.permissions = Array.isArray(body.modulos) ? { modulos: body.modulos } : null;
+  }
   if (body.password) {
     if (String(body.password).length < 6)
       return NextResponse.json(

@@ -27,22 +27,29 @@ import {
 } from "lucide-react";
 import React from "react";
 
-const navItems = [
+type NavChild = { href: string; label: string; icon: React.ElementType; moduleKey?: string };
+type NavEntry = {
+  key: string;
+  href?: string;
+  label: string;
+  icon: React.ElementType;
+  children?: NavChild[];
+};
+
+const navItems: NavEntry[] = [
+  { key: "dashboard", href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   {
-    href: "/dashboard",
-    label: "Dashboard",
-    icon: LayoutDashboard,
-  },
-  {
+    key: "cadastros",
     label: "Cadastros",
     icon: Users,
     children: [
-      { href: "/clientes", label: "Clientes", icon: Users },
-      { href: "/fornecedores", label: "Fornecedores", icon: Truck },
-      { href: "/locais", label: "Locais", icon: MapPin },
+      { href: "/clientes", label: "Clientes", icon: Users, moduleKey: "clientes" },
+      { href: "/fornecedores", label: "Fornecedores", icon: Truck, moduleKey: "fornecedores" },
+      { href: "/locais", label: "Locais", icon: MapPin, moduleKey: "locais" },
     ],
   },
   {
+    key: "ativos",
     label: "Ativos",
     icon: Package,
     children: [
@@ -51,27 +58,12 @@ const navItems = [
       { href: "/ativos/marcas", label: "Marcas", icon: Package },
     ],
   },
+  { key: "orcamentos", href: "/orcamentos", label: "Orçamentos", icon: FileText },
+  { key: "ordens-servico", href: "/ordens-servico", label: "Ordens de Serviço", icon: ClipboardList },
+  { key: "financeiro", href: "/financeiro", label: "Financeiro", icon: DollarSign },
+  { key: "calendario", href: "/calendario", label: "Calendário", icon: Calendar },
   {
-    href: "/orcamentos",
-    label: "Orçamentos",
-    icon: FileText,
-  },
-  {
-    href: "/ordens-servico",
-    label: "Ordens de Serviço",
-    icon: ClipboardList,
-  },
-  {
-    href: "/financeiro",
-    label: "Financeiro",
-    icon: DollarSign,
-  },
-  {
-    href: "/calendario",
-    label: "Calendário",
-    icon: Calendar,
-  },
-  {
+    key: "equipe",
     label: "Equipe",
     icon: UserCheck,
     children: [
@@ -79,32 +71,13 @@ const navItems = [
       { href: "/equipe/veiculos", label: "Veículos", icon: Truck },
     ],
   },
+  { key: "faturas", href: "/faturas", label: "Faturas", icon: Receipt },
+  { key: "tarefas", href: "/tarefas", label: "Tarefas", icon: CheckSquare },
+  { key: "postos-servico", href: "/postos-servico", label: "Postos de Serviço", icon: Wrench },
+  { key: "contratos", href: "/contratos", label: "Contratos", icon: FileSignature },
+  { key: "links", href: "/links", label: "Links", icon: Link2 },
   {
-    href: "/faturas",
-    label: "Faturas",
-    icon: Receipt,
-  },
-  {
-    href: "/tarefas",
-    label: "Tarefas",
-    icon: CheckSquare,
-  },
-  {
-    href: "/postos-servico",
-    label: "Postos de Serviço",
-    icon: Wrench,
-  },
-  {
-    href: "/contratos",
-    label: "Contratos",
-    icon: FileSignature,
-  },
-  {
-    href: "/links",
-    label: "Links",
-    icon: Link2,
-  },
-  {
+    key: "configuracoes",
     label: "Configurações",
     icon: Settings,
     children: [
@@ -113,15 +86,70 @@ const navItems = [
       { href: "/configuracoes/pagamentos", label: "Métodos de Pagamento", icon: DollarSign },
       { href: "/configuracoes/modelos-contratos", label: "Modelos de Contratos", icon: FileSignature },
       { href: "/configuracoes/precos", label: "Política de Preços", icon: Package },
+      { href: "/configuracoes/menu", label: "Personalização do Menu", icon: Menu },
     ],
   },
 ];
 
-function NavItem({
-  item,
-}: {
-  item: (typeof navItems)[number];
-}) {
+const PADRAO_USER_SIDEBAR = navItems
+  .map((i) => i.key)
+  .filter((k) => k !== "configuracoes");
+
+function podeVer(
+  key: string,
+  role: string,
+  modulos: string[] | null,
+  children?: NavChild[]
+): boolean {
+  if (role === "ADMIN") return true;
+  const lista = modulos && modulos.length > 0 ? modulos : PADRAO_USER_SIDEBAR;
+  if (key === "configuracoes") return false;
+  if (children?.some((c) => c.moduleKey)) {
+    return children.some((c) => !c.moduleKey || lista.includes(c.moduleKey));
+  }
+  return lista.includes(key);
+}
+
+interface MenuCfgItem {
+  key: string;
+  label?: string;
+  hidden?: boolean;
+}
+
+function aplicarConfig(
+  base: NavEntry[],
+  cfg: { itens?: MenuCfgItem[] } | null,
+  role: string,
+  modulos: string[] | null
+): NavEntry[] {
+  const porChave = new Map(base.map((i) => [i.key, i]));
+  const ordem: NavEntry[] = [];
+  const usados = new Set<string>();
+
+  for (const c of cfg?.itens || []) {
+    const item = porChave.get(c.key);
+    if (!item) continue;
+    usados.add(c.key);
+    if (c.hidden && c.key !== "configuracoes") continue;
+    ordem.push(c.label ? { ...item, label: c.label } : item);
+  }
+  for (const item of base) {
+    if (!usados.has(item.key)) ordem.push(item);
+  }
+  return ordem.filter((i) => {
+    if (role !== "ADMIN") {
+      let filhos = i.children;
+      if (i.key === "cadastros" && filhos) {
+        const lista = modulos && modulos.length > 0 ? modulos : PADRAO_USER_SIDEBAR;
+        filhos = filhos.filter((c) => !c.moduleKey || lista.includes(c.moduleKey));
+        i = { ...i, children: filhos };
+      }
+    }
+    return podeVer(i.key, role, modulos, i.children);
+  });
+}
+
+function NavItem({ item }: { item: NavEntry }) {
   const pathname = usePathname();
   const [open, setOpen] = React.useState(() => {
     if ("children" in item && item.children) {
@@ -196,7 +224,13 @@ function NavItem({
   );
 }
 
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarContent({
+  onNavigate,
+  items,
+}: {
+  onNavigate?: () => void;
+  items: NavEntry[];
+}) {
   return (
     <>
       {/* Logo */}
@@ -215,8 +249,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           if (target.closest("a")) onNavigate?.();
         }}
       >
-        {navItems.map((item, i) => (
-          <NavItem key={i} item={item} />
+        {items.map((item) => (
+          <NavItem key={item.key} item={item} />
         ))}
       </nav>
 
@@ -230,7 +264,24 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function Sidebar() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [items, setItems] = React.useState<NavEntry[]>(navItems);
   const pathname = usePathname();
+
+  React.useEffect(() => {
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((me) => {
+        setItems(
+          aplicarConfig(
+            navItems,
+            me.menuConfig || null,
+            me.role || "USER",
+            me.modulos || null
+          )
+        );
+      })
+      .catch(() => setItems(navItems));
+  }, []);
 
   // Fecha o drawer ao trocar de rota
   React.useEffect(() => {
@@ -250,7 +301,7 @@ export function Sidebar() {
 
       {/* Sidebar fixa — desktop */}
       <aside className="hidden md:flex fixed left-0 top-0 h-screen w-60 border-r border-slate-100 bg-white flex-col z-30">
-        <SidebarContent />
+        <SidebarContent items={items} />
       </aside>
 
       {/* Drawer — mobile */}
@@ -268,7 +319,7 @@ export function Sidebar() {
             >
               <X className="h-5 w-5" />
             </button>
-            <SidebarContent onNavigate={() => setMobileOpen(false)} />
+            <SidebarContent items={items} onNavigate={() => setMobileOpen(false)} />
           </aside>
         </div>
       )}

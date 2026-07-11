@@ -37,12 +37,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!isValid) return null;
 
+        const perms = user.permissions as { modulos?: string[] } | null;
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           companyId: user.companyId,
           companyName: user.company?.name,
+          role: user.role,
+          isOwner: user.isOwner,
+          modulos: perms?.modulos ?? null,
         };
       },
     }),
@@ -50,8 +54,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.companyId = (user as { companyId?: string }).companyId;
-        token.companyName = (user as { companyName?: string }).companyName;
+        const u = user as {
+          companyId?: string;
+          companyName?: string;
+          role?: string;
+          isOwner?: boolean;
+          modulos?: string[] | null;
+        };
+        token.companyId = u.companyId;
+        token.companyName = u.companyName;
+        token.role = u.role;
+        token.isOwner = u.isOwner;
+        token.modulos = u.modulos ?? null;
       }
       return token;
     },
@@ -62,6 +76,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.companyId as string;
         (session.user as { companyName?: string }).companyName =
           token.companyName as string;
+        (session.user as { role?: string }).role = token.role as string;
+        (session.user as { isOwner?: boolean }).isOwner = token.isOwner as boolean;
+        (session.user as { modulos?: string[] | null }).modulos =
+          (token.modulos as string[] | null) ?? null;
       }
       return session;
     },

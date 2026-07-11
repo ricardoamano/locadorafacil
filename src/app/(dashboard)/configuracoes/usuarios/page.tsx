@@ -9,6 +9,7 @@ import { Select } from "@/components/ui/select";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { Plus, Pencil, ShieldCheck, UserX, UserCheck2, Users } from "lucide-react";
+import { MODULOS, PADRAO_USER } from "@/lib/modulos";
 
 interface Usuario {
   id: string;
@@ -17,6 +18,7 @@ interface Usuario {
   role: string;
   isOwner: boolean;
   ativo: boolean;
+  permissions?: { modulos?: string[] } | null;
   createdAt: string;
 }
 
@@ -26,9 +28,12 @@ interface FormData {
   email: string;
   password: string;
   role: string;
+  modulos: string[];
 }
 
-const empty = (): FormData => ({ name: "", email: "", password: "", role: "USER" });
+const empty = (): FormData => ({
+  name: "", email: "", password: "", role: "USER", modulos: [...PADRAO_USER],
+});
 
 export default function UsuariosPage() {
   const { toast } = useToast();
@@ -71,6 +76,7 @@ export default function UsuariosPage() {
       const payload: Record<string, unknown> = {
         name: form.name,
         role: form.role,
+        modulos: form.role === "ADMIN" ? undefined : form.modulos,
       };
       if (!form.id) payload.email = form.email;
       if (form.password) payload.password = form.password;
@@ -217,6 +223,7 @@ export default function UsuariosPage() {
                               email: u.email,
                               password: "",
                               role: u.role,
+                              modulos: u.permissions?.modulos ?? [...PADRAO_USER],
                             });
                             setModalOpen(true);
                           }}
@@ -289,6 +296,48 @@ export default function UsuariosPage() {
                   ]}
                 />
               </div>
+
+              {form.role !== "ADMIN" && (
+                <div>
+                  <label className="text-sm font-medium text-slate-700 block mb-2">
+                    Módulos que este usuário pode acessar
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                    {MODULOS.filter((m) => m.key !== "configuracoes").map((m) => {
+                      const marcado = form.modulos.includes(m.key);
+                      return (
+                        <label
+                          key={m.key}
+                          className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border text-sm cursor-pointer transition-colors ${
+                            marcado
+                              ? "border-blue-200 bg-blue-50 text-blue-700"
+                              : "border-slate-200 text-slate-600"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={marcado}
+                            onChange={() =>
+                              setForm((p) => ({
+                                ...p,
+                                modulos: marcado
+                                  ? p.modulos.filter((k) => k !== m.key)
+                                  : [...p.modulos, m.key],
+                              }))
+                            }
+                            className="h-3.5 w-3.5 rounded"
+                          />
+                          {m.label}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-slate-400 mt-2">
+                    Módulos desmarcados somem do menu e ficam bloqueados por URL e API.
+                    O acesso é revalidado no próximo login do usuário.
+                  </p>
+                </div>
+              )}
             </div>
           </ModalBody>
           <ModalFooter>
