@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { calcularPrecos, POLITICA_PADRAO, type PoliticaPrecos } from "@/lib/precos";
+import { formatCurrency } from "@/lib/utils";
 
 interface Categoria {
   id: string;
@@ -23,6 +25,10 @@ interface ItemFormData {
   quantidade: string;
   especificacoes: string;
   emCatalogo: boolean;
+  precoManual: boolean;
+  valorSemana: string;
+  valorQuinzena: string;
+  valorMes: string;
 }
 
 const tipoOptions = [
@@ -41,6 +47,10 @@ function emptyForm(): ItemFormData {
     quantidade: "",
     especificacoes: "",
     emCatalogo: true,
+    precoManual: false,
+    valorSemana: "",
+    valorQuinzena: "",
+    valorMes: "",
   };
 }
 
@@ -61,6 +71,8 @@ export function ItemFormModal({
   const { toast } = useToast();
   const [form, setForm] = useState<ItemFormData>(emptyForm());
   const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [politica, setPolitica] = useState<PoliticaPrecos>(POLITICA_PADRAO);
+  const [permitirManual, setPermitirManual] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof ItemFormData, string>>>({});
 
@@ -72,6 +84,10 @@ export function ItemFormModal({
           ...emptyForm(),
           ...initial,
           valorAluguel: initial.valorAluguel != null ? String(initial.valorAluguel) : "",
+          precoManual: !!initial.precoManual,
+          valorSemana: initial.valorSemana != null ? String(initial.valorSemana) : "",
+          valorQuinzena: initial.valorQuinzena != null ? String(initial.valorQuinzena) : "",
+          valorMes: initial.valorMes != null ? String(initial.valorMes) : "",
           quantidade: initial.quantidade != null ? String(initial.quantidade) : "",
           categoriaId: initial.categoriaId || "",
           especificacoes: initial.especificacoes || "",
@@ -83,6 +99,21 @@ export function ItemFormModal({
         .then((r) => r.json())
         .then((d) => setCategorias(d.categorias || []))
         .catch(() => setCategorias([]));
+      fetch("/api/empresa")
+        .then((r) => r.json())
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .then((d: any) => {
+          setPolitica({
+            diasSemana: d.diasSemana ?? 7,
+            diasQuinzena: d.diasQuinzena ?? 15,
+            diasMes: d.diasMes ?? 30,
+            descontoSemana: d.descontoSemana ?? 0,
+            descontoQuinzena: d.descontoQuinzena ?? 0,
+            descontoMes: d.descontoMes ?? 0,
+          });
+          setPermitirManual(d.permitirPrecoManual ?? true);
+        })
+        .catch(() => {});
     }
   }, [open, initial]);
 
@@ -110,6 +141,10 @@ export function ItemFormModal({
         body: JSON.stringify({
           ...form,
           valorAluguel: parseFloat(form.valorAluguel) || 0,
+          precoManual: form.precoManual,
+          valorSemana: form.precoManual ? parseFloat(form.valorSemana) || 0 : undefined,
+          valorQuinzena: form.precoManual ? parseFloat(form.valorQuinzena) || 0 : undefined,
+          valorMes: form.precoManual ? parseFloat(form.valorMes) || 0 : undefined,
           quantidade: parseInt(form.quantidade) || 0,
           categoriaId: form.categoriaId || null,
         }),
@@ -159,8 +194,9 @@ export function ItemFormModal({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Input
-              label="Valor de Aluguel (R$)"
+              label="Valor da Diária (R$) *"
               type="number"
+              step="0.01"
               value={form.valorAluguel}
               onChange={(e) => setField("valorAluguel", e.target.value)}
               placeholder="0,00"
@@ -179,6 +215,63 @@ export function ItemFormModal({
               options={tipoOptions}
             />
           </div>
+
+          {/* Preços por período (política de preços) */}
+          {(() => {
+            const diaria = parseFloat(form.valorAluguel) || 0;
+            const calc = calcularPrecos(diaria, politica);
+            const periodos = [
+              { key: "valorSemana" as const, titulo: "Semana", auto: calc.valorSemana, memoria: calc.memoria.semana },
+              { key: "valorQuinzena" as const, titulo: "Quinzena", auto: calc.valorQuinzena, memoria: calc.memoria.quinzena },
+              { key: "valorMes" as const, titulo: "Mês", auto: calc.valorMes, memoria: calc.memoria.mes },
+            ];
+            return (
+              <div className="border border-slate-100 rounded-lg p-4">
+                <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Preços por período
+                  </p>
+                  {permitirManual && (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.precoManual}
+                        onChange={(e) => setField("precoManual", e.target.checked)}
+                        className="h-4 w-4 rounded"
+                      />
+                      <span className="text-xs text-slate-600">
+                        Definir preços manualmente
+                      </span>
+                    </label>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {periodos.map((per) => (
+                    <div key={per.key}>
+                      {form.precoManual ? (
+                        <Input
+                          label={`${per.titulo} (R$)`}
+                          type="number"
+                          step="0.01"
+                          value={form[per.key]}
+                          onChange={(e) => setField(per.key, e.target.value)}
+                          placeholder={String(per.auto)}
+                        />
+                      ) : (
+                        <div className="border border-slate-100 bg-slate-50 rounded-lg p-2.5">
+                          <p className="text-xs text-slate-400">{per.titulo} (automático)</p>
+                          <p className="text-sm font-bold text-slate-900">
+                            {formatCurrency(per.auto)}
+                          </p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{per.memoria}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Select

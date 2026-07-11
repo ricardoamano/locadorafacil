@@ -112,6 +112,7 @@ const navItems = [
       { href: "/configuracoes/usuarios", label: "Usuários", icon: Users },
       { href: "/configuracoes/pagamentos", label: "Métodos de Pagamento", icon: DollarSign },
       { href: "/configuracoes/modelos-contratos", label: "Modelos de Contratos", icon: FileSignature },
+      { href: "/configuracoes/precos", label: "Política de Preços", icon: Package },
     ],
   },
 ];

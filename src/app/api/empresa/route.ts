@@ -56,6 +56,13 @@ export async function PUT(req: NextRequest) {
       responsavel: b.responsavel ?? null,
       naturezaOperacao: b.naturezaOperacao ?? null,
       observacaoFatura: b.observacaoFatura ?? null,
+      ...(b.diasSemana !== undefined ? { diasSemana: Number(b.diasSemana) || 7 } : {}),
+      ...(b.diasQuinzena !== undefined ? { diasQuinzena: Number(b.diasQuinzena) || 15 } : {}),
+      ...(b.diasMes !== undefined ? { diasMes: Number(b.diasMes) || 30 } : {}),
+      ...(b.descontoSemana !== undefined ? { descontoSemana: Number(b.descontoSemana) || 0 } : {}),
+      ...(b.descontoQuinzena !== undefined ? { descontoQuinzena: Number(b.descontoQuinzena) || 0 } : {}),
+      ...(b.descontoMes !== undefined ? { descontoMes: Number(b.descontoMes) || 0 } : {}),
+      ...(b.permitirPrecoManual !== undefined ? { permitirPrecoManual: !!b.permitirPrecoManual } : {}),
     },
   });
   return NextResponse.json(empresa);

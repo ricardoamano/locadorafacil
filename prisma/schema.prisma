@@ -33,6 +33,13 @@ model Company {
   responsavel        String?
   naturezaOperacao   String?  @default("LOCAÇÃO DE BENS MÓVEIS")
   observacaoFatura   String?
+  diasSemana         Int      @default(7)
+  diasQuinzena       Int      @default(15)
+  diasMes            Int      @default(30)
+  descontoSemana     Float    @default(0)
+  descontoQuinzena   Float    @default(0)
+  descontoMes        Float    @default(0)
+  permitirPrecoManual Boolean @default(true)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -214,6 +221,10 @@ model Item {
   codigo         String
   nome           String
   valorAluguel   Float        @default(0)
+  valorSemana    Float?
+  valorQuinzena  Float?
+  valorMes       Float?
+  precoManual    Boolean      @default(false)
   tipo           String
   categoriaId    String?
   categoria      Categoria?   @relation(fields: [categoriaId], references: [id])

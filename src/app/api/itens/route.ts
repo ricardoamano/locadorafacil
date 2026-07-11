@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { calcularPrecos } from "@/lib/precos";
 
 type SessionUser = { companyId?: string };
 
@@ -56,11 +57,27 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { id: _id, categoria: _c, marca: _m, ...data } = body;
 
+  const diaria = Number(data.valorAluguel) || 0;
+  const precoManual = !!data.precoManual;
+  const empresa = await prisma.company.findUnique({ where: { id: companyId } });
+  const calc = calcularPrecos(diaria, {
+    diasSemana: empresa?.diasSemana ?? 7,
+    diasQuinzena: empresa?.diasQuinzena ?? 15,
+    diasMes: empresa?.diasMes ?? 30,
+    descontoSemana: empresa?.descontoSemana ?? 0,
+    descontoQuinzena: empresa?.descontoQuinzena ?? 0,
+    descontoMes: empresa?.descontoMes ?? 0,
+  });
+
   const item = await prisma.item.create({
     data: {
       codigo: data.codigo || "",
       nome: data.nome,
-      valorAluguel: Number(data.valorAluguel) || 0,
+      valorAluguel: diaria,
+      precoManual,
+      valorSemana: precoManual && data.valorSemana != null ? Number(data.valorSemana) : calc.valorSemana,
+      valorQuinzena: precoManual && data.valorQuinzena != null ? Number(data.valorQuinzena) : calc.valorQuinzena,
+      valorMes: precoManual && data.valorMes != null ? Number(data.valorMes) : calc.valorMes,
       tipo: data.tipo || "PROPRIO",
       quantidade: Number(data.quantidade) || 0,
       especificacoes: data.especificacoes || null,
