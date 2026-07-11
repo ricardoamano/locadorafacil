@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  Copy,
 } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; variant: "success" | "warning" | "danger" | "info" | "neutral" }> = {
@@ -80,6 +81,49 @@ export function OrcamentosList() {
     e.preventDefault();
     setSearch(searchInput);
     setPage(1);
+  }
+
+  async function handleDuplicate(id: string) {
+    try {
+      const res = await fetch(`/api/orcamentos/${id}`);
+      if (!res.ok) throw new Error();
+      const orc = await res.json();
+      const copia = {
+        clienteId: orc.clienteId,
+        status: "PENDENTE",
+        eventoNome: orc.eventoNome ? `${orc.eventoNome} (cópia)` : null,
+        tipoEvento: orc.tipoEvento,
+        localId: orc.localId,
+        dataInicio: orc.dataInicio,
+        dataFim: orc.dataFim,
+        observacoes: orc.observacoes,
+        obsInternas: orc.obsInternas,
+        formaPagamento: orc.formaPagamento,
+        condicoes: orc.condicoes,
+        desconto: orc.desconto,
+        descontoTipo: orc.descontoTipo,
+        salas: (orc.salas || []).map(
+          (s: { nome: string; itens: { itemId: string; quantidade: number; valorUnitario: number }[] }) => ({
+            nome: s.nome,
+            itens: (s.itens || []).map((i) => ({
+              itemId: i.itemId,
+              quantidade: i.quantidade,
+              valorUnitario: i.valorUnitario,
+            })),
+          })
+        ),
+      };
+      const createRes = await fetch("/api/orcamentos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(copia),
+      });
+      if (!createRes.ok) throw new Error();
+      toast("Orçamento duplicado com sucesso!", "success");
+      fetchOrcamentos();
+    } catch {
+      toast("Erro ao duplicar orçamento.", "error");
+    }
   }
 
   async function handleDelete() {
@@ -229,6 +273,13 @@ export function OrcamentosList() {
                         >
                           <Pencil className="h-4 w-4" />
                         </Link>
+                        <button
+                          onClick={() => handleDuplicate(orc.id)}
+                          className="p-1.5 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                          title="Duplicar"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </button>
                         <button
                           onClick={() => setDeleteId(orc.id)}
                           className="p-1.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
