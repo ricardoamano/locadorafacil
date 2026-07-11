@@ -22,7 +22,7 @@ const campos = [
   "name","razaoSocial","cnpj","inscricaoEstadual","inscricaoMunicipal",
   "cep","rua","numero","bairro","complemento","cidade","estado",
   "telefone","email","site","logoUrl","banco","agencia","conta","pix",
-  "responsavel","naturezaOperacao","observacaoFatura",
+  "responsavel","naturezaOperacao","observacaoFatura","slug",
 ] as const;
 
 type Form = Record<(typeof campos)[number], string>;
@@ -148,6 +148,26 @@ export default function EmpresaConfigPage() {
                     onChange={(url) => set("logoUrl", url)}
                     hint="Aparece no menu, nas faturas e no catálogo. JPG, PNG, WEBP ou SVG — até 3 MB."
                   />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700 block mb-1">
+                    Endereço do catálogo público (URL amigável)
+                  </label>
+                  <div className="flex items-center gap-0">
+                    <span className="h-9 inline-flex items-center rounded-l-md border border-r-0 border-slate-200 bg-slate-50 px-3 text-sm text-slate-400 whitespace-nowrap">
+                      locadorafacil.app/catalogo/
+                    </span>
+                    <input
+                      value={form.slug}
+                      onChange={(e) => set("slug", e.target.value)}
+                      placeholder="nome-da-sua-empresa"
+                      className="h-9 w-full rounded-r-md border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Só letras minúsculas, números e hífens. Atenção: ao mudar, os links
+                    antigos do catálogo deixam de funcionar.
+                  </p>
                 </div>
               </div>
             </section>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { slugify } from "@/lib/utils";
 
 type SessionUser = { companyId?: string; role?: string };
 
@@ -30,10 +31,29 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
 
   const b = await req.json();
+
+  // Slug do catálogo público: informado ou derivado do nome; único entre empresas
+  let slugFinal: string | undefined = undefined;
+  if (b.slug !== undefined) {
+    slugFinal = slugify(String(b.slug || b.name || ""));
+    if (!slugFinal)
+      return NextResponse.json({ error: "Slug inválido" }, { status: 400 });
+    const emUso = await prisma.company.findFirst({
+      where: { slug: slugFinal, NOT: { id: user.companyId } },
+      select: { id: true },
+    });
+    if (emUso)
+      return NextResponse.json(
+        { error: `O endereço "${slugFinal}" já está em uso por outra empresa.` },
+        { status: 400 }
+      );
+  }
+
   const empresa = await prisma.company.update({
     where: { id: user.companyId },
     data: {
       name: b.name || undefined,
+      ...(slugFinal ? { slug: slugFinal } : {}),
       razaoSocial: b.razaoSocial ?? null,
       cnpj: b.cnpj ?? null,
       inscricaoEstadual: b.inscricaoEstadual ?? null,
