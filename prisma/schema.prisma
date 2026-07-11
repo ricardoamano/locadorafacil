@@ -28,6 +28,7 @@ model Company {
   links      Link[]
   veiculos   Veiculo[]
   eventos    Evento[]
+  contratos  Contrato[]
 }
 
 model User {
@@ -111,6 +112,7 @@ model Contact {
   subContacts SubContact[]
   orcamentos  Orcamento[]
   faturas     Fatura[]
+  contratos   Contrato[]
 }
 
 model SubContact {
@@ -217,7 +219,7 @@ model ItemAcessorio {
   @@unique([itemBaseId, acessorioId])
 }
 
-// ── Orçamentos ────────────────────────────────────────────────────────────────
+// ── Orçamentos ──────────────────────────────────────────────────────────────────
 
 model Evento {
   id        String   @id @default(cuid())
@@ -259,6 +261,7 @@ model Orcamento {
   salas      Sala[]
   transacoes Transacao[]
   faturas    Fatura[]
+  contratos  Contrato[]
   os         OrdemServico?
 }
 
@@ -374,7 +377,7 @@ model Veiculo {
   createdAt       DateTime @default(now())
 }
 
-// ── Financeiro ────────────────────────────────────────────────────────────────
+// ── Financeiro ──────────────────────────────────────────────────────────────────
 
 model Transacao {
   id              String    @id @default(cuid())
@@ -443,6 +446,24 @@ model TarefaMembro {
   membro   Membro @relation(fields: [membroId], references: [id])
 
   @@unique([tarefaId, membroId])
+}
+
+// ── Contratos ──────────────────────────────────────────────────────────────────
+
+model Contrato {
+  id          String    @id @default(cuid())
+  titulo      String
+  clienteId   String
+  cliente     Contact   @relation(fields: [clienteId], references: [id])
+  orcamentoId String?
+  orcamento   Orcamento? @relation(fields: [orcamentoId], references: [id])
+  status      String    @default("RASCUNHO")
+  conteudo    String?
+  arquivoUrl  String?
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 // ── Links ─────────────────────────────────────────────────────────────────────

@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search") || "";
   const status = searchParams.get("status") || "";
+  const postos = searchParams.get("postos") === "1";
   const page = parseInt(searchParams.get("page") || "1");
   const limit = parseInt(searchParams.get("limit") || "20");
   const skip = (page - 1) * limit;
@@ -37,6 +38,7 @@ export async function GET(req: NextRequest) {
   const where = {
     companyId,
     ...(status ? { status } : {}),
+    ...(postos ? { cliente: { isPostoServico: true } } : {}),
     ...(search
       ? {
           OR: [
