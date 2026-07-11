@@ -22,8 +22,8 @@ export async function GET(req: NextRequest) {
     ...(search
       ? {
           OR: [
-            { nome: { contains: search } },
-            { cidade: { contains: search } },
+            { nome: { contains: search, mode: "insensitive" as const } },
+            { cidade: { contains: search, mode: "insensitive" as const } },
           ],
         }
       : {}),

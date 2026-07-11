@@ -8,7 +8,7 @@ export interface SelectProps
   extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   error?: string;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; keywords?: string }[];
   placeholder?: string;
   /** Força modo busca mesmo com poucas opções */
   searchable?: boolean;
@@ -46,7 +46,9 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     const filtered = React.useMemo(() => {
       if (!query.trim()) return options;
       const q = normalize(query);
-      return options.filter((o) => normalize(o.label).includes(q));
+      return options.filter((o) =>
+        normalize(o.label + " " + (o.keywords || "")).includes(q)
+      );
     }, [options, query]);
 
     React.useEffect(() => {

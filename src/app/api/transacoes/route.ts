@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     companyId,
     ...(tipo ? { tipo } : {}),
     ...(status ? { status } : {}),
-    ...(search ? { nome: { contains: search } } : {}),
+    ...(search ? { nome: { contains: search, mode: "insensitive" as const } } : {}),
   };
 
   const [transacoes, total, receitas, despesas] = await Promise.all([

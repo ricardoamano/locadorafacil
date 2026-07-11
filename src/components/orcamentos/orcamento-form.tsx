@@ -33,6 +33,7 @@ interface LocalOpt {
 interface ItemOpt {
   id: string;
   nome: string;
+  apelidos?: string | null;
   codigo: string;
   valorAluguel: number;
 }
@@ -162,6 +163,7 @@ export function OrcamentoForm({
   const [locais, setLocais] = useState<LocalOpt[]>([]);
   const [itens, setItens] = useState<ItemOpt[]>([]);
   const [pagamentoOptions, setPagamentoOptions] = useState(pagamentoFallback);
+  const [tiposEvento, setTiposEvento] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState<Record<string, boolean>>({
     cliente: true,
@@ -192,6 +194,10 @@ export function OrcamentoForm({
           );
         }
       })
+      .catch(() => {});
+    fetch("/api/tipos-evento")
+      .then((r) => r.json())
+      .then((d) => setTiposEvento(d.tipos || []))
       .catch(() => {});
   }, []);
 
@@ -323,7 +329,14 @@ export function OrcamentoForm({
   const itemOptions = itens.map((i) => ({
     value: i.id,
     label: `${i.codigo ? i.codigo + " — " : ""}${i.nome}`,
+    keywords: i.apelidos || "",
   }));
+  // Inclui o valor atual mesmo que o tipo tenha sido removido das configurações
+  const tipoEventoOptions = (
+    form.tipoEvento && !tiposEvento.includes(form.tipoEvento)
+      ? [form.tipoEvento, ...tiposEvento]
+      : tiposEvento
+  ).map((t) => ({ value: t, label: t }));
 
   return (
     <div className="max-w-4xl space-y-3">
@@ -356,10 +369,11 @@ export function OrcamentoForm({
       >
         <Select
           label="Cliente *"
+          searchable
           value={form.clienteId}
           onChange={(e) => set("clienteId", e.target.value)}
           options={clienteOptions}
-          placeholder="Selecione o cliente"
+          placeholder="Digite para buscar o cliente"
         />
       </Section>
 
@@ -379,11 +393,12 @@ export function OrcamentoForm({
               onChange={(e) => set("eventoNome", e.target.value)}
               placeholder="Ex: Convenção de Vendas 2026"
             />
-            <Input
+            <Select
               label="Tipo de Evento"
               value={form.tipoEvento}
               onChange={(e) => set("tipoEvento", e.target.value)}
-              placeholder="Ex: Corporativo, Show, Feira..."
+              options={tipoEventoOptions}
+              placeholder="Selecione o tipo"
             />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -401,10 +416,11 @@ export function OrcamentoForm({
             />
             <Select
               label="Local"
+              searchable
               value={form.localId}
               onChange={(e) => set("localId", e.target.value)}
               options={localOptions}
-              placeholder="Selecione o local"
+              placeholder="Digite para buscar o local"
             />
           </div>
         </div>
@@ -451,6 +467,7 @@ export function OrcamentoForm({
                     <div className="col-span-6">
                       <Select
                         label={ii === 0 ? "Item" : undefined}
+                        searchable
                         value={it.itemId}
                         onChange={(e) => {
                           const sel = itens.find((x) => x.id === e.target.value);
@@ -460,7 +477,7 @@ export function OrcamentoForm({
                           });
                         }}
                         options={itemOptions}
-                        placeholder="Selecione o item"
+                        placeholder="Digite para buscar o item"
                       />
                     </div>
                     <div className="col-span-2">

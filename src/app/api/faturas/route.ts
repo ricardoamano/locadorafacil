@@ -30,8 +30,8 @@ export async function GET(req: NextRequest) {
     ...(search
       ? {
           OR: [
-            { clienteNome: { contains: search } },
-            { mesRef: { contains: search } },
+            { clienteNome: { contains: search, mode: "insensitive" as const } },
+            { mesRef: { contains: search, mode: "insensitive" as const } },
           ],
         }
       : {}),

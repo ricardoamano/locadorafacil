@@ -60,6 +60,7 @@ export async function PUT(
     data: {
       codigo: data.codigo || "",
       nome: data.nome,
+      apelidos: data.apelidos || null,
       valorAluguel: diaria,
       precoManual,
       valorSemana: precoManual && data.valorSemana != null ? Number(data.valorSemana) : calc.valorSemana,

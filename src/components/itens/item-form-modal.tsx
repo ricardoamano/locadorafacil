@@ -19,6 +19,7 @@ interface ItemFormData {
   id?: string;
   codigo: string;
   nome: string;
+  apelidos: string;
   valorAluguel: string;
   tipo: string;
   categoriaId: string;
@@ -48,6 +49,7 @@ function emptyForm(): ItemFormData {
   return {
     codigo: "",
     nome: "",
+    apelidos: "",
     valorAluguel: "",
     tipo: "PROPRIO",
     categoriaId: "",
@@ -97,6 +99,7 @@ export function ItemFormModal({
         setForm({
           ...emptyForm(),
           ...initial,
+          apelidos: initial.apelidos || "",
           valorAluguel: initial.valorAluguel != null ? String(initial.valorAluguel) : "",
           publicado: !!initial.publicado,
           slug: initial.slug || "",
@@ -211,6 +214,17 @@ export function ItemFormModal({
               onChange={(e) => setField("codigo", e.target.value)}
               placeholder="Ex: #336-1"
             />
+          </div>
+          <div>
+            <Input
+              label="Apelidos"
+              value={form.apelidos}
+              onChange={(e) => setField("apelidos", e.target.value)}
+              placeholder='Ex: "Microfone vermelho que comprei no Paraguai"'
+            />
+            <p className="text-xs text-slate-400 mt-1">
+              Identificação interna/informal — aparece na busca de itens, mas não em documentos.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

@@ -26,9 +26,9 @@ export async function GET(req: NextRequest) {
     ...(search
       ? {
           OR: [
-            { nomeFantasia: { contains: search } },
-            { razaoSocial: { contains: search } },
-            { cnpj: { contains: search } },
+            { nomeFantasia: { contains: search, mode: "insensitive" as const } },
+            { razaoSocial: { contains: search, mode: "insensitive" as const } },
+            { cnpj: { contains: search, mode: "insensitive" as const } },
           ],
         }
       : {}),

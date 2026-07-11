@@ -42,6 +42,7 @@ model Company {
   descontoMes        Float    @default(0)
   permitirPrecoManual Boolean @default(true)
   menuConfig         Json?
+  tiposEvento        Json?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -223,6 +224,7 @@ model Item {
   id             String       @id @default(cuid())
   codigo         String
   nome           String
+  apelidos       String?
   valorAluguel   Float        @default(0)
   valorSemana    Float?
   valorQuinzena  Float?

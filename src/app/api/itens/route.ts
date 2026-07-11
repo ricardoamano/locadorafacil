@@ -24,8 +24,9 @@ export async function GET(req: NextRequest) {
     ...(search
       ? {
           OR: [
-            { nome: { contains: search } },
-            { codigo: { contains: search } },
+            { nome: { contains: search, mode: "insensitive" as const } },
+            { apelidos: { contains: search, mode: "insensitive" as const } },
+            { codigo: { contains: search, mode: "insensitive" as const } },
           ],
         }
       : {}),
@@ -91,6 +92,7 @@ export async function POST(req: NextRequest) {
     data: {
       codigo: data.codigo || "",
       nome: data.nome,
+      apelidos: data.apelidos || null,
       valorAluguel: diaria,
       precoManual,
       valorSemana: precoManual && data.valorSemana != null ? Number(data.valorSemana) : calc.valorSemana,

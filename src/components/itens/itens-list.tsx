@@ -28,6 +28,7 @@ interface Item {
   id: string;
   codigo: string;
   nome: string;
+  apelidos?: string | null;
   valorAluguel: number;
   tipo: string;
   quantidade: number;
@@ -235,9 +236,16 @@ export function ItensList() {
                       <div className="h-9 w-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
                         <Package className="h-4 w-4 text-blue-600" />
                       </div>
-                      <p className="text-sm font-medium text-slate-900">
-                        {item.nome}
-                      </p>
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">
+                          {item.nome}
+                        </p>
+                        {item.apelidos && (
+                          <p className="text-xs text-slate-400 italic">
+                            {item.apelidos}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-500">
