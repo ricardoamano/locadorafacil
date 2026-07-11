@@ -110,6 +110,8 @@ const navItems = [
     children: [
       { href: "/configuracoes/empresa", label: "Dados da Empresa", icon: Settings },
       { href: "/configuracoes/usuarios", label: "Usuários", icon: Users },
+      { href: "/configuracoes/pagamentos", label: "Métodos de Pagamento", icon: DollarSign },
+      { href: "/configuracoes/modelos-contratos", label: "Modelos de Contratos", icon: FileSignature },
     ],
   },
 ];

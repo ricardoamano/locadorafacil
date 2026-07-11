@@ -74,7 +74,7 @@ const statusOptions = [
   { value: "CANCELADO", label: "Cancelado" },
 ];
 
-const pagamentoOptions = [
+const pagamentoFallback = [
   { value: "PIX", label: "PIX" },
   { value: "BOLETO", label: "Boleto" },
   { value: "CARTAO", label: "Cartão" },
@@ -161,6 +161,7 @@ export function OrcamentoForm({
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [locais, setLocais] = useState<LocalOpt[]>([]);
   const [itens, setItens] = useState<ItemOpt[]>([]);
+  const [pagamentoOptions, setPagamentoOptions] = useState(pagamentoFallback);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState<Record<string, boolean>>({
     cliente: true,
@@ -182,6 +183,16 @@ export function OrcamentoForm({
     fetch("/api/itens?limit=200")
       .then((r) => r.json())
       .then((d) => setItens(d.itens || []));
+    fetch("/api/metodos-pagamento?ativos=1")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.metodos?.length) {
+          setPagamentoOptions(
+            d.metodos.map((m: { nome: string }) => ({ value: m.nome, label: m.nome }))
+          );
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {

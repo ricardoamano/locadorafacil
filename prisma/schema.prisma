@@ -51,6 +51,8 @@ model Company {
   veiculos   Veiculo[]
   eventos    Evento[]
   contratos  Contrato[]
+  metodosPagamento MetodoPagamento[]
+  modelosContrato  ModeloContrato[]
 }
 
 model User {
@@ -489,10 +491,40 @@ model Contrato {
   status      String    @default("RASCUNHO")
   conteudo    String?
   arquivoUrl  String?
+  modeloId     String?
+  modeloVersao Int?
+  geradoEm     DateTime?
+  geradoPor    String?
   companyId   String
   company     Company   @relation(fields: [companyId], references: [id])
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+// ── Configurações ─────────────────────────────────────────────────────────────
+
+model MetodoPagamento {
+  id        String   @id @default(cuid())
+  nome      String
+  ativo     Boolean  @default(true)
+  ordem     Int      @default(0)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ModeloContrato {
+  id        String   @id @default(cuid())
+  nome      String
+  conteudo  String   @default("")
+  ativo     Boolean  @default(true)
+  padrao    Boolean  @default(false)
+  versao    Int      @default(1)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ── Links ─────────────────────────────────────────────────────────────────────
