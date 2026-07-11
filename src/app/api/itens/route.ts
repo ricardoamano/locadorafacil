@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { calcularPrecos } from "@/lib/precos";
 import { slugify } from "@/lib/utils";
+import { proximoCodigoItem, sincronizarUnidades } from "@/lib/unidades";
 
 type SessionUser = { companyId?: string };
 
@@ -27,6 +28,8 @@ export async function GET(req: NextRequest) {
             { nome: { contains: search, mode: "insensitive" as const } },
             { apelidos: { contains: search, mode: "insensitive" as const } },
             { codigo: { contains: search, mode: "insensitive" as const } },
+            // QR de unidade (ex.: 0012-03) encontra o item dono da unidade
+            { unidades: { some: { codigo: { equals: search, mode: "insensitive" as const } } } },
           ],
         }
       : {}),
@@ -59,17 +62,20 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { id: _id, categoria: _c, marca: _m, ...data } = body;
 
-  // Código/SKU não pode ser duplicado na empresa
-  if (data.codigo?.trim()) {
+  // Código/SKU: informado (não pode duplicar) ou gerado sequencialmente (0001, 0002...)
+  let codigoFinal = data.codigo?.trim() || "";
+  if (codigoFinal) {
     const codigoExiste = await prisma.item.findFirst({
-      where: { companyId, codigo: data.codigo.trim() },
+      where: { companyId, codigo: codigoFinal },
       select: { id: true },
     });
     if (codigoExiste)
       return NextResponse.json(
-        { error: `Já existe um item com o código "${data.codigo.trim()}".` },
+        { error: `Já existe um item com o código "${codigoFinal}".` },
         { status: 400 }
       );
+  } else {
+    codigoFinal = await proximoCodigoItem(companyId);
   }
 
   const diaria = Number(data.valorAluguel) || 0;
@@ -103,7 +109,7 @@ export async function POST(req: NextRequest) {
 
   const item = await prisma.item.create({
     data: {
-      codigo: data.codigo?.trim() || "",
+      codigo: codigoFinal,
       nome: data.nome,
       apelidos: data.apelidos || null,
       valorAluguel: diaria,
@@ -126,6 +132,9 @@ export async function POST(req: NextRequest) {
       companyId,
     },
   });
+
+  // Cria as unidades físicas serializadas (codigo-01, codigo-02, ...)
+  await sincronizarUnidades(item.id);
 
   return NextResponse.json(item, { status: 201 });
 }

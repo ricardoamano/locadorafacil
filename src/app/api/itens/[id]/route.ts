@@ -3,6 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { calcularPrecos } from "@/lib/precos";
 import { slugify } from "@/lib/utils";
+import {
+  proximoCodigoItem,
+  sincronizarUnidades,
+  renomearCodigosUnidades,
+} from "@/lib/unidades";
 
 type SessionUser = { companyId?: string };
 
@@ -26,15 +31,17 @@ export async function PUT(
   const existing = await prisma.item.findFirst({ where: { id, companyId } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Código/SKU não pode ser duplicado na empresa
-  if (data.codigo?.trim()) {
+  // Código/SKU: informado (não pode duplicar), mantém o atual ou gera sequencial
+  let codigoFinal = data.codigo?.trim() || existing.codigo || "";
+  if (!codigoFinal) codigoFinal = await proximoCodigoItem(companyId);
+  if (codigoFinal !== existing.codigo) {
     const codigoExiste = await prisma.item.findFirst({
-      where: { companyId, codigo: data.codigo.trim(), NOT: { id } },
+      where: { companyId, codigo: codigoFinal, NOT: { id } },
       select: { id: true },
     });
     if (codigoExiste)
       return NextResponse.json(
-        { error: `Já existe um item com o código "${data.codigo.trim()}".` },
+        { error: `Já existe um item com o código "${codigoFinal}".` },
         { status: 400 }
       );
   }
@@ -71,7 +78,7 @@ export async function PUT(
   const item = await prisma.item.update({
     where: { id },
     data: {
-      codigo: data.codigo || "",
+      codigo: codigoFinal,
       nome: data.nome,
       apelidos: data.apelidos || null,
       valorAluguel: diaria,
@@ -93,6 +100,10 @@ export async function PUT(
       mostrarCodigo: !!data.mostrarCodigo,
     },
   });
+
+  // Mantém unidades serializadas em dia com código e quantidade
+  if (codigoFinal !== existing.codigo) await renomearCodigosUnidades(id, codigoFinal);
+  await sincronizarUnidades(id);
 
   return NextResponse.json(item);
 }

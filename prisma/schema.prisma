@@ -259,6 +259,7 @@ model Item {
   salaItens      SalaItem[]
   faturaItens    FaturaItem[]
   conferencias   OsConferencia[]
+  unidades       ItemUnidade[]
 
   @@unique([companyId, slug])
 }
@@ -360,6 +361,7 @@ model OrdemServico {
 
   escala       EscalaMembro[]
   conferencias OsConferencia[]
+  unidadesNoEvento ItemUnidade[]
 }
 
 // Registro de entrada/saída de equipamentos do estoque na OS (auditável)
@@ -369,10 +371,32 @@ model OsConferencia {
   os            OrdemServico @relation(fields: [osId], references: [id], onDelete: Cascade)
   itemId        String
   item          Item         @relation(fields: [itemId], references: [id])
+  unidadeId     String?
+  unidade       ItemUnidade? @relation(fields: [unidadeId], references: [id], onDelete: SetNull)
   tipo          String       // SAIDA (foi para o evento) | ENTRADA (voltou ao estoque)
   quantidade    Int          @default(1)
   registradoPor String?
   createdAt     DateTime     @default(now())
+}
+
+// Unidade física serializada de um item (ex.: Par LED RGBW → 0012-01 ... 0012-08)
+model ItemUnidade {
+  id        String   @id @default(cuid())
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  numero    Int
+  codigo    String   // código único da unidade na empresa (codigoItem-NN)
+  status    String   @default("EM_ESTOQUE") // EM_ESTOQUE | NO_EVENTO | MANUTENCAO | BAIXADA
+  osId      String?  // OS em que a unidade está (quando NO_EVENTO)
+  os        OrdemServico? @relation(fields: [osId], references: [id], onDelete: SetNull)
+  companyId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  conferencias OsConferencia[]
+
+  @@unique([companyId, codigo])
+  @@unique([itemId, numero])
 }
 
 model EscalaMembro {

@@ -32,6 +32,19 @@ interface Evento {
   registradoPor: string | null;
   createdAt: string;
   item: { nome: string; codigo: string };
+  unidade?: { codigo: string } | null;
+}
+
+interface Unidade {
+  id: string;
+  codigo: string;
+  numero: number;
+  status: string;
+  itemId: string;
+  itemNome: string;
+  osAtualId: string | null;
+  osAtualNumero: number | null;
+  osAtualEvento: string | null;
 }
 
 // BarcodeDetector ainda não está nas typings padrão
@@ -42,6 +55,7 @@ export function OsConferencia({ osId }: { osId: string }) {
   const { toast } = useToast();
   const [resumo, setResumo] = useState<ResumoItem[]>([]);
   const [eventos, setEventos] = useState<Evento[]>([]);
+  const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [tipo, setTipo] = useState<"SAIDA" | "ENTRADA">("SAIDA");
   const [itemSel, setItemSel] = useState("");
   const [qtd, setQtd] = useState(1);
@@ -61,6 +75,7 @@ export function OsConferencia({ osId }: { osId: string }) {
       const d = await res.json();
       setResumo(d.resumo || []);
       setEventos(d.eventos || []);
+      setUnidades(d.unidades || []);
     } catch {}
   }, [osId]);
 
@@ -69,7 +84,7 @@ export function OsConferencia({ osId }: { osId: string }) {
   }, [carregar]);
 
   const registrar = useCallback(
-    async (payload: { itemId?: string; codigo?: string; quantidade?: number }) => {
+    async (payload: { itemId?: string; unidadeId?: string; codigo?: string; quantidade?: number }) => {
       setRegistrando(true);
       try {
         const res = await fetch(`/api/ordens-servico/${osId}/conferencia`, {
@@ -85,8 +100,8 @@ export function OsConferencia({ osId }: { osId: string }) {
         setResumo(d.resumo || []);
         toast(
           `${tipoRef.current === "SAIDA" ? "Saída" : "Entrada"} registrada: ${
-            d.evento?.item?.nome || "item"
-          }`,
+            d.evento?.unidade?.codigo ? d.evento.unidade.codigo + " — " : ""
+          }${d.evento?.item?.nome || "item"}`,
           "success"
         );
         carregar();
@@ -172,11 +187,32 @@ export function OsConferencia({ osId }: { osId: string }) {
     }
   }
 
-  const itemOptions = resumo.map((r) => ({
-    value: r.itemId,
-    label: `${r.codigo ? r.codigo + " — " : ""}${r.nome}`,
-    keywords: [r.apelidos, r.descricaoComercial].filter(Boolean).join(" "),
-  }));
+  // Unidades elegíveis conforme o modo: saída = em estoque; entrada = no evento desta OS
+  const unidadesElegiveis = unidades.filter((u) =>
+    tipo === "SAIDA"
+      ? u.status === "EM_ESTOQUE"
+      : u.status === "NO_EVENTO" && u.osAtualId === osId
+  );
+  const itensComUnidade = new Set(unidades.map((u) => u.itemId));
+  const itemOptions = [
+    ...unidadesElegiveis.map((u) => {
+      const r = resumo.find((x) => x.itemId === u.itemId);
+      return {
+        value: `u:${u.id}`,
+        label: `${u.codigo} — ${u.itemNome}`,
+        keywords: [r?.apelidos, r?.descricaoComercial].filter(Boolean).join(" "),
+      };
+    }),
+    // Itens sem unidades serializadas: registro por quantidade
+    ...resumo
+      .filter((r) => !itensComUnidade.has(r.itemId))
+      .map((r) => ({
+        value: `i:${r.itemId}`,
+        label: `${r.codigo ? r.codigo + " — " : ""}${r.nome} (por quantidade)`,
+        keywords: [r.apelidos, r.descricaoComercial].filter(Boolean).join(" "),
+      })),
+  ];
+  const selecaoPorQuantidade = itemSel.startsWith("i:");
 
   return (
     <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
@@ -194,7 +230,10 @@ export function OsConferencia({ osId }: { osId: string }) {
       {/* Modo */}
       <div className="flex items-center gap-2 mb-4">
         <button
-          onClick={() => setTipo("SAIDA")}
+          onClick={() => {
+            setTipo("SAIDA");
+            setItemSel("");
+          }}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
             tipo === "SAIDA"
               ? "bg-amber-50 border-amber-300 text-amber-700"
@@ -205,7 +244,10 @@ export function OsConferencia({ osId }: { osId: string }) {
           Saída p/ evento
         </button>
         <button
-          onClick={() => setTipo("ENTRADA")}
+          onClick={() => {
+            setTipo("ENTRADA");
+            setItemSel("");
+          }}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
             tipo === "ENTRADA"
               ? "bg-green-50 border-green-300 text-green-700"
@@ -257,9 +299,9 @@ export function OsConferencia({ osId }: { osId: string }) {
 
       {/* Busca manual */}
       <div className="grid grid-cols-12 gap-2 items-end mb-5">
-        <div className="col-span-12 sm:col-span-7">
+        <div className={selecaoPorQuantidade ? "col-span-12 sm:col-span-7" : "col-span-12 sm:col-span-9"}>
           <Select
-            label="Buscar item manualmente"
+            label={`Buscar unidade manualmente (${tipo === "SAIDA" ? "disponíveis em estoque" : "no evento desta OS"})`}
             searchable
             value={itemSel}
             onChange={(e) => setItemSel(e.target.value)}
@@ -267,23 +309,28 @@ export function OsConferencia({ osId }: { osId: string }) {
             placeholder="Digite código, nome ou apelido"
           />
         </div>
-        <div className="col-span-4 sm:col-span-2">
-          <label className="text-sm font-medium text-slate-700 block mb-1">Qtd</label>
-          <input
-            type="number"
-            min={1}
-            value={qtd}
-            onChange={(e) => setQtd(Math.max(1, parseInt(e.target.value) || 1))}
-            className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <div className="col-span-8 sm:col-span-3">
+        {selecaoPorQuantidade && (
+          <div className="col-span-4 sm:col-span-2">
+            <label className="text-sm font-medium text-slate-700 block mb-1">Qtd</label>
+            <input
+              type="number"
+              min={1}
+              value={qtd}
+              onChange={(e) => setQtd(Math.max(1, parseInt(e.target.value) || 1))}
+              className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        )}
+        <div className={selecaoPorQuantidade ? "col-span-8 sm:col-span-3" : "col-span-12 sm:col-span-3"}>
           <Button
             className="w-full"
             loading={registrando}
             disabled={!itemSel}
             onClick={async () => {
-              const ok = await registrar({ itemId: itemSel, quantidade: qtd });
+              const payload = itemSel.startsWith("u:")
+                ? { unidadeId: itemSel.slice(2) }
+                : { itemId: itemSel.slice(2), quantidade: qtd };
+              const ok = await registrar(payload);
               if (ok) {
                 setItemSel("");
                 setQtd(1);
@@ -350,6 +397,30 @@ export function OsConferencia({ osId }: { osId: string }) {
         </div>
       )}
 
+      {/* Unidades presas em outros eventos — onde estão */}
+      {(() => {
+        const emOutraOs = unidades.filter(
+          (u) => u.status === "NO_EVENTO" && u.osAtualId !== osId
+        );
+        if (emOutraOs.length === 0) return null;
+        return (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p className="text-xs font-semibold text-amber-700 mb-1">
+              ⚠ Unidades destes equipamentos em outros eventos:
+            </p>
+            <ul className="text-xs text-amber-700 space-y-0.5">
+              {emOutraOs.map((u) => (
+                <li key={u.id}>
+                  <span className="font-mono font-medium">{u.codigo}</span> — {u.itemNome}:
+                  {" "}OS #{u.osAtualNumero ?? "?"}
+                  {u.osAtualEvento ? ` (${u.osAtualEvento})` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })()}
+
       {/* Histórico */}
       {eventos.length > 0 && (
         <div>
@@ -370,8 +441,12 @@ export function OsConferencia({ osId }: { osId: string }) {
                   >
                     {ev.tipo === "SAIDA" ? "Saída" : "Entrada"}
                   </span>{" "}
-                  {ev.quantidade}x {ev.item?.nome}
-                  {ev.item?.codigo ? ` (${ev.item.codigo})` : ""} —{" "}
+                  {ev.unidade?.codigo ? (
+                    <span className="font-mono font-medium">{ev.unidade.codigo}</span>
+                  ) : (
+                    `${ev.quantidade}x`
+                  )}{" "}
+                  {ev.item?.nome} —{" "}
                   {new Date(ev.createdAt).toLocaleString("pt-BR")}
                   {ev.registradoPor ? ` por ${ev.registradoPor}` : ""}
                 </span>
