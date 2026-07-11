@@ -238,23 +238,25 @@ function SidebarContent({
 }) {
   return (
     <>
-      {/* Logo da empresa do usuário logado */}
-      <div className="flex items-center gap-2.5 px-4 py-4 border-b border-slate-100 min-h-[65px]">
+      {/* Logo da empresa do usuário logado (somente o logo) */}
+      <div className="flex items-center justify-center px-4 py-3 border-b border-slate-100 min-h-[65px]">
         {empresa?.logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={empresa.logoUrl}
             alt={empresa.nome}
-            className="h-9 w-9 rounded-lg object-contain bg-white shrink-0"
+            className="max-h-12 max-w-full object-contain"
           />
         ) : (
-          <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
-            <ClipboardList className="h-4 w-4 text-white" />
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
+              <ClipboardList className="h-4 w-4 text-white" />
+            </div>
+            <span className="font-bold text-slate-900 text-base truncate">
+              {empresa?.nome || "LocadoraFácil"}
+            </span>
           </div>
         )}
-        <span className="font-bold text-slate-900 text-base leading-tight truncate">
-          {empresa?.nome || "LocadoraFácil"}
-        </span>
       </div>
 
       {/* Nav */}

@@ -14,9 +14,32 @@ interface HeaderProps {
   breadcrumbs?: BreadcrumbItem[];
 }
 
+interface Me {
+  name: string | null;
+  email: string | null;
+  role: string;
+  empresa: { nome: string; logoUrl: string | null } | null;
+}
+
 export function Header({ breadcrumbs = [] }: HeaderProps) {
   const { data: session } = useSession();
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const [me, setMe] = React.useState<Me | null>(null);
+
+  React.useEffect(() => {
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((d) => setMe(d))
+      .catch(() => {});
+  }, []);
+
+  const nomeUsuario = me?.name || session?.user?.name || "Usuário";
+  const emailUsuario = me?.email || session?.user?.email || "";
+  const nomeEmpresa =
+    me?.empresa?.nome ||
+    (session?.user as { companyName?: string })?.companyName ||
+    "";
+  const inicial = (nomeUsuario || emailUsuario || "U").charAt(0).toUpperCase();
 
   return (
     <header className="fixed top-0 right-0 left-0 md:left-60 h-14 bg-white border-b border-slate-100 flex items-center justify-between pl-14 pr-4 md:px-6 z-20">
@@ -46,25 +69,20 @@ export function Header({ breadcrumbs = [] }: HeaderProps) {
         ))}
       </nav>
 
-      {/* User menu */}
+      {/* Usuário logado */}
       <div className="relative">
         <button
           onClick={() => setMenuOpen((o) => !o)}
           className="flex items-center gap-2 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-colors"
         >
           <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold">
-            {(session?.user?.name || session?.user?.email || "U")
-              .charAt(0)
-              .toUpperCase()}
+            {inicial}
           </div>
           <div className="text-left hidden sm:block">
             <p className="text-sm font-medium text-slate-900 leading-none">
-              {session?.user?.name || "Usuário"}
+              {nomeUsuario}
             </p>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {(session?.user as { companyName?: string })?.companyName ||
-                "Empresa"}
-            </p>
+            <p className="text-xs text-slate-400 mt-0.5">{nomeEmpresa}</p>
           </div>
         </button>
 
@@ -78,26 +96,21 @@ export function Header({ breadcrumbs = [] }: HeaderProps) {
               <div className="px-4 py-3 border-b border-slate-50 bg-slate-50/50">
                 <div className="flex items-center gap-2.5">
                   <div className="h-9 w-9 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
-                    {(session?.user?.name || session?.user?.email || "U")
-                      .charAt(0)
-                      .toUpperCase()}
+                    {inicial}
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-slate-900 truncate flex items-center gap-1.5">
                       <User className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                      {session?.user?.name || "Usuário"}
+                      {nomeUsuario}
                     </p>
-                    <p className="text-xs text-slate-400 truncate">
-                      {session?.user?.email}
-                    </p>
+                    <p className="text-xs text-slate-400 truncate">{emailUsuario}</p>
                   </div>
                 </div>
                 <p className="text-[11px] text-slate-400 mt-2">
-                  {(session?.user as { role?: string })?.role === "ADMIN"
-                    ? "Administrador"
-                    : "Usuário"}
-                  {" · "}
-                  {(session?.user as { companyName?: string })?.companyName || "Empresa"}
+                  {nomeEmpresa}
+                  {me?.role
+                    ? ` · perfil ${me.role === "ADMIN" ? "Administrador" : "Usuário"}`
+                    : ""}
                 </p>
               </div>
               <button
