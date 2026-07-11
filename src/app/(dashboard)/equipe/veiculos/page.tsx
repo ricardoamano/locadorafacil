@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
-import { Plus, Pencil, Trash2, Truck } from "lucide-react";
+import { Plus, Pencil, Trash2, Truck, Copy } from "lucide-react";
 
 interface Veiculo {
   id: string;
@@ -38,6 +38,47 @@ export default function VeiculosPage() {
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+
+  function toggleSelecionado(id: string) {
+    setSelecionados((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return s;
+    });
+  }
+  function toggleTodos() {
+    setSelecionados((prev) =>
+      prev.size === veiculos.length ? new Set() : new Set(veiculos.map((v) => v.id))
+    );
+  }
+  async function copiarSelecionados() {
+    const lista = veiculos.filter((v) => selecionados.has(v.id));
+    if (lista.length === 0) {
+      toast("Selecione ao menos um veículo.", "error");
+      return;
+    }
+    const texto = lista
+      .map((v) =>
+        [
+          v.modelo,
+          v.placa ? `Placa: ${v.placa}` : null,
+          v.ano ? `Ano: ${v.ano}` : null,
+          v.tipo ? `Tipo: ${v.tipo}` : null,
+          v.capacidadeCarga ? `Capacidade: ${v.capacidadeCarga}` : null,
+        ]
+          .filter(Boolean)
+          .join("\n")
+      )
+      .join("\n\n");
+    try {
+      await navigator.clipboard.writeText(texto);
+      toast(`Dados de ${lista.length} veículo(s) copiados!`, "success");
+    } catch {
+      toast("Não foi possível copiar.", "error");
+    }
+  }
 
   const fetchVeiculos = useCallback(async () => {
     setLoading(true);
@@ -105,15 +146,23 @@ export default function VeiculosPage() {
             <h1 className="text-2xl font-bold text-slate-900">Veículos</h1>
             <p className="text-sm text-slate-500 mt-1">Frota para transporte de equipamentos</p>
           </div>
-          <Button
-            onClick={() => {
-              setForm(empty());
-              setModalOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Novo Veículo
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {selecionados.size > 0 && (
+              <Button variant="outline" onClick={copiarSelecionados}>
+                <Copy className="h-4 w-4" />
+                Copiar dados ({selecionados.size})
+              </Button>
+            )}
+            <Button
+              onClick={() => {
+                setForm(empty());
+                setModalOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              Novo Veículo
+            </Button>
+          </div>
         </div>
 
         <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-x-auto">
@@ -130,6 +179,15 @@ export default function VeiculosPage() {
             <table className="w-full min-w-[640px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
+                  <th className="px-4 py-3 w-10">
+                    <input
+                      type="checkbox"
+                      checked={veiculos.length > 0 && selecionados.size === veiculos.length}
+                      onChange={toggleTodos}
+                      title="Selecionar todos os listados"
+                      className="h-4 w-4 rounded cursor-pointer"
+                    />
+                  </th>
                   {["Placa", "Modelo", "Ano", "Tipo", "Capacidade", "Ações"].map((h, i) => (
                     <th
                       key={h}
@@ -145,6 +203,14 @@ export default function VeiculosPage() {
               <tbody className="divide-y divide-slate-50">
                 {veiculos.map((v) => (
                   <tr key={v.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selecionados.has(v.id)}
+                        onChange={() => toggleSelecionado(v.id)}
+                        className="h-4 w-4 rounded cursor-pointer"
+                      />
+                    </td>
                     <td className="px-4 py-3">
                       <span className="text-sm font-mono font-medium text-slate-700">{v.placa}</span>
                     </td>

@@ -10,7 +10,7 @@ import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, Pencil, Trash2, UserCheck } from "lucide-react";
+import { Plus, Pencil, Trash2, UserCheck, Copy } from "lucide-react";
 
 const tipoLabels: Record<string, string> = {
   FUNCIONARIO: "Funcionário",
@@ -53,6 +53,41 @@ export default function MembrosPage() {
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+
+  function toggleSelecionado(id: string) {
+    setSelecionados((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return s;
+    });
+  }
+  function toggleTodos() {
+    setSelecionados((prev) =>
+      prev.size === membros.length ? new Set() : new Set(membros.map((m) => m.id))
+    );
+  }
+  async function copiarSelecionados() {
+    const lista = membros.filter((m) => selecionados.has(m.id));
+    if (lista.length === 0) {
+      toast("Selecione ao menos um membro.", "error");
+      return;
+    }
+    const texto = lista
+      .map((m) =>
+        [m.nome, m.rg ? `RG: ${m.rg}` : null, m.cpf ? `CPF: ${m.cpf}` : null]
+          .filter(Boolean)
+          .join("\n")
+      )
+      .join("\n\n");
+    try {
+      await navigator.clipboard.writeText(texto);
+      toast(`Dados de ${lista.length} membro(s) copiados!`, "success");
+    } catch {
+      toast("Não foi possível copiar.", "error");
+    }
+  }
 
   const fetchMembros = useCallback(async () => {
     setLoading(true);
@@ -140,10 +175,18 @@ export default function MembrosPage() {
               Funcionários, freelancers e técnicos para escalar nos eventos
             </p>
           </div>
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4" />
-            Novo Membro
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {selecionados.size > 0 && (
+              <Button variant="outline" onClick={copiarSelecionados}>
+                <Copy className="h-4 w-4" />
+                Copiar dados ({selecionados.size})
+              </Button>
+            )}
+            <Button onClick={openCreate}>
+              <Plus className="h-4 w-4" />
+              Novo Membro
+            </Button>
+          </div>
         </div>
 
         <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-x-auto">
@@ -164,6 +207,15 @@ export default function MembrosPage() {
             <table className="w-full min-w-[640px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
+                  <th className="px-4 py-3 w-10">
+                    <input
+                      type="checkbox"
+                      checked={membros.length > 0 && selecionados.size === membros.length}
+                      onChange={toggleTodos}
+                      title="Selecionar todos os listados"
+                      className="h-4 w-4 rounded cursor-pointer"
+                    />
+                  </th>
                   {["Nome", "Tipo", "Telefone", "PIX", "Cachê", "Ações"].map((h, i) => (
                     <th
                       key={h}
@@ -179,6 +231,14 @@ export default function MembrosPage() {
               <tbody className="divide-y divide-slate-50">
                 {membros.map((m) => (
                   <tr key={m.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selecionados.has(m.id)}
+                        onChange={() => toggleSelecionado(m.id)}
+                        className="h-4 w-4 rounded cursor-pointer"
+                      />
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="h-9 w-9 rounded-full bg-blue-50 flex items-center justify-center shrink-0 text-blue-700 text-sm font-bold">
