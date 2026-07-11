@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Package,
+  Globe,
 } from "lucide-react";
 
 const tipoLabels: Record<string, string> = {
@@ -31,10 +32,13 @@ interface Item {
   tipo: string;
   quantidade: number;
   emCatalogo: boolean;
+  publicado?: boolean;
+  slug?: string | null;
   categoria: { id: string; nome: string } | null;
 }
 
 export function ItensList() {
+  const [empresaSlug, setEmpresaSlug] = React.useState<string>("");
   const { toast } = useToast();
   const [itens, setItens] = useState<Item[]>([]);
   const [total, setTotal] = useState(0);
@@ -72,6 +76,11 @@ export function ItensList() {
 
   useEffect(() => {
     fetchItens();
+    fetch("/api/empresa")
+      .then((r) => r.json())
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then((d: any) => setEmpresaSlug(d.slug || ""))
+      .catch(() => {});
   }, [fetchItens]);
 
   function handleSearch(e: React.FormEvent) {
@@ -249,6 +258,29 @@ export function ItensList() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
+                      {item.publicado && item.slug && empresaSlug && (
+                        <button
+                          onClick={async () => {
+                            const url = `${window.location.origin}/catalogo/${empresaSlug}/${item.slug}`;
+                            try {
+                              await navigator.clipboard.writeText(url);
+                              toast("Link da página comercial copiado!", "success");
+                            } catch {
+                              window.open(url, "_blank");
+                            }
+                          }}
+                          onDoubleClick={() =>
+                            window.open(
+                              `${window.location.origin}/catalogo/${empresaSlug}/${item.slug}`,
+                              "_blank"
+                            )
+                          }
+                          className="p-1.5 rounded-md text-slate-400 hover:text-green-600 hover:bg-green-50 transition-colors"
+                          title="Página comercial — clique: copiar link · duplo clique: abrir"
+                        >
+                          <Globe className="h-4 w-4" />
+                        </button>
+                      )}
                       <button
                         onClick={() => openEdit(item)}
                         className="p-1.5 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"

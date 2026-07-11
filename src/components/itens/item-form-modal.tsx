@@ -25,6 +25,13 @@ interface ItemFormData {
   quantidade: string;
   especificacoes: string;
   emCatalogo: boolean;
+  publicado: boolean;
+  slug: string;
+  descricaoComercial: string;
+  especificacoesPublicas: string;
+  fotoCapaUrl: string;
+  videoUrl: string;
+  mostrarCodigo: boolean;
   precoManual: boolean;
   valorSemana: string;
   valorQuinzena: string;
@@ -47,6 +54,13 @@ function emptyForm(): ItemFormData {
     quantidade: "",
     especificacoes: "",
     emCatalogo: true,
+    publicado: false,
+    slug: "",
+    descricaoComercial: "",
+    especificacoesPublicas: "",
+    fotoCapaUrl: "",
+    videoUrl: "",
+    mostrarCodigo: false,
     precoManual: false,
     valorSemana: "",
     valorQuinzena: "",
@@ -84,6 +98,13 @@ export function ItemFormModal({
           ...emptyForm(),
           ...initial,
           valorAluguel: initial.valorAluguel != null ? String(initial.valorAluguel) : "",
+          publicado: !!initial.publicado,
+          slug: initial.slug || "",
+          descricaoComercial: initial.descricaoComercial || "",
+          especificacoesPublicas: initial.especificacoesPublicas || "",
+          fotoCapaUrl: initial.fotoCapaUrl || "",
+          videoUrl: initial.videoUrl || "",
+          mostrarCodigo: !!initial.mostrarCodigo,
           precoManual: !!initial.precoManual,
           valorSemana: initial.valorSemana != null ? String(initial.valorSemana) : "",
           valorQuinzena: initial.valorQuinzena != null ? String(initial.valorQuinzena) : "",
@@ -272,6 +293,80 @@ export function ItemFormModal({
               </div>
             );
           })()}
+
+          {/* Apresentação pública (catálogo) */}
+          <div className="border border-slate-100 rounded-lg p-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Página Comercial Pública
+              </p>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.publicado}
+                  onChange={(e) => setField("publicado", e.target.checked)}
+                  className="h-4 w-4 rounded"
+                />
+                <span className="text-xs text-slate-600 font-medium">
+                  {form.publicado ? "Publicado" : "Publicar"}
+                </span>
+              </label>
+            </div>
+            {form.publicado && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Input
+                    label="Slug amigável (URL)"
+                    value={form.slug}
+                    onChange={(e) => setField("slug", e.target.value)}
+                    placeholder="gerado do nome se vazio"
+                  />
+                  <Input
+                    label="Foto de capa (URL)"
+                    value={form.fotoCapaUrl}
+                    onChange={(e) => setField("fotoCapaUrl", e.target.value)}
+                    placeholder="https://.../foto.jpg"
+                  />
+                </div>
+                <Textarea
+                  label="Descrição comercial"
+                  value={form.descricaoComercial}
+                  onChange={(e) => setField("descricaoComercial", e.target.value)}
+                  placeholder="Texto de apresentação para clientes..."
+                  rows={3}
+                />
+                <Textarea
+                  label="Especificações técnicas públicas"
+                  value={form.especificacoesPublicas}
+                  onChange={(e) => setField("especificacoesPublicas", e.target.value)}
+                  placeholder="Potência, dimensões, alcance..."
+                  rows={3}
+                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                  <Input
+                    label="Vídeo demonstrativo (URL)"
+                    value={form.videoUrl}
+                    onChange={(e) => setField("videoUrl", e.target.value)}
+                    placeholder="https://youtube.com/..."
+                  />
+                  <label className="flex items-center gap-2 cursor-pointer pb-2">
+                    <input
+                      type="checkbox"
+                      checked={form.mostrarCodigo}
+                      onChange={(e) => setField("mostrarCodigo", e.target.checked)}
+                      className="h-4 w-4 rounded"
+                    />
+                    <span className="text-sm text-slate-700">
+                      Exibir código comercial na página
+                    </span>
+                  </label>
+                </div>
+                <p className="text-xs text-slate-400">
+                  A página pública nunca exibe preços, estoque ou informações internas.
+                </p>
+              </div>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Select

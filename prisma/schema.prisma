@@ -11,6 +11,7 @@ datasource db {
 model Company {
   id                 String   @id @default(cuid())
   name               String
+  slug               String?  @unique
   razaoSocial        String?
   cnpj               String?
   inscricaoEstadual  String?
@@ -236,6 +237,13 @@ model Item {
   especificacoes String?
   fotos          String       @default("[]")
   emCatalogo     Boolean      @default(true)
+  publicado      Boolean      @default(false)
+  slug           String?
+  descricaoComercial     String?
+  especificacoesPublicas String?
+  fotoCapaUrl    String?
+  videoUrl       String?
+  mostrarCodigo  Boolean      @default(false)
   companyId      String
   company        Company      @relation(fields: [companyId], references: [id])
   createdAt      DateTime     @default(now())
@@ -245,6 +253,8 @@ model Item {
   acessoriosVinc ItemAcessorio[] @relation("ItemAcessorio")
   salaItens      SalaItem[]
   faturaItens    FaturaItem[]
+
+  @@unique([companyId, slug])
 }
 
 model ItemAcessorio {

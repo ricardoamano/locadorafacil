@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { calcularPrecos } from "@/lib/precos";
+import { slugify } from "@/lib/utils";
 
 type SessionUser = { companyId?: string };
 
@@ -37,6 +38,23 @@ export async function PUT(
     descontoMes: empresa?.descontoMes ?? 0,
   });
 
+  // Slug público: gera do nome quando publicado; garante unicidade na empresa
+  let slugFinal: string | null = data.slug ? slugify(String(data.slug)) : null;
+  if (!slugFinal && data.publicado) slugFinal = slugify(String(data.nome || ""));
+  if (slugFinal) {
+    const base = slugFinal;
+    let n = 1;
+    while (
+      await prisma.item.findFirst({
+        where: { companyId, slug: slugFinal, NOT: { id }  },
+        select: { id: true },
+      })
+    ) {
+      n += 1;
+      slugFinal = `${base}-${n}`;
+    }
+  }
+
   const item = await prisma.item.update({
     where: { id },
     data: {
@@ -52,6 +70,13 @@ export async function PUT(
       especificacoes: data.especificacoes || null,
       emCatalogo: data.emCatalogo ?? true,
       categoriaId: data.categoriaId || null,
+      publicado: !!data.publicado,
+      slug: slugFinal,
+      descricaoComercial: data.descricaoComercial || null,
+      especificacoesPublicas: data.especificacoesPublicas || null,
+      fotoCapaUrl: data.fotoCapaUrl || null,
+      videoUrl: data.videoUrl || null,
+      mostrarCodigo: !!data.mostrarCodigo,
     },
   });
 
