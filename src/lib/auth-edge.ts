@@ -4,6 +4,7 @@ import Credentials from "next-auth/providers/credentials";
 // Lightweight auth for Edge Runtime (middleware) - no database calls
 export const { auth: authEdge } = NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
+  trustHost: true,
   session: { strategy: "jwt" },
   providers: [
     Credentials({
