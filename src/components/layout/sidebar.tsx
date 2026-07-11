@@ -230,18 +230,31 @@ function NavItem({ item }: { item: NavEntry }) {
 function SidebarContent({
   onNavigate,
   items,
+  empresa,
 }: {
   onNavigate?: () => void;
   items: NavEntry[];
+  empresa: { nome: string; logoUrl: string | null } | null;
 }) {
   return (
     <>
-      {/* Logo */}
-      <div className="flex items-center gap-2 px-4 py-4 border-b border-slate-100">
-        <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
-          <ClipboardList className="h-4 w-4 text-white" />
-        </div>
-        <span className="font-bold text-slate-900 text-lg">LocadoraFácil</span>
+      {/* Logo da empresa do usuário logado */}
+      <div className="flex items-center gap-2.5 px-4 py-4 border-b border-slate-100 min-h-[65px]">
+        {empresa?.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={empresa.logoUrl}
+            alt={empresa.nome}
+            className="h-9 w-9 rounded-lg object-contain bg-white shrink-0"
+          />
+        ) : (
+          <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
+            <ClipboardList className="h-4 w-4 text-white" />
+          </div>
+        )}
+        <span className="font-bold text-slate-900 text-base leading-tight truncate">
+          {empresa?.nome || "LocadoraFácil"}
+        </span>
       </div>
 
       {/* Nav */}
@@ -268,6 +281,7 @@ function SidebarContent({
 export function Sidebar() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [items, setItems] = React.useState<NavEntry[]>(navItems);
+  const [empresa, setEmpresa] = React.useState<{ nome: string; logoUrl: string | null } | null>(null);
   const pathname = usePathname();
 
   React.useEffect(() => {
@@ -282,6 +296,7 @@ export function Sidebar() {
             me.modulos || null
           )
         );
+        if (me.empresa) setEmpresa(me.empresa);
       })
       .catch(() => setItems(navItems));
   }, []);
@@ -304,7 +319,7 @@ export function Sidebar() {
 
       {/* Sidebar fixa — desktop */}
       <aside className="hidden md:flex fixed left-0 top-0 h-screen w-60 border-r border-slate-100 bg-white flex-col z-30">
-        <SidebarContent items={items} />
+        <SidebarContent items={items} empresa={empresa} />
       </aside>
 
       {/* Drawer — mobile */}
@@ -322,7 +337,7 @@ export function Sidebar() {
             >
               <X className="h-5 w-5" />
             </button>
-            <SidebarContent items={items} onNavigate={() => setMobileOpen(false)} />
+            <SidebarContent items={items} empresa={empresa} onNavigate={() => setMobileOpen(false)} />
           </aside>
         </div>
       )}

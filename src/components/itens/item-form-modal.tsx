@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { ImageUpload } from "@/components/ui/image-upload";
 import { useToast } from "@/components/ui/toast";
 import { calcularPrecos, POLITICA_PADRAO, type PoliticaPrecos } from "@/lib/precos";
 import { formatCurrency } from "@/lib/utils";
@@ -340,11 +341,10 @@ export function ItemFormModal({
                     onChange={(e) => setField("slug", e.target.value)}
                     placeholder="gerado do nome se vazio"
                   />
-                  <Input
-                    label="Foto de capa (URL)"
+                  <ImageUpload
+                    label="Foto de capa"
                     value={form.fotoCapaUrl}
-                    onChange={(e) => setField("fotoCapaUrl", e.target.value)}
-                    placeholder="https://.../foto.jpg"
+                    onChange={(url) => setField("fotoCapaUrl", url)}
                   />
                 </div>
                 <Textarea

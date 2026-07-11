@@ -624,6 +624,17 @@ model MetodoPagamento {
   updatedAt DateTime @updatedAt
 }
 
+// Arquivos enviados (imagens de logo, fotos de itens etc.)
+model Arquivo {
+  id        String   @id @default(cuid())
+  nome      String
+  mime      String
+  tamanho   Int
+  dados     Bytes
+  companyId String
+  createdAt DateTime @default(now())
+}
+
 // Bancos/contas da empresa para o fluxo de caixa
 model Banco {
   id        String   @id @default(cuid())

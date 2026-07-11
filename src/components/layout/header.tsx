@@ -52,10 +52,12 @@ export function Header({ breadcrumbs = [] }: HeaderProps) {
           onClick={() => setMenuOpen((o) => !o)}
           className="flex items-center gap-2 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-colors"
         >
-          <div className="h-7 w-7 rounded-full bg-blue-600 flex items-center justify-center">
-            <User className="h-4 w-4 text-white" />
+          <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold">
+            {(session?.user?.name || session?.user?.email || "U")
+              .charAt(0)
+              .toUpperCase()}
           </div>
-          <div className="text-left">
+          <div className="text-left hidden sm:block">
             <p className="text-sm font-medium text-slate-900 leading-none">
               {session?.user?.name || "Usuário"}
             </p>
@@ -72,13 +74,38 @@ export function Header({ breadcrumbs = [] }: HeaderProps) {
               className="fixed inset-0 z-10"
               onClick={() => setMenuOpen(false)}
             />
-            <div className="absolute right-0 top-full mt-1 w-48 rounded-lg border border-slate-100 bg-white shadow-lg z-20">
+            <div className="absolute right-0 top-full mt-1 w-64 rounded-lg border border-slate-100 bg-white shadow-lg z-20 overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-50 bg-slate-50/50">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-9 w-9 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
+                    {(session?.user?.name || session?.user?.email || "U")
+                      .charAt(0)
+                      .toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 truncate flex items-center gap-1.5">
+                      <User className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                      {session?.user?.name || "Usuário"}
+                    </p>
+                    <p className="text-xs text-slate-400 truncate">
+                      {session?.user?.email}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-2">
+                  {(session?.user as { role?: string })?.role === "ADMIN"
+                    ? "Administrador"
+                    : "Usuário"}
+                  {" · "}
+                  {(session?.user as { companyName?: string })?.companyName || "Empresa"}
+                </p>
+              </div>
               <button
                 onClick={() => signOut({ callbackUrl: "/login" })}
-                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 rounded-lg"
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
               >
                 <LogOut className="h-4 w-4" />
-                Sair
+                Sair da conta
               </button>
             </div>
           </>

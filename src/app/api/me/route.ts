@@ -16,12 +16,14 @@ export async function GET() {
   const u = session.user as SessionUser;
 
   let menuConfig = null;
+  let empresaInfo: { nome: string; logoUrl: string | null } | null = null;
   if (u.companyId) {
     const empresa = await prisma.company.findUnique({
       where: { id: u.companyId },
-      select: { menuConfig: true, name: true },
+      select: { menuConfig: true, name: true, logoUrl: true },
     });
     menuConfig = empresa?.menuConfig ?? null;
+    if (empresa) empresaInfo = { nome: empresa.name, logoUrl: empresa.logoUrl };
   }
 
   return NextResponse.json({
@@ -31,5 +33,6 @@ export async function GET() {
     isOwner: !!u.isOwner,
     modulos: u.modulos ?? null,
     menuConfig,
+    empresa: empresaInfo,
   });
 }

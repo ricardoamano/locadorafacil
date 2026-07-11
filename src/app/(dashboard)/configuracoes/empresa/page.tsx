@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { ImageUpload } from "@/components/ui/image-upload";
 import { fetchAddressByCEP, formatCEP } from "@/lib/utils";
 import { Loader2, Building2, Landmark, ReceiptText } from "lucide-react";
 
@@ -141,7 +142,12 @@ export default function EmpresaConfigPage() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Input label="Responsável pela Empresa" value={form.responsavel} onChange={(e) => set("responsavel", e.target.value)} />
-                  <Input label="URL do Logotipo" value={form.logoUrl} onChange={(e) => set("logoUrl", e.target.value)} placeholder="https://.../logo.png" />
+                  <ImageUpload
+                    label="Logotipo da Empresa"
+                    value={form.logoUrl}
+                    onChange={(url) => set("logoUrl", url)}
+                    hint="Aparece no menu, nas faturas e no catálogo. JPG, PNG, WEBP ou SVG — até 3 MB."
+                  />
                 </div>
               </div>
             </section>
