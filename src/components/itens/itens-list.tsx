@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ItemFormModal } from "./item-form-modal";
+import { EtiquetaQrModal } from "./etiqueta-qr-modal";
 import { useToast } from "@/components/ui/toast";
 import { formatCurrency } from "@/lib/utils";
 import {
@@ -16,6 +17,7 @@ import {
   ChevronRight,
   Package,
   Globe,
+  QrCode,
 } from "lucide-react";
 
 const tipoLabels: Record<string, string> = {
@@ -44,8 +46,14 @@ export function ItensList() {
   const [itens, setItens] = useState<Item[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [searchInput, setSearchInput] = useState("");
+  // Se veio de um QR code escaneado (?search=CODIGO), já abre filtrado no item
+  const buscaInicial =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("search") || ""
+      : "";
+  const [search, setSearch] = useState(buscaInicial);
+  const [searchInput, setSearchInput] = useState(buscaInicial);
+  const [etiquetaItem, setEtiquetaItem] = useState<Item | null>(null);
   const [view, setView] = useState<"todos" | "catalogo">("todos");
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -290,6 +298,13 @@ export function ItensList() {
                         </button>
                       )}
                       <button
+                        onClick={() => setEtiquetaItem(item)}
+                        className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                        title="Etiqueta QR code"
+                      >
+                        <QrCode className="h-4 w-4" />
+                      </button>
+                      <button
                         onClick={() => openEdit(item)}
                         className="p-1.5 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                         title="Editar"
@@ -353,6 +368,12 @@ export function ItensList() {
         onConfirm={handleDelete}
         loading={deleteLoading}
         message="Deseja realmente excluir este item? Esta ação não pode ser desfeita."
+      />
+
+      <EtiquetaQrModal
+        open={!!etiquetaItem}
+        onClose={() => setEtiquetaItem(null)}
+        item={etiquetaItem}
       />
     </div>
   );

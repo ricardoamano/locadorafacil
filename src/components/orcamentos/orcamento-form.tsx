@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
+import { LocalFormModal } from "@/components/locais/local-form-modal";
+import { ContactFormModal } from "@/components/contacts/contact-form-modal";
+import { ItemFormModal } from "@/components/itens/item-form-modal";
 import { formatCurrency } from "@/lib/utils";
 import {
   ChevronDown,
@@ -170,19 +172,8 @@ export function OrcamentoForm({
   const [pagamentoOptions, setPagamentoOptions] = useState(pagamentoFallback);
   const [tiposEvento, setTiposEvento] = useState<string[]>([]);
   const [novoLocalOpen, setNovoLocalOpen] = useState(false);
-  const [novoLocal, setNovoLocal] = useState({ nome: "", rua: "", cidade: "", observacoes: "" });
-  const [salvandoLocal, setSalvandoLocal] = useState(false);
   const [novoClienteOpen, setNovoClienteOpen] = useState(false);
-  const [novoCliente, setNovoCliente] = useState({
-    razaoSocial: "", cnpj: "", email: "", telefone: "", rua: "", cidade: "",
-  });
-  const [salvandoCliente, setSalvandoCliente] = useState(false);
   const [novoItemAlvo, setNovoItemAlvo] = useState<{ si: number; ii: number } | null>(null);
-  const [novoItem, setNovoItem] = useState({
-    codigo: "", nome: "", descricaoComercial: "", categoriaId: "", valor: "", especificacoes: "",
-  });
-  const [salvandoItem, setSalvandoItem] = useState(false);
-  const [categorias, setCategorias] = useState<{ id: string; nome: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState<Record<string, boolean>>({
     cliente: true,
@@ -217,10 +208,6 @@ export function OrcamentoForm({
     fetch("/api/tipos-evento")
       .then((r) => r.json())
       .then((d) => setTiposEvento(d.tipos || []))
-      .catch(() => {});
-    fetch("/api/categorias")
-      .then((r) => r.json())
-      .then((d) => setCategorias(d.categorias || d || []))
       .catch(() => {});
   }, []);
 
@@ -299,133 +286,34 @@ export function OrcamentoForm({
     set("salas", salas);
   }
 
-  async function salvarNovoLocal() {
-    if (!novoLocal.nome.trim()) {
-      toast("Informe o nome do local.", "error");
-      return;
-    }
-    setSalvandoLocal(true);
-    try {
-      const res = await fetch("/api/locais", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(novoLocal),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        toast(data.error || "Erro ao criar local.", "error");
-        return;
-      }
-      setLocais((prev) => [...prev, { id: data.id, nome: data.nome }]);
-      set("localId", data.id);
-      setNovoLocalOpen(false);
-      setNovoLocal({ nome: "", rua: "", cidade: "", observacoes: "" });
-      toast("Local criado e selecionado no orçamento!", "success");
-    } catch {
-      toast("Erro ao criar local.", "error");
-    } finally {
-      setSalvandoLocal(false);
-    }
+  // Handlers dos cadastros rápidos (formulários completos dos módulos)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function onLocalCriado(l?: any) {
+    if (!l?.id) return;
+    setLocais((prev) => [...prev, { id: l.id, nome: l.nome }]);
+    set("localId", l.id);
+    toast("Local selecionado no orçamento.", "success");
   }
 
-  async function salvarNovoCliente() {
-    if (!novoCliente.razaoSocial.trim()) {
-      toast("Informe a razão social ou nome do cliente.", "error");
-      return;
-    }
-    if (novoCliente.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(novoCliente.email.trim())) {
-      toast("E-mail inválido.", "error");
-      return;
-    }
-    setSalvandoCliente(true);
-    try {
-      const temContato = novoCliente.email.trim() || novoCliente.telefone.trim();
-      const res = await fetch("/api/contacts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "CLIENTE",
-          razaoSocial: novoCliente.razaoSocial.trim(),
-          nomeFantasia: novoCliente.razaoSocial.trim(),
-          cnpj: novoCliente.cnpj.trim() || null,
-          rua: novoCliente.rua.trim() || null,
-          cidade: novoCliente.cidade.trim() || null,
-          subContacts: temContato
-            ? [
-                {
-                  nome: novoCliente.razaoSocial.trim(),
-                  email: novoCliente.email.trim() || null,
-                  telefone: novoCliente.telefone.trim() || null,
-                },
-              ]
-            : undefined,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        toast(data.error || "Erro ao criar cliente.", "error");
-        return;
-      }
-      setClientes((prev) => [...prev, { id: data.id, nomeFantasia: data.nomeFantasia }]);
-      set("clienteId", data.id);
-      setNovoClienteOpen(false);
-      setNovoCliente({ razaoSocial: "", cnpj: "", email: "", telefone: "", rua: "", cidade: "" });
-      toast("Cliente criado e selecionado no orçamento!", "success");
-    } catch {
-      toast("Erro ao criar cliente.", "error");
-    } finally {
-      setSalvandoCliente(false);
-    }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function onClienteCriado(c?: any) {
+    if (!c?.id) return;
+    setClientes((prev) => [...prev, { id: c.id, nomeFantasia: c.nomeFantasia || c.razaoSocial }]);
+    set("clienteId", c.id);
+    toast("Cliente selecionado no orçamento.", "success");
   }
 
-  async function salvarNovoItem() {
-    if (!novoItem.codigo.trim() || !novoItem.nome.trim() || !novoItem.categoriaId || !novoItem.valor.trim()) {
-      toast("Preencha código, nome, categoria e valor padrão.", "error");
-      return;
-    }
-    // Aceita vírgula ou ponto como separador decimal (ex.: 350,00 / 350.00 / 1.234,56)
-    const valorTxt = novoItem.valor.trim();
-    const valor = valorTxt.includes(",")
-      ? parseFloat(valorTxt.replace(/\./g, "").replace(",", "."))
-      : parseFloat(valorTxt);
-    if (!valor || valor <= 0) {
-      toast("Valor padrão inválido.", "error");
-      return;
-    }
-    setSalvandoItem(true);
-    try {
-      const res = await fetch("/api/itens", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          codigo: novoItem.codigo.trim(),
-          nome: novoItem.nome.trim(),
-          descricaoComercial: novoItem.descricaoComercial.trim() || null,
-          categoriaId: novoItem.categoriaId,
-          valorAluguel: valor,
-          especificacoes: novoItem.especificacoes.trim() || null,
-        }),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function onItemCriado(i?: any) {
+    if (!i?.id) return;
+    setItens((prev) => [...prev, i]);
+    if (novoItemAlvo) {
+      setSalaItem(novoItemAlvo.si, novoItemAlvo.ii, {
+        itemId: i.id,
+        valorUnitario: i.valorAluguel || 0,
+        descricaoComercial: i.descricaoComercial || "",
       });
-      const data = await res.json();
-      if (!res.ok) {
-        toast(data.error || "Erro ao criar item.", "error");
-        return;
-      }
-      setItens((prev) => [...prev, data]);
-      if (novoItemAlvo) {
-        setSalaItem(novoItemAlvo.si, novoItemAlvo.ii, {
-          itemId: data.id,
-          valorUnitario: data.valorAluguel || valor,
-          descricaoComercial: data.descricaoComercial || "",
-        });
-      }
-      setNovoItemAlvo(null);
-      setNovoItem({ codigo: "", nome: "", descricaoComercial: "", categoriaId: "", valor: "", especificacoes: "" });
-      toast("Item criado e selecionado no orçamento!", "success");
-    } catch {
-      toast("Erro ao criar item.", "error");
-    } finally {
-      setSalvandoItem(false);
+      toast("Item selecionado na linha do orçamento.", "success");
     }
   }
 
@@ -830,183 +718,23 @@ export function OrcamentoForm({
         />
       </Section>
 
-      {/* Modal de cadastro rápido de local */}
-      <Modal
+      {/* Cadastros rápidos — mesmos formulários dos módulos */}
+      <LocalFormModal
         open={novoLocalOpen}
         onClose={() => setNovoLocalOpen(false)}
-        title="Novo Local"
-      >
-        <ModalBody>
-          <div className="space-y-3">
-            <Input
-              label="Nome do Local *"
-              value={novoLocal.nome}
-              onChange={(e) => setNovoLocal((p) => ({ ...p, nome: e.target.value }))}
-              placeholder="Ex: Centro de Convenções Rebouças"
-            />
-            <Input
-              label="Endereço"
-              value={novoLocal.rua}
-              onChange={(e) => setNovoLocal((p) => ({ ...p, rua: e.target.value }))}
-              placeholder="Rua, número"
-            />
-            <Input
-              label="Cidade"
-              value={novoLocal.cidade}
-              onChange={(e) => setNovoLocal((p) => ({ ...p, cidade: e.target.value }))}
-            />
-            <Textarea
-              label="Observações"
-              value={novoLocal.observacoes}
-              onChange={(e) => setNovoLocal((p) => ({ ...p, observacoes: e.target.value }))}
-              rows={2}
-            />
-            <p className="text-xs text-slate-400">
-              O local será criado e selecionado automaticamente neste orçamento. Você pode
-              completar os demais dados depois em Cadastros → Locais.
-            </p>
-          </div>
-        </ModalBody>
-        <ModalFooter>
-          <Button variant="outline" onClick={() => setNovoLocalOpen(false)} disabled={salvandoLocal}>
-            Cancelar
-          </Button>
-          <Button onClick={salvarNovoLocal} loading={salvandoLocal}>
-            Criar e selecionar
-          </Button>
-        </ModalFooter>
-      </Modal>
-
-      {/* Modal de cadastro rápido de cliente */}
-      <Modal
+        onSuccess={onLocalCriado}
+      />
+      <ContactFormModal
         open={novoClienteOpen}
         onClose={() => setNovoClienteOpen(false)}
-        title="Novo Cliente"
-      >
-        <ModalBody>
-          <div className="space-y-3">
-            <Input
-              label="Razão Social / Nome *"
-              value={novoCliente.razaoSocial}
-              onChange={(e) => setNovoCliente((p) => ({ ...p, razaoSocial: e.target.value }))}
-              placeholder="Ex: Eventos Brasil Ltda"
-            />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Input
-                label="CNPJ / CPF"
-                value={novoCliente.cnpj}
-                onChange={(e) => setNovoCliente((p) => ({ ...p, cnpj: e.target.value }))}
-              />
-              <Input
-                label="Telefone"
-                value={novoCliente.telefone}
-                onChange={(e) => setNovoCliente((p) => ({ ...p, telefone: e.target.value }))}
-                placeholder="(11) 99999-9999"
-              />
-            </div>
-            <Input
-              label="E-mail"
-              type="email"
-              value={novoCliente.email}
-              onChange={(e) => setNovoCliente((p) => ({ ...p, email: e.target.value }))}
-            />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Input
-                label="Endereço"
-                value={novoCliente.rua}
-                onChange={(e) => setNovoCliente((p) => ({ ...p, rua: e.target.value }))}
-                placeholder="Rua, número"
-              />
-              <Input
-                label="Cidade"
-                value={novoCliente.cidade}
-                onChange={(e) => setNovoCliente((p) => ({ ...p, cidade: e.target.value }))}
-              />
-            </div>
-            <p className="text-xs text-slate-400">
-              O cliente será criado e selecionado automaticamente neste orçamento. Complete os
-              demais dados depois em Cadastros → Clientes.
-            </p>
-          </div>
-        </ModalBody>
-        <ModalFooter>
-          <Button variant="outline" onClick={() => setNovoClienteOpen(false)} disabled={salvandoCliente}>
-            Cancelar
-          </Button>
-          <Button onClick={salvarNovoCliente} loading={salvandoCliente}>
-            Criar e selecionar
-          </Button>
-        </ModalFooter>
-      </Modal>
-
-      {/* Modal de cadastro rápido de item */}
-      <Modal
+        onSuccess={onClienteCriado}
+        type="CLIENTE"
+      />
+      <ItemFormModal
         open={novoItemAlvo !== null}
         onClose={() => setNovoItemAlvo(null)}
-        title="Novo Item"
-      >
-        <ModalBody>
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <Input
-                label="Código / SKU *"
-                value={novoItem.codigo}
-                onChange={(e) => setNovoItem((p) => ({ ...p, codigo: e.target.value }))}
-                placeholder="Ex: #336-1"
-              />
-              <div className="sm:col-span-2">
-                <Input
-                  label="Nome do Item *"
-                  value={novoItem.nome}
-                  onChange={(e) => setNovoItem((p) => ({ ...p, nome: e.target.value }))}
-                  placeholder="Ex: Caixa de Som Line Array"
-                />
-              </div>
-            </div>
-            <Input
-              label="Descrição Comercial"
-              value={novoItem.descricaoComercial}
-              onChange={(e) =>
-                setNovoItem((p) => ({ ...p, descricaoComercial: e.target.value.slice(0, 100) }))
-              }
-              placeholder="Ex: Caixa de som para retorno de palco"
-            />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Select
-                label="Categoria *"
-                value={novoItem.categoriaId}
-                onChange={(e) => setNovoItem((p) => ({ ...p, categoriaId: e.target.value }))}
-                options={categorias.map((c) => ({ value: c.id, label: c.nome }))}
-                placeholder="Selecione"
-              />
-              <Input
-                label="Valor Padrão (diária) *"
-                value={novoItem.valor}
-                onChange={(e) => setNovoItem((p) => ({ ...p, valor: e.target.value }))}
-                placeholder="Ex: 350,00"
-              />
-            </div>
-            <Textarea
-              label="Observações"
-              value={novoItem.especificacoes}
-              onChange={(e) => setNovoItem((p) => ({ ...p, especificacoes: e.target.value }))}
-              rows={2}
-            />
-            <p className="text-xs text-slate-400">
-              O item será criado e selecionado automaticamente na linha do orçamento. O código não
-              pode repetir um item já cadastrado.
-            </p>
-          </div>
-        </ModalBody>
-        <ModalFooter>
-          <Button variant="outline" onClick={() => setNovoItemAlvo(null)} disabled={salvandoItem}>
-            Cancelar
-          </Button>
-          <Button onClick={salvarNovoItem} loading={salvandoItem}>
-            Criar e selecionar
-          </Button>
-        </ModalFooter>
-      </Modal>
+        onSuccess={onItemCriado}
+      />
 
       {/* Actions */}
       <div className="flex items-center justify-end gap-3 pt-2">

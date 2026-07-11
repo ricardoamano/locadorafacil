@@ -75,7 +75,8 @@ function emptyForm(type: "CLIENTE" | "FORNECEDOR"): ContactFormData {
 interface ContactFormModalProps {
   open: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onSuccess: (created?: any) => void;
   type: "CLIENTE" | "FORNECEDOR";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   initial?: any;
@@ -155,13 +156,14 @@ export function ContactFormModal({
         body: JSON.stringify(form),
       });
       if (!res.ok) throw new Error("Erro ao salvar");
+      const data = await res.json();
       toast(
         form.id
           ? `${type === "CLIENTE" ? "Cliente" : "Fornecedor"} atualizado com sucesso!`
           : `${type === "CLIENTE" ? "Cliente" : "Fornecedor"} criado com sucesso!`,
         "success"
       );
-      onSuccess();
+      onSuccess(data);
       onClose();
     } catch {
       toast("Erro ao salvar. Tente novamente.", "error");

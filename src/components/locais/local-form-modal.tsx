@@ -49,7 +49,8 @@ function emptyForm(): LocalFormData {
 interface LocalFormModalProps {
   open: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onSuccess: (created?: any) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   initial?: any;
 }
@@ -134,11 +135,12 @@ export function LocalFormModal({
         body: JSON.stringify(form),
       });
       if (!res.ok) throw new Error("Erro ao salvar");
+      const data = await res.json();
       toast(
         form.id ? "Local atualizado com sucesso!" : "Local criado com sucesso!",
         "success"
       );
-      onSuccess();
+      onSuccess(data);
       onClose();
     } catch {
       toast("Erro ao salvar. Tente novamente.", "error");
