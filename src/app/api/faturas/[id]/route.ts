@@ -10,6 +10,14 @@ async function getCompanyId() {
   return (session.user as SessionUser).companyId ?? null;
 }
 
+type ItemInput = {
+  itemId?: string | null;
+  descricao: string;
+  periodo?: string;
+  quantidade?: number;
+  valorUnitario?: number;
+};
+
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -23,21 +31,72 @@ export async function PUT(
   const existing = await prisma.fatura.findFirst({ where: { id, companyId } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const fatura = await prisma.fatura.update({
-    where: { id },
-    data: {
-      isPostoServico: !!body.isPostoServico,
-      orcamentoId: body.orcamentoId || null,
-      clienteId: body.clienteId || null,
-      clienteNome: body.clienteNome,
-      mesRef: body.mesRef || "",
-      dataEmissao: body.dataEmissao ? new Date(body.dataEmissao) : existing.dataEmissao,
-      dataVencimento: body.dataVencimento
-        ? new Date(body.dataVencimento)
-        : existing.dataVencimento,
-      valor: Number(body.valor) || 0,
-      descritivo: body.descritivo || null,
-    },
+  // Fatura emitida é imutável (7.2)
+  if (existing.snapshot)
+    return NextResponse.json(
+      { error: "Fatura já emitida não pode ser alterada" },
+      { status: 400 }
+    );
+
+  const itens: ItemInput[] = (body.itens || []).filter(
+    (i: ItemInput) => i.descricao?.trim()
+  );
+  const totalItens = itens.reduce(
+    (acc, i) => acc + (Number(i.quantidade) || 1) * (Number(i.valorUnitario) || 0),
+    0
+  );
+  const valor = itens.length > 0 ? totalItens : Number(body.valor) || 0;
+
+  const fatura = await prisma.$transaction(async (tx) => {
+    await tx.faturaItem.deleteMany({ where: { faturaId: id } });
+    const atualizada = await tx.fatura.update({
+      where: { id },
+      data: {
+        isPostoServico:
+          body.tipoDestinatario === "POSTO" || !!body.isPostoServico,
+        tipoDestinatario:
+          body.tipoDestinatario === "POSTO" ? "POSTO" : "CLIENTE",
+        justificativa: body.justificativa || null,
+        orcamentoId: body.orcamentoId || null,
+        clienteId: body.clienteId || null,
+        clienteNome: body.clienteNome,
+        mesRef: body.mesRef || "",
+        dataEmissao: body.dataEmissao
+          ? new Date(body.dataEmissao)
+          : existing.dataEmissao,
+        dataVencimento: body.dataVencimento
+          ? new Date(body.dataVencimento)
+          : existing.dataVencimento,
+        valor,
+        descritivo: body.descritivo || null,
+        itens: {
+          create: itens.map((i) => ({
+            itemId: i.itemId || null,
+            descricao: i.descricao.trim(),
+            periodo: i.periodo || "DIARIA",
+            quantidade: Number(i.quantidade) || 1,
+            valorUnitario: Number(i.valorUnitario) || 0,
+            subtotal:
+              (Number(i.quantidade) || 1) * (Number(i.valorUnitario) || 0),
+          })),
+        },
+      },
+      include: { itens: true },
+    });
+
+    // Mantém a receita vinculada sincronizada enquanto a fatura não foi emitida
+    const receita = await tx.transacao.findFirst({ where: { faturaId: id } });
+    if (receita && receita.status === "PENDENTE") {
+      await tx.transacao.update({
+        where: { id: receita.id },
+        data: {
+          valor,
+          nome: `Fatura #${existing.numero} — ${body.clienteNome || existing.clienteNome}`,
+        },
+      });
+    }
+
+    return atualizada;
   });
 
   return NextResponse.json(fatura);
@@ -53,6 +112,12 @@ export async function DELETE(
   const { id } = await params;
   const existing = await prisma.fatura.findFirst({ where: { id, companyId } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  if (existing.snapshot)
+    return NextResponse.json(
+      { error: "Fatura já emitida não pode ser excluída (registro auditável)" },
+      { status: 400 }
+    );
 
   await prisma.fatura.delete({ where: { id } });
   return NextResponse.json({ success: true });

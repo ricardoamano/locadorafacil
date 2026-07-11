@@ -244,6 +244,7 @@ model Item {
   acessoriosBase ItemAcessorio[] @relation("ItemBase")
   acessoriosVinc ItemAcessorio[] @relation("ItemAcessorio")
   salaItens      SalaItem[]
+  faturaItens    FaturaItem[]
 }
 
 model ItemAcessorio {
@@ -427,6 +428,8 @@ model Transacao {
   categoria       Categoria? @relation(fields: [categoriaId], references: [id])
   orcamentoId     String?
   orcamento       Orcamento? @relation(fields: [orcamentoId], references: [id])
+  faturaId        String?
+  fatura          Fatura?   @relation(fields: [faturaId], references: [id])
   valor           Float
   observacao      String?
   notaFiscal      Boolean   @default(false)
@@ -438,11 +441,14 @@ model Transacao {
 }
 
 model Fatura {
-  id             String    @id @default(cuid())
-  numero         Int
-  snapshot       Json?
-  emitidaEm      DateTime?
-  emitidaPor     String?
+  id               String    @id @default(cuid())
+  numero           Int
+  snapshot         Json?
+  emitidaEm        DateTime?
+  emitidaPor       String?
+  tipoDestinatario String    @default("CLIENTE")
+  origem           String    @default("ORCAMENTO")
+  justificativa    String?
   isPostoServico Boolean   @default(false)
   orcamentoId    String?
   orcamento      Orcamento? @relation(fields: [orcamentoId], references: [id])
@@ -458,6 +464,22 @@ model Fatura {
   company        Company   @relation(fields: [companyId], references: [id])
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+
+  itens      FaturaItem[]
+  transacoes Transacao[]
+}
+
+model FaturaItem {
+  id            String  @id @default(cuid())
+  faturaId      String
+  fatura        Fatura  @relation(fields: [faturaId], references: [id], onDelete: Cascade)
+  itemId        String?
+  item          Item?   @relation(fields: [itemId], references: [id])
+  descricao     String
+  periodo       String  @default("DIARIA")
+  quantidade    Int     @default(1)
+  valorUnitario Float   @default(0)
+  subtotal      Float   @default(0)
 }
 
 // ── Tarefas ───────────────────────────────────────────────────────────────────

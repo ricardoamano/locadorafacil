@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type") || "CLIENTE";
+  const postos = searchParams.get("postos") === "1";
   const search = searchParams.get("search") || "";
   const page = parseInt(searchParams.get("page") || "1");
   const limit = parseInt(searchParams.get("limit") || "20");
@@ -21,6 +22,7 @@ export async function GET(req: NextRequest) {
   const where = {
     companyId,
     type,
+    ...(postos ? { isPostoServico: true } : {}),
     ...(search
       ? {
           OR: [

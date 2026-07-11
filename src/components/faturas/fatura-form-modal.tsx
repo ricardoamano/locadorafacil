@@ -7,6 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { formatCurrency } from "@/lib/utils";
+import { Plus, Trash2 } from "lucide-react";
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 interface OrcamentoOpt {
   id: string;
@@ -16,10 +20,35 @@ interface OrcamentoOpt {
   cliente?: { id: string; nomeFantasia: string };
 }
 
+interface PostoOpt {
+  id: string;
+  nomeFantasia: string;
+  razaoSocial: string;
+  cnpj: string | null;
+}
+
+interface ItemOpt {
+  id: string;
+  nome: string;
+  codigo: string;
+  valorAluguel: number;
+  valorSemana: number | null;
+  valorQuinzena: number | null;
+  valorMes: number | null;
+}
+
+interface LinhaItem {
+  itemId: string;
+  descricao: string;
+  periodo: string;
+  quantidade: number;
+  valorUnitario: number;
+}
+
 interface FaturaFormData {
   id?: string;
   numero?: number;
-  isPostoServico: boolean;
+  tipoDestinatario: string;
   orcamentoId: string;
   clienteId: string;
   clienteNome: string;
@@ -28,11 +57,34 @@ interface FaturaFormData {
   dataVencimento: string;
   valor: string;
   descritivo: string;
+  justificativa: string;
+  itens: LinhaItem[];
+}
+
+const periodoOptions = [
+  { value: "DIARIA", label: "Diária" },
+  { value: "SEMANA", label: "Semana" },
+  { value: "QUINZENA", label: "Quinzena" },
+  { value: "MES", label: "Mês" },
+];
+
+function precoDoPeriodo(item: ItemOpt | undefined, periodo: string): number {
+  if (!item) return 0;
+  switch (periodo) {
+    case "SEMANA":
+      return item.valorSemana ?? item.valorAluguel;
+    case "QUINZENA":
+      return item.valorQuinzena ?? item.valorAluguel;
+    case "MES":
+      return item.valorMes ?? item.valorAluguel;
+    default:
+      return item.valorAluguel;
+  }
 }
 
 function emptyForm(): FaturaFormData {
   return {
-    isPostoServico: false,
+    tipoDestinatario: "CLIENTE",
     orcamentoId: "",
     clienteId: "",
     clienteNome: "",
@@ -41,6 +93,8 @@ function emptyForm(): FaturaFormData {
     dataVencimento: "",
     valor: "",
     descritivo: "",
+    justificativa: "",
+    itens: [],
   };
 }
 
@@ -48,7 +102,6 @@ interface FaturaFormModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   initial?: any;
 }
 
@@ -61,16 +114,17 @@ export function FaturaFormModal({
   const { toast } = useToast();
   const [form, setForm] = useState<FaturaFormData>(emptyForm());
   const [orcamentos, setOrcamentos] = useState<OrcamentoOpt[]>([]);
+  const [postos, setPostos] = useState<PostoOpt[]>([]);
+  const [itensCatalogo, setItensCatalogo] = useState<ItemOpt[]>([]);
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<Partial<Record<keyof FaturaFormData, string>>>({});
 
   useEffect(() => {
     if (open) {
-      setErrors({});
       if (initial) {
         setForm({
           ...emptyForm(),
           ...initial,
+          tipoDestinatario: initial.tipoDestinatario || "CLIENTE",
           orcamentoId: initial.orcamentoId || "",
           clienteId: initial.clienteId || "",
           mesRef: initial.mesRef || "",
@@ -80,6 +134,14 @@ export function FaturaFormModal({
             : "",
           valor: initial.valor != null ? String(initial.valor) : "",
           descritivo: initial.descritivo || "",
+          justificativa: initial.justificativa || "",
+          itens: (initial.itens || []).map((i: any) => ({
+            itemId: i.itemId || "",
+            descricao: i.descricao,
+            periodo: i.periodo || "DIARIA",
+            quantidade: i.quantidade,
+            valorUnitario: i.valorUnitario,
+          })),
         });
       } else {
         setForm(emptyForm());
@@ -88,13 +150,22 @@ export function FaturaFormModal({
         .then((r) => r.json())
         .then((d) => setOrcamentos(d.orcamentos || []))
         .catch(() => setOrcamentos([]));
+      fetch("/api/contacts?type=CLIENTE&postos=1&limit=200")
+        .then((r) => r.json())
+        .then((d) => setPostos(d.contacts || []))
+        .catch(() => setPostos([]));
+      fetch("/api/itens?limit=200")
+        .then((r) => r.json())
+        .then((d) => setItensCatalogo(d.itens || []))
+        .catch(() => setItensCatalogo([]));
     }
   }, [open, initial]);
 
   function setField<K extends keyof FaturaFormData>(key: K, value: FaturaFormData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
-    if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
   }
+
+  const emitida = !!initial?.snapshot;
 
   function handleOrcamento(orcId: string) {
     const orc = orcamentos.find((o) => o.id === orcId);
@@ -107,35 +178,75 @@ export function FaturaFormModal({
     }));
   }
 
-  function validate(): boolean {
-    const errs: typeof errors = {};
-    if (!form.clienteNome.trim()) errs.clienteNome = "Campo obrigatório";
-    if (!form.dataEmissao) errs.dataEmissao = "Campo obrigatório";
-    if (!form.dataVencimento) errs.dataVencimento = "Campo obrigatório";
-    if (!form.valor || parseFloat(form.valor) <= 0) errs.valor = "Informe o valor";
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
+  function handlePosto(postoId: string) {
+    const p = postos.find((x) => x.id === postoId);
+    setForm((prev) => ({
+      ...prev,
+      clienteId: postoId,
+      clienteNome: p?.nomeFantasia || p?.razaoSocial || "",
+    }));
   }
 
+  // Itens
+  function addLinha() {
+    setField("itens", [
+      ...form.itens,
+      { itemId: "", descricao: "", periodo: "DIARIA", quantidade: 1, valorUnitario: 0 },
+    ]);
+  }
+  function removeLinha(i: number) {
+    setField("itens", form.itens.filter((_, idx) => idx !== i));
+  }
+  function setLinha(i: number, patch: Partial<LinhaItem>) {
+    const arr = [...form.itens];
+    arr[i] = { ...arr[i], ...patch };
+    setField("itens", arr);
+  }
+
+  const totalItens = form.itens.reduce(
+    (acc, l) => acc + (l.quantidade || 0) * (l.valorUnitario || 0),
+    0
+  );
+  const totalFinal = form.itens.length > 0 ? totalItens : parseFloat(form.valor) || 0;
+  const isDireta = !form.orcamentoId;
+
   async function handleSubmit() {
-    if (!validate()) return;
+    if (!form.clienteNome.trim()) {
+      toast("Informe o destinatário.", "error");
+      return;
+    }
+    if (!form.dataEmissao || !form.dataVencimento) {
+      toast("Informe as datas de emissão e vencimento.", "error");
+      return;
+    }
+    if (totalFinal <= 0) {
+      toast("Informe o valor ou adicione itens.", "error");
+      return;
+    }
     setLoading(true);
     try {
       const url = form.id ? `/api/faturas/${form.id}` : "/api/faturas";
-      const method = form.id ? "PUT" : "POST";
       const res = await fetch(url, {
-        method,
+        method: form.id ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          valor: parseFloat(form.valor) || 0,
+          valor: totalFinal,
           orcamentoId: form.orcamentoId || null,
           clienteId: form.clienteId || null,
         }),
       });
-      if (!res.ok) throw new Error();
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || "Erro ao salvar.", "error");
+        return;
+      }
       toast(
-        form.id ? "Fatura atualizada com sucesso!" : "Fatura criada com sucesso!",
+        form.id
+          ? "Fatura atualizada com sucesso!"
+          : isDireta
+          ? "Fatura criada! Receita gerada automaticamente no Financeiro."
+          : "Fatura criada com sucesso!",
         "success"
       );
       onSuccess();
@@ -147,47 +258,86 @@ export function FaturaFormModal({
     }
   }
 
-  const orcamentoOptions = orcamentos.map((o) => ({
-    value: o.id,
-    label: `#${o.numero}${o.cliente ? ` — ${o.cliente.nomeFantasia}` : ""}`,
-  }));
-
   return (
     <Modal
       open={open}
       onClose={onClose}
       title={initial?.id ? `Editar Fatura #${initial.numero}` : "Nova Fatura"}
-      size="xl"
+      size="2xl"
     >
       <ModalBody>
-        <div className="space-y-4">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.isPostoServico}
-              onChange={(e) => setField("isPostoServico", e.target.checked)}
-              className="h-4 w-4 rounded"
-            />
-            <span className="text-sm text-slate-700">É posto de serviço?</span>
-          </label>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {emitida && (
+          <p className="mb-4 text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+            Esta fatura já foi emitida e não pode mais ser alterada.
+          </p>
+        )}
+        <div className={`space-y-4 ${emitida ? "opacity-60 pointer-events-none" : ""}`}>
+          {/* Destinatário */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Select
-              label="Orçamento Vinculado"
-              value={form.orcamentoId}
-              onChange={(e) => handleOrcamento(e.target.value)}
-              options={orcamentoOptions}
-              placeholder="Selecione um orçamento aprovado"
+              label="Tipo de Destinatário"
+              value={form.tipoDestinatario}
+              onChange={(e) => {
+                setField("tipoDestinatario", e.target.value);
+                setField("clienteId", "");
+                setField("clienteNome", "");
+              }}
+              options={[
+                { value: "CLIENTE", label: "Cliente" },
+                { value: "POSTO", label: "Posto de Serviço" },
+              ]}
             />
-            <Input
-              label="Nome do Cliente *"
-              value={form.clienteNome}
-              onChange={(e) => setField("clienteNome", e.target.value)}
-              error={errors.clienteNome}
-              placeholder="Preenchido ao selecionar orçamento"
-            />
+            {form.tipoDestinatario === "POSTO" ? (
+              <div className="sm:col-span-2">
+                <Select
+                  label="Posto de Serviço *"
+                  searchable
+                  value={form.clienteId}
+                  onChange={(e) => handlePosto(e.target.value)}
+                  options={postos.map((p) => ({
+                    value: p.id,
+                    label: `${p.nomeFantasia}${p.cnpj ? ` — ${p.cnpj}` : ""}`,
+                  }))}
+                  placeholder="Pesquise por nome, razão social ou CNPJ"
+                />
+                {postos.length === 0 && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    Nenhum cliente marcado como Posto de Serviço Oficial.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <>
+                <Select
+                  label="Orçamento Aprovado"
+                  value={form.orcamentoId}
+                  onChange={(e) => handleOrcamento(e.target.value)}
+                  options={orcamentos.map((o) => ({
+                    value: o.id,
+                    label: `#${o.numero}${o.cliente ? ` — ${o.cliente.nomeFantasia}` : ""}`,
+                  }))}
+                  placeholder="Opcional (emissão direta sem orçamento)"
+                />
+                <Input
+                  label="Nome do Cliente *"
+                  value={form.clienteNome}
+                  onChange={(e) => setField("clienteNome", e.target.value)}
+                  placeholder="Preenchido ao selecionar orçamento"
+                />
+              </>
+            )}
           </div>
 
+          {isDireta && (
+            <Input
+              label="Justificativa da emissão direta"
+              value={form.justificativa}
+              onChange={(e) => setField("justificativa", e.target.value)}
+              placeholder="Ex: Locação mensal recorrente do posto"
+            />
+          )}
+
+          {/* Datas */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Input
               label="Mês de Referência"
@@ -200,27 +350,122 @@ export function FaturaFormModal({
               type="date"
               value={form.dataEmissao}
               onChange={(e) => setField("dataEmissao", e.target.value)}
-              error={errors.dataEmissao}
             />
             <Input
               label="Data de Vencimento *"
               type="date"
               value={form.dataVencimento}
               onChange={(e) => setField("dataVencimento", e.target.value)}
-              error={errors.dataVencimento}
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <Input
-              label="Valor Total (R$) *"
-              type="number"
-              step="0.01"
-              value={form.valor}
-              onChange={(e) => setField("valor", e.target.value)}
-              error={errors.valor}
-              placeholder="0,00"
-            />
+          {/* Itens */}
+          <div className="border border-slate-100 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Produtos e Serviços (opcional)
+              </p>
+              <span className="text-sm font-bold text-slate-900">
+                {formatCurrency(totalFinal)}
+              </span>
+            </div>
+
+            {form.itens.map((l, i) => (
+              <div key={i} className="grid grid-cols-12 gap-2 items-end mb-2">
+                <div className="col-span-12 sm:col-span-4">
+                  <Select
+                    label={i === 0 ? "Item do catálogo" : undefined}
+                    value={l.itemId}
+                    onChange={(e) => {
+                      const it = itensCatalogo.find((x) => x.id === e.target.value);
+                      setLinha(i, {
+                        itemId: e.target.value,
+                        descricao: it ? it.nome : l.descricao,
+                        valorUnitario: precoDoPeriodo(it, l.periodo),
+                      });
+                    }}
+                    options={itensCatalogo.map((it) => ({
+                      value: it.id,
+                      label: `${it.codigo ? it.codigo + " — " : ""}${it.nome}`,
+                    }))}
+                    placeholder="Livre / selecione"
+                  />
+                </div>
+                <div className="col-span-6 sm:col-span-2">
+                  <Select
+                    label={i === 0 ? "Período" : undefined}
+                    value={l.periodo}
+                    onChange={(e) => {
+                      const it = itensCatalogo.find((x) => x.id === l.itemId);
+                      setLinha(i, {
+                        periodo: e.target.value,
+                        valorUnitario: it
+                          ? precoDoPeriodo(it, e.target.value)
+                          : l.valorUnitario,
+                      });
+                    }}
+                    options={periodoOptions}
+                  />
+                </div>
+                <div className="col-span-3 sm:col-span-1">
+                  <Input
+                    label={i === 0 ? "Qtd" : undefined}
+                    type="number"
+                    min={1}
+                    value={String(l.quantidade)}
+                    onChange={(e) =>
+                      setLinha(i, { quantidade: parseInt(e.target.value) || 1 })
+                    }
+                  />
+                </div>
+                <div className="col-span-3 sm:col-span-2">
+                  <Input
+                    label={i === 0 ? "Valor Unit." : undefined}
+                    type="number"
+                    step="0.01"
+                    value={String(l.valorUnitario)}
+                    onChange={(e) =>
+                      setLinha(i, { valorUnitario: parseFloat(e.target.value) || 0 })
+                    }
+                  />
+                </div>
+                <div className="col-span-10 sm:col-span-2">
+                  <Input
+                    label={i === 0 ? "Descrição" : undefined}
+                    value={l.descricao}
+                    onChange={(e) => setLinha(i, { descricao: e.target.value })}
+                    placeholder="Descrição"
+                  />
+                </div>
+                <div className="col-span-2 sm:col-span-1 pb-1.5 text-right">
+                  <button
+                    onClick={() => removeLinha(i)}
+                    className="text-slate-400 hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            <div className="flex items-center gap-3 mt-2 flex-wrap">
+              <Button variant="outline" size="sm" onClick={addLinha}>
+                <Plus className="h-4 w-4" />
+                Adicionar Item
+              </Button>
+              {form.itens.length === 0 && (
+                <div className="w-40">
+                  <Input
+                    label="Ou valor total (R$)"
+                    type="number"
+                    step="0.01"
+                    value={form.valor}
+                    onChange={(e) => setField("valor", e.target.value)}
+                    placeholder="0,00"
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           <Textarea
@@ -235,11 +480,13 @@ export function FaturaFormModal({
 
       <ModalFooter>
         <Button variant="outline" onClick={onClose} disabled={loading}>
-          Cancelar
+          {emitida ? "Fechar" : "Cancelar"}
         </Button>
-        <Button onClick={handleSubmit} loading={loading}>
-          {form.id ? "Salvar Alterações" : "Criar"}
-        </Button>
+        {!emitida && (
+          <Button onClick={handleSubmit} loading={loading}>
+            {form.id ? "Salvar Alterações" : "Criar Fatura"}
+          </Button>
+        )}
       </ModalFooter>
     </Modal>
   );
