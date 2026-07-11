@@ -35,6 +35,8 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     // ── Combobox state (só usado no modo busca) ────────────────────────────
     const [open, setOpen] = React.useState(false);
     const [query, setQuery] = React.useState("");
+    // Pausa antes de atualizar as sugestões, para dar tempo de leitura
+    const [debouncedQuery, setDebouncedQuery] = React.useState("");
     const [highlight, setHighlight] = React.useState(0);
     const rootRef = React.useRef<HTMLDivElement>(null);
     const listRef = React.useRef<HTMLDivElement>(null);
@@ -43,13 +45,22 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     const value = (props.value ?? "") as string;
     const selected = options.find((o) => o.value === value);
 
+    React.useEffect(() => {
+      if (!query.trim()) {
+        setDebouncedQuery("");
+        return;
+      }
+      const t = setTimeout(() => setDebouncedQuery(query), 500);
+      return () => clearTimeout(t);
+    }, [query]);
+
     const filtered = React.useMemo(() => {
-      if (!query.trim()) return options;
-      const q = normalize(query);
+      if (!debouncedQuery.trim()) return options;
+      const q = normalize(debouncedQuery);
       return options.filter((o) =>
         normalize(o.label + " " + (o.keywords || "")).includes(q)
       );
-    }, [options, query]);
+    }, [options, debouncedQuery]);
 
     React.useEffect(() => {
       if (!open) return;
@@ -68,7 +79,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         setHighlight(0);
         setTimeout(() => inputRef.current?.focus(), 0);
       }
-    }, [open, query]);
+    }, [open, debouncedQuery]);
 
     function emit(newValue: string) {
       props.onChange?.({
@@ -148,7 +159,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
                     className="w-full text-sm focus:outline-none placeholder:text-slate-400"
                   />
                 </div>
-                <div ref={listRef} className="max-h-56 overflow-y-auto py-1">
+                <div ref={listRef} className="max-h-64 overflow-y-auto py-1.5">
                   {filtered.length === 0 ? (
                     <p className="px-3 py-3 text-sm text-slate-400 text-center">
                       Nenhum resultado encontrado
@@ -161,7 +172,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
                         onClick={() => emit(opt.value)}
                         onMouseEnter={() => setHighlight(i)}
                         className={cn(
-                          "flex w-full items-center justify-between px-3 py-2.5 text-sm text-left transition-colors",
+                          "flex w-full items-center justify-between px-3.5 py-3 my-0.5 text-sm leading-relaxed text-left transition-colors",
                           i === highlight
                             ? "bg-blue-50 text-blue-700"
                             : "text-slate-700"

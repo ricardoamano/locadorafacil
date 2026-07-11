@@ -85,6 +85,7 @@ export async function PUT(
         eventoNome: body.eventoNome || null,
         tipoEvento: body.tipoEvento || null,
         localId: body.localId || null,
+        dataMontagem: body.dataMontagem ? new Date(body.dataMontagem) : null,
         dataInicio: body.dataInicio ? new Date(body.dataInicio) : null,
         dataFim: body.dataFim ? new Date(body.dataFim) : null,
         observacoes: body.observacoes || null,
@@ -130,6 +131,7 @@ export async function PUT(
           data: {
             orcamentoId: id,
             status: "ABERTA",
+            horarioMontagem: orcamento.dataMontagem,
             observacoes: orcamento.observacoes,
             companyId: existing.companyId,
           },

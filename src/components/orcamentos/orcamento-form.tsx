@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { formatCurrency } from "@/lib/utils";
 import {
@@ -56,6 +57,7 @@ export interface OrcamentoFormValue {
   eventoNome: string;
   tipoEvento: string;
   localId: string;
+  dataMontagem: string;
   dataInicio: string;
   dataFim: string;
   observacoes: string;
@@ -90,6 +92,7 @@ function emptyValue(): OrcamentoFormValue {
     eventoNome: "",
     tipoEvento: "",
     localId: "",
+    dataMontagem: "",
     dataInicio: "",
     dataFim: "",
     observacoes: "",
@@ -164,6 +167,9 @@ export function OrcamentoForm({
   const [itens, setItens] = useState<ItemOpt[]>([]);
   const [pagamentoOptions, setPagamentoOptions] = useState(pagamentoFallback);
   const [tiposEvento, setTiposEvento] = useState<string[]>([]);
+  const [novoLocalOpen, setNovoLocalOpen] = useState(false);
+  const [novoLocal, setNovoLocal] = useState({ nome: "", rua: "", cidade: "", observacoes: "" });
+  const [salvandoLocal, setSalvandoLocal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState<Record<string, boolean>>({
     cliente: true,
@@ -211,6 +217,7 @@ export function OrcamentoForm({
         eventoNome: initial.eventoNome || "",
         tipoEvento: initial.tipoEvento || "",
         localId: initial.localId || "",
+        dataMontagem: initial.dataMontagem ? initial.dataMontagem.slice(0, 10) : "",
         dataInicio: initial.dataInicio ? initial.dataInicio.slice(0, 10) : "",
         dataFim: initial.dataFim ? initial.dataFim.slice(0, 10) : "",
         observacoes: initial.observacoes || "",
@@ -272,6 +279,35 @@ export function OrcamentoForm({
     itensArr[ii] = { ...itensArr[ii], ...patch };
     salas[si] = { ...salas[si], itens: itensArr };
     set("salas", salas);
+  }
+
+  async function salvarNovoLocal() {
+    if (!novoLocal.nome.trim()) {
+      toast("Informe o nome do local.", "error");
+      return;
+    }
+    setSalvandoLocal(true);
+    try {
+      const res = await fetch("/api/locais", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(novoLocal),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || "Erro ao criar local.", "error");
+        return;
+      }
+      setLocais((prev) => [...prev, { id: data.id, nome: data.nome }]);
+      set("localId", data.id);
+      setNovoLocalOpen(false);
+      setNovoLocal({ nome: "", rua: "", cidade: "", observacoes: "" });
+      toast("Local criado e selecionado no orçamento!", "success");
+    } catch {
+      toast("Erro ao criar local.", "error");
+    } finally {
+      setSalvandoLocal(false);
+    }
   }
 
   const bruto = useMemo(
@@ -401,7 +437,13 @@ export function OrcamentoForm({
               placeholder="Selecione o tipo"
             />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <Input
+              label="Data de Montagem"
+              type="date"
+              value={form.dataMontagem}
+              onChange={(e) => set("dataMontagem", e.target.value)}
+            />
             <Input
               label="Data de Início"
               type="date"
@@ -414,14 +456,27 @@ export function OrcamentoForm({
               value={form.dataFim}
               onChange={(e) => set("dataFim", e.target.value)}
             />
-            <Select
-              label="Local"
-              searchable
-              value={form.localId}
-              onChange={(e) => set("localId", e.target.value)}
-              options={localOptions}
-              placeholder="Digite para buscar o local"
-            />
+            <div className="flex items-end gap-2">
+              <Select
+                label="Local"
+                searchable
+                value={form.localId}
+                onChange={(e) => set("localId", e.target.value)}
+                options={localOptions}
+                placeholder="Digite para buscar o local"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 shrink-0"
+                onClick={() => setNovoLocalOpen(true)}
+                title="Cadastrar novo local"
+              >
+                <Plus className="h-4 w-4" />
+                Novo
+              </Button>
+            </div>
           </div>
         </div>
       </Section>
@@ -622,6 +677,53 @@ export function OrcamentoForm({
           rows={3}
         />
       </Section>
+
+      {/* Modal de cadastro rápido de local */}
+      <Modal
+        open={novoLocalOpen}
+        onClose={() => setNovoLocalOpen(false)}
+        title="Novo Local"
+      >
+        <ModalBody>
+          <div className="space-y-3">
+            <Input
+              label="Nome do Local *"
+              value={novoLocal.nome}
+              onChange={(e) => setNovoLocal((p) => ({ ...p, nome: e.target.value }))}
+              placeholder="Ex: Centro de Convenções Rebouças"
+            />
+            <Input
+              label="Endereço"
+              value={novoLocal.rua}
+              onChange={(e) => setNovoLocal((p) => ({ ...p, rua: e.target.value }))}
+              placeholder="Rua, número"
+            />
+            <Input
+              label="Cidade"
+              value={novoLocal.cidade}
+              onChange={(e) => setNovoLocal((p) => ({ ...p, cidade: e.target.value }))}
+            />
+            <Textarea
+              label="Observações"
+              value={novoLocal.observacoes}
+              onChange={(e) => setNovoLocal((p) => ({ ...p, observacoes: e.target.value }))}
+              rows={2}
+            />
+            <p className="text-xs text-slate-400">
+              O local será criado e selecionado automaticamente neste orçamento. Você pode
+              completar os demais dados depois em Cadastros → Locais.
+            </p>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setNovoLocalOpen(false)} disabled={salvandoLocal}>
+            Cancelar
+          </Button>
+          <Button onClick={salvarNovoLocal} loading={salvandoLocal}>
+            Criar e selecionar
+          </Button>
+        </ModalFooter>
+      </Modal>
 
       {/* Actions */}
       <div className="flex items-center justify-end gap-3 pt-2">

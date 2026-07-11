@@ -95,6 +95,7 @@ export async function POST(req: NextRequest) {
       eventoNome: body.eventoNome || null,
       tipoEvento: body.tipoEvento || null,
       localId: body.localId || null,
+      dataMontagem: body.dataMontagem ? new Date(body.dataMontagem) : null,
       dataInicio: body.dataInicio ? new Date(body.dataInicio) : null,
       dataFim: body.dataFim ? new Date(body.dataFim) : null,
       observacoes: body.observacoes || null,

@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
       estado: body.estado || null,
       lat: body.lat != null && body.lat !== "" ? Number(body.lat) : null,
       lng: body.lng != null && body.lng !== "" ? Number(body.lng) : null,
+      observacoes: body.observacoes || null,
       companyId,
     },
   });

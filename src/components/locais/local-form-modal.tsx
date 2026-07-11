@@ -5,6 +5,7 @@ import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { fetchAddressByCEP, formatCEP } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
@@ -21,6 +22,7 @@ interface LocalFormData {
   estado: string;
   lat: string;
   lng: string;
+  observacoes: string;
 }
 
 const estadoOptions = [
@@ -40,6 +42,7 @@ function emptyForm(): LocalFormData {
     estado: "",
     lat: "",
     lng: "",
+    observacoes: "",
   };
 }
 
@@ -79,6 +82,7 @@ export function LocalFormModal({
           complemento: initial.complemento || "",
           cidade: initial.cidade || "",
           estado: initial.estado || "",
+          observacoes: initial.observacoes || "",
         });
       } else {
         setForm(emptyForm());
@@ -243,6 +247,16 @@ export function LocalFormModal({
                 placeholder="-46.6196"
               />
             </div>
+          </div>
+
+          <div className="border-t border-slate-100 pt-4">
+            <Textarea
+              label="Observações"
+              value={form.observacoes}
+              onChange={(e) => setField("observacoes", e.target.value)}
+              placeholder="Informações úteis sobre o local (acesso, docas, horários...)"
+              rows={2}
+            />
           </div>
         </div>
       </ModalBody>

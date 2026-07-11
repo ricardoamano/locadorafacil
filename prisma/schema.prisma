@@ -177,6 +177,7 @@ model Local {
   estado      String?
   lat         Float?
   lng         Float?
+  observacoes String?
   companyId   String
   company     Company  @relation(fields: [companyId], references: [id])
   createdAt   DateTime @default(now())
@@ -296,6 +297,7 @@ model Orcamento {
   localId        String?
   local          Local?   @relation(fields: [localId], references: [id])
   tipoEvento     String?
+  dataMontagem   DateTime?
   dataInicio     DateTime?
   dataFim        DateTime?
   observacoes    String?
