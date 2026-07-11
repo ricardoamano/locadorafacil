@@ -45,6 +45,7 @@ interface ItemOpt {
 interface SalaItemForm {
   itemId: string;
   quantidade: number;
+  diarias: number;
   valorUnitario: number;
   descricaoComercial: string;
 }
@@ -231,11 +232,12 @@ export function OrcamentoForm({
         desconto: initial.desconto != null ? String(initial.desconto) : "",
         descontoTipo: initial.descontoTipo || "valor",
         salas: (initial.salas || []).map(
-          (s: { nome: string; itens: { itemId: string; quantidade: number; valorUnitario: number; descricaoComercial?: string | null }[] }) => ({
+          (s: { nome: string; itens: { itemId: string; quantidade: number; diarias?: number | null; valorUnitario: number; descricaoComercial?: string | null }[] }) => ({
             nome: s.nome,
             itens: (s.itens || []).map((i) => ({
               itemId: i.itemId,
               quantidade: i.quantidade,
+              diarias: i.diarias || 1,
               valorUnitario: i.valorUnitario,
               descricaoComercial: i.descricaoComercial || "",
             })),
@@ -269,7 +271,7 @@ export function OrcamentoForm({
     const salas = [...form.salas];
     salas[si] = {
       ...salas[si],
-      itens: [...salas[si].itens, { itemId: "", quantidade: 1, valorUnitario: 0, descricaoComercial: "" }],
+      itens: [...salas[si].itens, { itemId: "", quantidade: 1, diarias: 1, valorUnitario: 0, descricaoComercial: "" }],
     };
     set("salas", salas);
   }
@@ -321,7 +323,7 @@ export function OrcamentoForm({
     () =>
       form.salas.reduce(
         (acc, s) =>
-          acc + s.itens.reduce((a, i) => a + (i.quantidade || 0) * (i.valorUnitario || 0), 0),
+          acc + s.itens.reduce((a, i) => a + (i.quantidade || 0) * (i.diarias || 1) * (i.valorUnitario || 0), 0),
         0
       ),
     [form.salas]
@@ -512,7 +514,7 @@ export function OrcamentoForm({
         <div className="space-y-4">
           {form.salas.map((sala, si) => {
             const subtotalSala = sala.itens.reduce(
-              (a, i) => a + (i.quantidade || 0) * (i.valorUnitario || 0),
+              (a, i) => a + (i.quantidade || 0) * (i.diarias || 1) * (i.valorUnitario || 0),
               0
             );
             return (
@@ -586,7 +588,18 @@ export function OrcamentoForm({
                         }
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-1">
+                      <Input
+                        label={ii === 0 ? "Diárias" : undefined}
+                        type="number"
+                        min={1}
+                        value={String(it.diarias)}
+                        onChange={(e) =>
+                          setSalaItem(si, ii, { diarias: parseInt(e.target.value) || 1 })
+                        }
+                      />
+                    </div>
+                    <div className="col-span-1">
                       <Input
                         label={ii === 0 ? "Valor Unit." : undefined}
                         type="number"
@@ -598,7 +611,7 @@ export function OrcamentoForm({
                       />
                     </div>
                     <div className="col-span-1 pb-2 text-right text-xs text-slate-500">
-                      {formatCurrency((it.quantidade || 0) * (it.valorUnitario || 0))}
+                      {formatCurrency((it.quantidade || 0) * (it.diarias || 1) * (it.valorUnitario || 0))}
                     </div>
                     <div className="col-span-1 pb-1.5 text-right">
                       <button

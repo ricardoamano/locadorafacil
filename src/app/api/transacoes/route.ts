@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
       include: {
         categoria: { select: { id: true, nome: true } },
         orcamento: { select: { id: true, numero: true } },
+        banco: { select: { id: true, nome: true } },
       },
       orderBy: { dataRecebimento: "desc" },
       skip,
@@ -79,6 +80,7 @@ export async function POST(req: NextRequest) {
       categoriaId: body.categoriaId || null,
       orcamentoId: body.orcamentoId || null,
       valor: Number(body.valor) || 0,
+      bancoId: body.bancoId || null,
       observacao: body.observacao || null,
       notaFiscal: !!body.notaFiscal,
       status: body.status || "PENDENTE",

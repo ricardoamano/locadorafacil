@@ -12,14 +12,14 @@ async function getCompanyId() {
 
 type SalaInput = {
   nome: string;
-  itens: { itemId: string; quantidade: number; valorUnitario: number; descricaoComercial?: string }[];
+  itens: { itemId: string; quantidade: number; diarias?: number; valorUnitario: number; descricaoComercial?: string }[];
 };
 
 function computeTotal(salas: SalaInput[], desconto: number, descontoTipo: string) {
   const bruto = salas.reduce(
     (acc, s) =>
       acc +
-      s.itens.reduce((a, i) => a + (i.quantidade || 0) * (i.valorUnitario || 0), 0),
+      s.itens.reduce((a, i) => a + (i.quantidade || 0) * (i.diarias || 1) * (i.valorUnitario || 0), 0),
     0
   );
   const descValor = descontoTipo === "percentual" ? (bruto * (desconto || 0)) / 100 : desconto || 0;
@@ -105,8 +105,9 @@ export async function PUT(
                 .map((i) => ({
                   itemId: i.itemId,
                   quantidade: Number(i.quantidade) || 1,
+                  diarias: Number(i.diarias) || 1,
                   valorUnitario: Number(i.valorUnitario) || 0,
-                  subtotal: (Number(i.quantidade) || 1) * (Number(i.valorUnitario) || 0),
+                  subtotal: (Number(i.quantidade) || 1) * (Number(i.diarias) || 1) * (Number(i.valorUnitario) || 0),
                   descricaoComercial: i.descricaoComercial?.trim()
                     ? i.descricaoComercial.trim().slice(0, 100)
                     : null,

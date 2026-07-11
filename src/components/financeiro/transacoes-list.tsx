@@ -36,6 +36,7 @@ interface Transacao {
   notaFiscal: boolean;
   categoria: { id: string; nome: string } | null;
   orcamento: { id: string; numero: number } | null;
+  banco?: { id: string; nome: string } | null;
 }
 
 interface Saldo {
@@ -292,6 +293,7 @@ export function TransacoesList() {
                           <p className="text-sm font-medium text-slate-900">{t.nome}</p>
                           <p className="text-xs text-slate-400">
                             {t.categoria?.nome || (isReceita ? "Receita" : "Despesa")}
+                            {t.banco?.nome ? ` · ${t.banco.nome}` : ""}
                             {t.notaFiscal ? " · NF" : ""}
                           </p>
                         </div>

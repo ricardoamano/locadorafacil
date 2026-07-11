@@ -17,6 +17,10 @@ interface OrcamentoOpt {
   numero: number;
   cliente?: { nomeFantasia: string };
 }
+interface BancoOpt {
+  id: string;
+  nome: string;
+}
 
 interface TransacaoFormData {
   id?: string;
@@ -25,6 +29,7 @@ interface TransacaoFormData {
   tipo: string;
   categoriaId: string;
   orcamentoId: string;
+  bancoId: string;
   valor: string;
   observacao: string;
   notaFiscal: boolean;
@@ -49,6 +54,7 @@ function emptyForm(): TransacaoFormData {
     tipo: "RECEITA",
     categoriaId: "",
     orcamentoId: "",
+    bancoId: "",
     valor: "",
     observacao: "",
     notaFiscal: false,
@@ -74,6 +80,7 @@ export function TransacaoFormModal({
   const [form, setForm] = useState<TransacaoFormData>(emptyForm());
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [orcamentos, setOrcamentos] = useState<OrcamentoOpt[]>([]);
+  const [bancos, setBancos] = useState<BancoOpt[]>([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof TransacaoFormData, string>>>({});
 
@@ -90,6 +97,7 @@ export function TransacaoFormModal({
           valor: initial.valor != null ? String(initial.valor) : "",
           categoriaId: initial.categoriaId || "",
           orcamentoId: initial.orcamentoId || "",
+          bancoId: initial.bancoId || "",
           observacao: initial.observacao || "",
         });
       } else {
@@ -103,6 +111,10 @@ export function TransacaoFormModal({
         .then((r) => r.json())
         .then((d) => setOrcamentos(d.orcamentos || []))
         .catch(() => setOrcamentos([]));
+      fetch("/api/bancos?ativos=1")
+        .then((r) => r.json())
+        .then((d) => setBancos(d.bancos || []))
+        .catch(() => setBancos([]));
     }
   }, [open, initial]);
 
@@ -134,6 +146,7 @@ export function TransacaoFormModal({
           valor: parseFloat(form.valor) || 0,
           categoriaId: form.categoriaId || null,
           orcamentoId: form.orcamentoId || null,
+          bancoId: form.bancoId || null,
         }),
       });
       if (!res.ok) throw new Error();
@@ -210,7 +223,7 @@ export function TransacaoFormModal({
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Select
               label="Categoria"
               value={form.categoriaId}
@@ -224,6 +237,13 @@ export function TransacaoFormModal({
               onChange={(e) => setField("orcamentoId", e.target.value)}
               options={orcamentoOptions}
               placeholder="Selecione (opcional)"
+            />
+            <Select
+              label={form.tipo === "DESPESA" ? "Banco (pagando por)" : "Banco (recebendo em)"}
+              value={form.bancoId}
+              onChange={(e) => setField("bancoId", e.target.value)}
+              options={bancos.map((b) => ({ value: b.id, label: b.nome }))}
+              placeholder={bancos.length ? "Selecione (opcional)" : "Cadastre em Configurações"}
             />
           </div>
 

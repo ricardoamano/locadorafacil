@@ -62,6 +62,7 @@ model Company {
   eventos    Evento[]
   contratos  Contrato[]
   metodosPagamento MetodoPagamento[]
+  bancos           Banco[]
   modelosContrato  ModeloContrato[]
 }
 
@@ -340,6 +341,7 @@ model SalaItem {
   itemId        String
   item          Item   @relation(fields: [itemId], references: [id])
   quantidade    Int    @default(1)
+  diarias       Int    @default(1)
   valorUnitario Float  @default(0)
   subtotal      Float  @default(0)
   descricaoComercial String?
@@ -487,6 +489,8 @@ model Transacao {
   faturaId        String?
   fatura          Fatura?   @relation(fields: [faturaId], references: [id])
   valor           Float
+  bancoId         String?
+  banco           Banco?    @relation(fields: [bancoId], references: [id])
   observacao      String?
   notaFiscal      Boolean   @default(false)
   status          String    @default("PENDENTE")
@@ -601,6 +605,20 @@ model MetodoPagamento {
   company   Company  @relation(fields: [companyId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Bancos/contas da empresa para o fluxo de caixa
+model Banco {
+  id        String   @id @default(cuid())
+  nome      String
+  ativo     Boolean  @default(true)
+  ordem     Int      @default(0)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transacoes Transacao[]
 }
 
 model ModeloContrato {

@@ -19,27 +19,18 @@ export async function PUT(
 
   const { id } = await params;
   const body = await req.json();
-
-  const existing = await prisma.transacao.findFirst({ where: { id, companyId } });
+  const existing = await prisma.banco.findFirst({ where: { id, companyId } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const transacao = await prisma.transacao.update({
+  const banco = await prisma.banco.update({
     where: { id },
     data: {
-      nome: body.nome,
-      dataRecebimento: body.dataRecebimento ? new Date(body.dataRecebimento) : existing.dataRecebimento,
-      tipo: body.tipo || existing.tipo,
-      categoriaId: body.categoriaId || null,
-      orcamentoId: body.orcamentoId || null,
-      valor: Number(body.valor) || 0,
-      bancoId: body.bancoId || null,
-      observacao: body.observacao || null,
-      notaFiscal: !!body.notaFiscal,
-      status: body.status || existing.status,
+      nome: body.nome ?? existing.nome,
+      ativo: body.ativo ?? existing.ativo,
+      ordem: body.ordem ?? existing.ordem,
     },
   });
-
-  return NextResponse.json(transacao);
+  return NextResponse.json(banco);
 }
 
 export async function DELETE(
@@ -50,9 +41,16 @@ export async function DELETE(
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const existing = await prisma.transacao.findFirst({ where: { id, companyId } });
+  const existing = await prisma.banco.findFirst({ where: { id, companyId } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  await prisma.transacao.delete({ where: { id } });
+  const emUso = await prisma.transacao.count({ where: { bancoId: id } });
+  if (emUso > 0)
+    return NextResponse.json(
+      { error: `Este banco está em ${emUso} transação(ões) — desative-o em vez de excluir.` },
+      { status: 400 }
+    );
+
+  await prisma.banco.delete({ where: { id } });
   return NextResponse.json({ success: true });
 }
