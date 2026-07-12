@@ -337,6 +337,10 @@ model Orcamento {
   desconto       Float?
   descontoTipo   String?  @default("valor")
   total          Float    @default(0)
+  // Projeto especial: proposta em texto livre (Markdown) em vez de itens/salas
+  projetoEspecial Boolean @default(false)
+  conteudoProjeto String? // Markdown/texto colado pelo usuário
+  valorProjeto    Float?  // valor total do projeto (antes do desconto)
   aprovadoEm     DateTime?
   aprovadoPor    String?
   aprovacaoToken String?  @unique

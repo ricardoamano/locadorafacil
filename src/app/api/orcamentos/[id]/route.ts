@@ -107,7 +107,23 @@ export async function PUT(
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const salas: SalaInput[] = body.salas || [];
-  const total = computeTotal(salas, Number(body.desconto) || 0, body.descontoTipo || "valor");
+  const ehProjeto = body.projetoEspecial !== undefined
+    ? Boolean(body.projetoEspecial)
+    : existing.projetoEspecial;
+  const valorProjeto = ehProjeto
+    ? body.valorProjeto !== undefined
+      ? Number(body.valorProjeto) || 0
+      : existing.valorProjeto || 0
+    : null;
+  const total = ehProjeto
+    ? Math.max(
+        0,
+        (valorProjeto || 0) -
+          ((body.descontoTipo || "valor") === "percentual"
+            ? ((valorProjeto || 0) * (Number(body.desconto) || 0)) / 100
+            : Number(body.desconto) || 0)
+      )
+    : computeTotal(salas, Number(body.desconto) || 0, body.descontoTipo || "valor");
 
   const novoStatus = body.status || existing.status;
   const aprovandoAgora = novoStatus === "APROVADO" && existing.status !== "APROVADO";
@@ -140,6 +156,11 @@ export async function PUT(
         desconto: body.desconto != null && body.desconto !== "" ? Number(body.desconto) : null,
         descontoTipo: body.descontoTipo || "valor",
         total,
+        projetoEspecial: ehProjeto,
+        ...(ehProjeto && body.conteudoProjeto !== undefined
+          ? { conteudoProjeto: body.conteudoProjeto || null }
+          : {}),
+        valorProjeto,
         ...(aprovandoAgora ? { aprovadoEm: new Date(), aprovadoPor: usuario } : {}),
         salas: {
           create: salas.map((s) => ({

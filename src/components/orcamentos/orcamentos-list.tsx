@@ -38,6 +38,7 @@ interface Orcamento {
   cliente: { id: string; nomeFantasia: string };
   local: { id: string; nome: string } | null;
   _count: { salas: number };
+  projetoEspecial?: boolean;
 }
 
 export function OrcamentosList() {
@@ -195,6 +196,12 @@ export function OrcamentosList() {
             ))}
           </select>
 
+          <Link href="/orcamentos/novo-projeto">
+            <Button variant="outline">
+              <Plus className="h-4 w-4" />
+              Novo Projeto
+            </Button>
+          </Link>
           <Link href="/orcamentos/novo">
             <Button>
               <Plus className="h-4 w-4" />
@@ -264,6 +271,11 @@ export function OrcamentosList() {
                     <td className="px-4 py-3">
                       <p className="text-sm font-medium text-slate-900">
                         {orc.cliente?.nomeFantasia}
+                        {orc.projetoEspecial && (
+                          <span className="ml-2 rounded-full bg-purple-100 text-purple-700 text-[10px] font-semibold px-2 py-0.5 align-middle">
+                            PROJETO
+                          </span>
+                        )}
                       </p>
                       <p className="text-xs text-slate-400">
                         {orc.eventoNome || "—"}
@@ -308,14 +320,22 @@ export function OrcamentosList() {
                           <Share2 className="h-4 w-4" />
                         </button>
                         <Link
-                          href={`/orcamentos/${orc.id}/imprimir`}
+                          href={
+                            orc.projetoEspecial
+                              ? `/orcamentos/${orc.id}/imprimir-projeto`
+                              : `/orcamentos/${orc.id}/imprimir`
+                          }
                           className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
                           title="Imprimir / PDF"
                         >
                           <Printer className="h-4 w-4" />
                         </Link>
                         <Link
-                          href={`/orcamentos/${orc.id}`}
+                          href={
+                            orc.projetoEspecial
+                              ? `/orcamentos/projeto/${orc.id}`
+                              : `/orcamentos/${orc.id}`
+                          }
                           className="p-1.5 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                           title="Editar"
                         >

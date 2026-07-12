@@ -79,7 +79,17 @@ export async function POST(req: NextRequest) {
   if (!body.clienteId) return NextResponse.json({ error: "Cliente obrigatório" }, { status: 400 });
 
   const salas: SalaInput[] = body.salas || [];
-  const { total } = computeTotals(salas, Number(body.desconto) || 0, body.descontoTipo || "valor");
+  const ehProjeto = Boolean(body.projetoEspecial);
+  const valorProjeto = ehProjeto ? Number(body.valorProjeto) || 0 : null;
+  const { total } = ehProjeto
+    ? (() => {
+        const desc =
+          (body.descontoTipo || "valor") === "percentual"
+            ? ((valorProjeto || 0) * (Number(body.desconto) || 0)) / 100
+            : Number(body.desconto) || 0;
+        return { total: Math.max(0, (valorProjeto || 0) - desc) };
+      })()
+    : computeTotals(salas, Number(body.desconto) || 0, body.descontoTipo || "valor");
 
   const last = await prisma.orcamento.findFirst({
     where: { companyId },
@@ -109,6 +119,9 @@ export async function POST(req: NextRequest) {
       desconto: body.desconto != null && body.desconto !== "" ? Number(body.desconto) : null,
       descontoTipo: body.descontoTipo || "valor",
       total,
+      projetoEspecial: ehProjeto,
+      conteudoProjeto: ehProjeto ? body.conteudoProjeto || null : null,
+      valorProjeto,
       companyId,
       salas: {
         create: salas.map((s) => ({
