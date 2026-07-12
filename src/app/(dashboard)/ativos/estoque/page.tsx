@@ -9,13 +9,24 @@ import {
   Wrench,
   AlertTriangle,
   Boxes,
+  Search,
 } from "lucide-react";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+const statusUnidade: Record<string, { label: string; cls: string }> = {
+  EM_ESTOQUE: { label: "✅ Em estoque", cls: "bg-green-50 text-green-700" },
+  NO_EVENTO: { label: "📦 No evento", cls: "bg-amber-50 text-amber-700" },
+  MANUTENCAO: { label: "🔧 Em manutenção", cls: "bg-blue-50 text-blue-700" },
+  BAIXADA: { label: "🚫 Baixada", cls: "bg-red-50 text-red-600" },
+};
+
 export default function EstoquePage() {
   const [dados, setDados] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [busca, setBusca] = useState("");
+  const [resultado, setResultado] = useState<any[] | null>(null);
+  const [buscando, setBuscando] = useState(false);
 
   useEffect(() => {
     fetch("/api/estoque")
@@ -23,6 +34,23 @@ export default function EstoquePage() {
       .then(setDados)
       .finally(() => setLoading(false));
   }, []);
+
+  // Busca em tempo real: onde está cada unidade (qualquer status)
+  useEffect(() => {
+    if (!busca.trim()) {
+      setResultado(null);
+      return;
+    }
+    setBuscando(true);
+    const t = setTimeout(() => {
+      fetch(`/api/estoque?busca=${encodeURIComponent(busca.trim())}`)
+        .then((r) => r.json())
+        .then((d) => setResultado(d.busca || []))
+        .catch(() => setResultado([]))
+        .finally(() => setBuscando(false));
+    }, 350);
+    return () => clearTimeout(t);
+  }, [busca]);
 
   const r = dados?.resumo;
 
@@ -36,6 +64,68 @@ export default function EstoquePage() {
             Onde cada unidade física está agora — atualizado pelos bipes de saída e
             entrada nas Ordens de Serviço
           </p>
+        </div>
+
+        {/* Busca: onde está o equipamento? */}
+        <div className="mb-6 max-w-xl">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Onde está? Busque por código (0012-03), nome ou apelido do equipamento..."
+              className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {busca.trim() && (
+            <div className="mt-2 bg-white rounded-xl border border-slate-100 shadow-sm overflow-x-auto">
+              {buscando ? (
+                <div className="flex items-center justify-center h-16">
+                  <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full" />
+                </div>
+              ) : (resultado || []).length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-4">
+                  Nenhuma unidade encontrada para &quot;{busca}&quot;.
+                </p>
+              ) : (
+                <table className="w-full min-w-[560px] text-sm">
+                  <tbody className="divide-y divide-slate-50">
+                    {(resultado || []).map((u: any) => {
+                      const st = statusUnidade[u.status] || statusUnidade.EM_ESTOQUE;
+                      return (
+                        <tr key={u.id}>
+                          <td className="px-4 py-2 font-mono font-medium text-slate-800 w-28">
+                            {u.codigo}
+                          </td>
+                          <td className="px-4 py-2 text-slate-700">{u.itemNome}</td>
+                          <td className="px-4 py-2 w-40">
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${st.cls}`}>
+                              {st.label}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2 text-slate-500">
+                            {u.status === "NO_EVENTO" && u.osId ? (
+                              <Link
+                                href={`/ordens-servico/${u.osId}`}
+                                className="text-blue-600 hover:underline"
+                              >
+                                OS #{u.osNumero}
+                                {u.evento ? ` — ${u.evento}` : ""}
+                                {u.cliente ? ` (${u.cliente})` : ""}
+                              </Link>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
         </div>
 
         {loading ? (

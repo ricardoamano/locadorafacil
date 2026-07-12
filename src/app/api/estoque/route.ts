@@ -1,15 +1,59 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
 type SessionUser = { companyId?: string };
 
 // Visão geral do estoque físico em tempo real (unidades serializadas)
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const companyId = (session.user as SessionUser).companyId;
   if (!companyId) return NextResponse.json({ error: "No company" }, { status: 400 });
+
+  const busca = new URL(req.url).searchParams.get("busca")?.trim() || "";
+
+  // Busca de localização: onde está determinada unidade/equipamento (qualquer status)
+  let resultadoBusca = null;
+  if (busca) {
+    const unidadesBusca = await prisma.itemUnidade.findMany({
+      where: {
+        companyId,
+        OR: [
+          { codigo: { contains: busca, mode: "insensitive" } },
+          { item: { nome: { contains: busca, mode: "insensitive" } } },
+          { item: { apelidos: { contains: busca, mode: "insensitive" } } },
+        ],
+      },
+      orderBy: { codigo: "asc" },
+      take: 60,
+      include: {
+        item: { select: { nome: true } },
+        os: {
+          select: {
+            id: true,
+            orcamento: {
+              select: {
+                numero: true,
+                eventoNome: true,
+                cliente: { select: { nomeFantasia: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+    resultadoBusca = unidadesBusca.map((u) => ({
+      id: u.id,
+      codigo: u.codigo,
+      itemNome: u.item.nome,
+      status: u.status,
+      osId: u.osId,
+      osNumero: u.os?.orcamento?.numero ?? null,
+      evento: u.os?.orcamento?.eventoNome ?? null,
+      cliente: u.os?.orcamento?.cliente?.nomeFantasia ?? null,
+    }));
+  }
 
   const unidades = await prisma.itemUnidade.findMany({
     where: { companyId, status: { in: ["NO_EVENTO", "MANUTENCAO"] } },
@@ -79,6 +123,7 @@ export async function GET() {
       atrasadas: fora.filter((f) => f.atrasada).length,
       manutencaoVencida: manutencaoVencida.length,
     },
+    busca: resultadoBusca,
     fora,
     manutencao,
     manutencaoVencida: manutencaoVencida.map((u) => ({
