@@ -43,6 +43,7 @@ model Company {
   permitirPrecoManual Boolean @default(true)
   menuConfig         Json?
   tiposEvento        Json?
+  icsToken           String?  @unique // token do link privado de agenda (Google Agenda etc.)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
