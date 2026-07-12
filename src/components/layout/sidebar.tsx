@@ -31,6 +31,7 @@ import {
   Sparkles,
   LifeBuoy,
   LogOut,
+  BarChart3,
 } from "lucide-react";
 import React from "react";
 import { signOut } from "next-auth/react";
@@ -46,6 +47,7 @@ type NavEntry = {
 
 const navItems: NavEntry[] = [
   { key: "dashboard", href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { key: "indicadores", href: "/indicadores", label: "Indicadores", icon: BarChart3 },
   {
     key: "cadastros",
     label: "Cadastros",

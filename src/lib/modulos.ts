@@ -10,6 +10,12 @@ export interface ModuloDef {
 
 export const MODULOS: ModuloDef[] = [
   { key: "dashboard", label: "Dashboard", href: "/dashboard", apiPrefixes: [] },
+  {
+    key: "indicadores",
+    label: "Indicadores",
+    href: "/indicadores",
+    apiPrefixes: ["/api/indicadores"],
+  },
   { key: "clientes", label: "Clientes", href: "/clientes", apiPrefixes: [] },
   { key: "fornecedores", label: "Fornecedores", href: "/fornecedores", apiPrefixes: [] },
   { key: "locais", label: "Locais", href: "/locais", apiPrefixes: ["/api/locais"] },

@@ -61,6 +61,19 @@ Sistema multiempresa de gestão de locação de equipamentos e serviços para ev
 - Painel na OS: enviar escala/alteração/lembrete/avulsa aos escalados; sem API → links wa.me; log MensagemWhatsapp.
 - Lembrete automático D-1 via cron. Regras Meta documentadas na tela (janela 24h, destinatários de teste, token).
 
+### Indicadores (KPIs) — /indicadores (módulo "indicadores")
+- Períodos: dia/semana/quinzena/mês/trimestre/semestre/ano, navegação ‹ ›, sempre vs período anterior.
+- Base: doc de KPIs da Neostore (docs/… enviado pelo Ricardo) + benchmarks do setor (conversão 30–50%,
+  utilização tempo 65–75%, dollar utilization 55–65%, PMR 45–60d agências, concentração >60% = risco).
+- 5 essenciais em destaque: margem média por evento, utilização do parque, pipeline 90d (foto de hoje),
+  conversão de propostas, PMR. Seções Comercial/Financeiro/Operacional + tabela margem por evento.
+- Cálculos (/api/indicadores): eventos = orçamentos APROVADO por dataInicio; custos por evento = despesas
+  vinculadas ao orçamento + cachês (EscalaMembro.cache) + sublocação (OsItemExtra.custo); utilização por
+  categoria = qtd×diárias ÷ estoque×dias; dollar utilization exige Item.valorReposicao; PMR = dataRecebimento
+  − aprovadoEm das receitas PAGO; recompra, concentração top3, demanda perdida (REPROVADO/CANCELADO).
+- "Analisar com IA" (/api/indicadores/ia): leitura executiva Markdown com alertas e ações vs benchmarks.
+- Para os números ficarem completos: lançar custos por evento, cachês na escala e valorReposicao nos itens.
+
 ### Financeiro
 - Dashboard cards, fluxo mensal (todas transações), por banco/categoria, ATRASADO virtual, marcar pago (PATCH parcial),
   recorrência (k/N), headers ordenáveis, CSV, bancos por empresa, banco por transação.
