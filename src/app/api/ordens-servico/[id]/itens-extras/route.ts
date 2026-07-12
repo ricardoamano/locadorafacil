@@ -15,7 +15,11 @@ async function getSessao() {
 async function getOs(osId: string, companyId: string) {
   return prisma.ordemServico.findFirst({
     where: { id: osId, companyId },
-    select: { id: true },
+    select: {
+      id: true,
+      orcamentoId: true,
+      orcamento: { select: { numero: true, eventoNome: true } },
+    },
   });
 }
 
@@ -32,7 +36,10 @@ export async function GET(
 
   const extras = await prisma.osItemExtra.findMany({
     where: { osId: id },
-    include: { item: { select: { id: true, nome: true, codigo: true } } },
+    include: {
+      item: { select: { id: true, nome: true, codigo: true } },
+      fornecedor: { select: { id: true, nomeFantasia: true } },
+    },
     orderBy: { createdAt: "asc" },
   });
   return NextResponse.json({ extras });
@@ -46,8 +53,8 @@ export async function POST(
   if (!sessao) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  if (!(await getOs(id, sessao.companyId)))
-    return NextResponse.json({ error: "OS não encontrada" }, { status: 404 });
+  const os = await getOs(id, sessao.companyId);
+  if (!os) return NextResponse.json({ error: "OS não encontrada" }, { status: 404 });
 
   const body = await req.json();
   const quantidade = Math.max(1, Math.min(999, parseInt(body.quantidade) || 1));
@@ -56,9 +63,12 @@ export async function POST(
 
   const item = await prisma.item.findFirst({
     where: { id: body.itemId, companyId: sessao.companyId },
-    select: { id: true },
+    select: { id: true, nome: true },
   });
   if (!item) return NextResponse.json({ error: "Item não encontrado" }, { status: 404 });
+
+  const custo = body.custo != null && body.custo !== "" ? Number(body.custo) : null;
+  const fornecedorId = body.fornecedorId || null;
 
   // Se o item já foi lançado como extra nesta OS, soma a quantidade
   const extra = await prisma.osItemExtra.upsert({
@@ -66,6 +76,8 @@ export async function POST(
     update: {
       quantidade: { increment: quantidade },
       observacao: body.observacao?.trim() || undefined,
+      ...(fornecedorId ? { fornecedorId } : {}),
+      ...(custo ? { custo } : {}),
     },
     create: {
       osId: id,
@@ -73,9 +85,33 @@ export async function POST(
       quantidade,
       observacao: body.observacao?.trim() || null,
       adicionadoPor: sessao.usuario,
+      fornecedorId,
+      custo,
     },
-    include: { item: { select: { id: true, nome: true, codigo: true } } },
+    include: {
+      item: { select: { id: true, nome: true, codigo: true } },
+      fornecedor: { select: { id: true, nomeFantasia: true } },
+    },
   });
+
+  // Sub-locação com custo: lança a despesa automaticamente no Financeiro
+  if (custo && custo > 0) {
+    await prisma.transacao.create({
+      data: {
+        nome: `Sub-locação: ${item.nome} — OS #${os.orcamento?.numero ?? ""}${
+          os.orcamento?.eventoNome ? ` (${os.orcamento.eventoNome})` : ""
+        }`,
+        dataRecebimento: new Date(),
+        tipo: "DESPESA",
+        orcamentoId: os.orcamentoId,
+        valor: custo,
+        observacao: `Gerada automaticamente ao lançar item sub-locado na OS por ${sessao.usuario}`,
+        status: "PENDENTE",
+        companyId: sessao.companyId,
+      },
+    });
+  }
+
   return NextResponse.json(extra, { status: 201 });
 }
 

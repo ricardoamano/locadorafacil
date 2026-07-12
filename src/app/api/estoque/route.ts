@@ -55,9 +55,19 @@ export async function GET() {
     .filter((u) => u.status === "MANUTENCAO")
     .map((u) => ({ id: u.id, codigo: u.codigo, itemNome: u.item.nome }));
 
-  const [totalUnidades, emEstoque] = await Promise.all([
+  const [totalUnidades, emEstoque, manutencaoVencida] = await Promise.all([
     prisma.itemUnidade.count({ where: { companyId, status: { not: "BAIXADA" } } }),
     prisma.itemUnidade.count({ where: { companyId, status: "EM_ESTOQUE" } }),
+    // Manutenção programada vencida (revisão preventiva em atraso)
+    prisma.itemUnidade.findMany({
+      where: {
+        companyId,
+        status: { notIn: ["BAIXADA", "MANUTENCAO"] },
+        proximaManutencao: { not: null, lte: hoje },
+      },
+      orderBy: { proximaManutencao: "asc" },
+      include: { item: { select: { nome: true } } },
+    }),
   ]);
 
   return NextResponse.json({
@@ -67,8 +77,15 @@ export async function GET() {
       fora: fora.length,
       manutencao: manutencao.length,
       atrasadas: fora.filter((f) => f.atrasada).length,
+      manutencaoVencida: manutencaoVencida.length,
     },
     fora,
     manutencao,
+    manutencaoVencida: manutencaoVencida.map((u) => ({
+      id: u.id,
+      codigo: u.codigo,
+      itemNome: u.item.nome,
+      proximaManutencao: u.proximaManutencao,
+    })),
   });
 }

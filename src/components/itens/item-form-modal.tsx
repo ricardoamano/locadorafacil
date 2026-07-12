@@ -24,6 +24,7 @@ interface ItemFormData {
   nome: string;
   apelidos: string;
   watts: string;
+  valorReposicao: string;
   valorAluguel: string;
   tipo: string;
   categoriaId: string;
@@ -57,6 +58,7 @@ function emptyForm(): ItemFormData {
     nome: "",
     apelidos: "",
     watts: "",
+    valorReposicao: "",
     valorAluguel: "",
     tipo: "PROPRIO",
     categoriaId: "",
@@ -111,6 +113,7 @@ export function ItemFormModal({
           cobranca: initial.cobranca || "FIXO",
           apelidos: initial.apelidos || "",
           watts: initial.watts != null ? String(initial.watts) : "",
+          valorReposicao: initial.valorReposicao != null ? String(initial.valorReposicao) : "",
           valorAluguel: initial.valorAluguel != null ? String(initial.valorAluguel) : "",
           publicado: !!initial.publicado,
           slug: initial.slug || "",
@@ -344,6 +347,22 @@ export function ItemFormModal({
               orçamento.
             </p>
           </div>
+
+          {form.natureza !== "SERVICO" && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Input
+                label="Valor de Reposição (R$)"
+                type="number"
+                step="0.01"
+                value={form.valorReposicao}
+                onChange={(e) => setField("valorReposicao", e.target.value)}
+                placeholder="Custo em caso de perda/dano"
+              />
+              <p className="text-xs text-slate-400 sm:col-span-2 self-end pb-2">
+                Impresso no romaneio de carga da OS como termo de responsabilidade.
+              </p>
+            </div>
+          )}
 
           {/* Preços por período (política de preços — só equipamentos) */}
           {form.natureza !== "SERVICO" && (() => {

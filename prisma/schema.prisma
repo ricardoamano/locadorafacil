@@ -150,6 +150,7 @@ model Contact {
   subContacts SubContact[]
   orcamentos  Orcamento[]
   orcamentosComoCliente2 Orcamento[] @relation("OrcamentoCliente2")
+  extrasFornecidos OsItemExtra[] @relation("ExtraFornecedor")
   faturas     Fatura[]
   contratos   Contrato[]
 }
@@ -237,6 +238,7 @@ model Item {
   valorMes       Float?
   precoManual    Boolean      @default(false)
   natureza       String       @default("EQUIPAMENTO") // EQUIPAMENTO (locação) | SERVICO (prestação, sem estoque)
+  valorReposicao Float?       // custo de reposição em caso de perda/dano
   cobranca       String?      // p/ serviços: FIXO | HORA | DIARIA
   watts          Float?
   kva            Float?
@@ -270,6 +272,7 @@ model Item {
   conferencias   OsConferencia[]
   unidades       ItemUnidade[]
   osExtras       OsItemExtra[]
+  kitItens       KitItem[]
 
   @@unique([companyId, slug])
 }
@@ -327,6 +330,10 @@ model Orcamento {
   total          Float    @default(0)
   aprovadoEm     DateTime?
   aprovadoPor    String?
+  aprovacaoToken String?  @unique
+  aprovadoOnlineEm  DateTime?
+  aprovadoOnlinePor String?
+  aprovadoOnlineIp  String?
   companyId      String
   company        Company  @relation(fields: [companyId], references: [id])
   createdAt      DateTime @default(now())
@@ -392,9 +399,33 @@ model OsItemExtra {
   quantidade    Int          @default(1)
   observacao    String?
   adicionadoPor String?
+  // Sub-locação (cross-hire): equipamento alugado de terceiro para cobrir falta
+  fornecedorId  String?
+  fornecedor    Contact?     @relation("ExtraFornecedor", fields: [fornecedorId], references: [id])
+  custo         Float?
   createdAt     DateTime     @default(now())
 
   @@unique([osId, itemId])
+}
+
+// Kit/pacote de itens (ex.: "Kit Palco P" adiciona vários itens de uma vez)
+model Kit {
+  id        String    @id @default(cuid())
+  nome      String
+  descricao String?
+  companyId String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  itens     KitItem[]
+}
+
+model KitItem {
+  id         String @id @default(cuid())
+  kitId      String
+  kit        Kit    @relation(fields: [kitId], references: [id], onDelete: Cascade)
+  itemId     String
+  item       Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  quantidade Int    @default(1)
 }
 
 // Registro de entrada/saída de equipamentos do estoque na OS (auditável)
@@ -420,6 +451,7 @@ model ItemUnidade {
   numero    Int
   codigo    String   // código único da unidade na empresa (codigoItem-NN)
   status    String   @default("EM_ESTOQUE") // EM_ESTOQUE | NO_EVENTO | MANUTENCAO | BAIXADA
+  proximaManutencao DateTime?
   osId      String?  // OS em que a unidade está (quando NO_EVENTO)
   os        OrdemServico? @relation(fields: [osId], references: [id], onDelete: SetNull)
   companyId String

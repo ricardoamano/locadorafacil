@@ -152,6 +152,24 @@ export default function EstoquePage() {
               )}
             </div>
 
+            {/* Manutenção programada vencida */}
+            {(dados?.manutencaoVencida || []).length > 0 && (
+              <div className="bg-amber-50 rounded-xl border border-amber-200 p-4">
+                <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider mb-2">
+                  ⚠ Manutenção preventiva vencida ({dados.manutencaoVencida.length})
+                </p>
+                <ul className="text-sm text-amber-800 space-y-0.5">
+                  {dados.manutencaoVencida.map((u: any) => (
+                    <li key={u.id}>
+                      <span className="font-mono font-medium">{u.codigo}</span> —{" "}
+                      {u.itemNome} · prevista para{" "}
+                      {new Date(u.proximaManutencao).toLocaleDateString("pt-BR")}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {/* Manutenção */}
             {(dados?.manutencao || []).length > 0 && (
               <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">

@@ -189,6 +189,9 @@ export function OrcamentoForm({
   const [itens, setItens] = useState<ItemOpt[]>([]);
   const [pagamentoOptions, setPagamentoOptions] = useState(pagamentoFallback);
   const [tiposEvento, setTiposEvento] = useState<string[]>([]);
+  const [kits, setKits] = useState<any[]>([]); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const [kitAlvo, setKitAlvo] = useState<number | null>(null); // sala destino
+  const [kitSel, setKitSel] = useState("");
   const [novoLocalOpen, setNovoLocalOpen] = useState(false);
   const [novoClienteAlvo, setNovoClienteAlvo] = useState<"clienteId" | "cliente2Id" | null>(null);
   const [novoContatoAlvo, setNovoContatoAlvo] = useState<"clienteId" | "cliente2Id" | null>(null);
@@ -196,6 +199,9 @@ export function OrcamentoForm({
   const [salvandoContato, setSalvandoContato] = useState(false);
   const [novoItemAlvo, setNovoItemAlvo] = useState<{ si: number; ii: number } | null>(null);
   const [comprometidos, setComprometidos] = useState<
+    Record<string, { quantidade: number; eventos: { numero: number; evento: string | null }[] }>
+  >({});
+  const [reservados, setReservados] = useState<
     Record<string, { quantidade: number; eventos: { numero: number; evento: string | null }[] }>
   >({});
   const [loading, setLoading] = useState(false);
@@ -233,6 +239,10 @@ export function OrcamentoForm({
       .then((r) => r.json())
       .then((d) => setTiposEvento(d.tipos || []))
       .catch(() => {});
+    fetch("/api/kits")
+      .then((r) => r.json())
+      .then((d) => setKits(d.kits || []))
+      .catch(() => {});
   }, []);
 
   // Checagem de disponibilidade nas datas do evento (conflito de agenda)
@@ -252,7 +262,10 @@ export function OrcamentoForm({
         }),
       })
         .then((r) => r.json())
-        .then((d) => setComprometidos(d.comprometidos || {}))
+        .then((d) => {
+          setComprometidos(d.comprometidos || {});
+          setReservados(d.reservados || {});
+        })
         .catch(() => {});
     }, 400);
     return () => clearTimeout(t);
@@ -403,6 +416,27 @@ export function OrcamentoForm({
     } finally {
       setSalvandoContato(false);
     }
+  }
+
+  function aplicarKit() {
+    if (kitAlvo === null || !kitSel) return;
+    const kit = kits.find((k) => k.id === kitSel);
+    if (!kit) return;
+    const salas = [...form.salas];
+    const novas = (kit.itens || []).map(
+      (ki: { itemId: string; quantidade: number; item?: { valorAluguel?: number; descricaoComercial?: string | null; natureza?: string } }) => ({
+        itemId: ki.itemId,
+        quantidade: ki.quantidade,
+        diarias: 1,
+        valorUnitario: ki.item?.valorAluguel || 0,
+        descricaoComercial: ki.item?.descricaoComercial || "",
+      })
+    );
+    salas[kitAlvo] = { ...salas[kitAlvo], itens: [...salas[kitAlvo].itens, ...novas] };
+    set("salas", salas);
+    setKitAlvo(null);
+    setKitSel("");
+    toast(`Kit "${kit.nome}" adicionado (${novas.length} itens).`, "success");
   }
 
   const bruto = useMemo(
@@ -819,19 +853,35 @@ export function OrcamentoForm({
                         if (!sel || sel.natureza === "SERVICO" || !form.dataInicio) return null;
                         const total = sel.quantidade || 0;
                         const comp = comprometidos[sel.id];
+                        const res = reservados[sel.id];
                         const usado = comp?.quantidade || 0;
-                        const disponivel = Math.max(0, total - usado);
-                        if ((it.quantidade || 0) <= disponivel) return null;
-                        const eventos = (comp?.eventos || [])
-                          .slice(0, 3)
-                          .map((e) => `#${e.numero}${e.evento ? ` (${e.evento})` : ""}`)
-                          .join(", ");
-                        return (
-                          <p className="mt-1 text-[11px] font-medium text-red-600 bg-red-50 border border-red-100 rounded px-2 py-1">
-                            ⚠ Conflito de agenda: só {disponivel} de {total} disponíveis
-                            nestas datas{usado > 0 ? ` — ${usado} em ${eventos}` : ""}.
-                          </p>
-                        );
+                        const emHold = res?.quantidade || 0;
+                        const disponivelFirme = Math.max(0, total - usado);
+                        const qtd = it.quantidade || 0;
+                        const fmtEventos = (
+                          lista?: { numero: number; evento: string | null }[]
+                        ) =>
+                          (lista || [])
+                            .slice(0, 3)
+                            .map((e) => `#${e.numero}${e.evento ? ` (${e.evento})` : ""}`)
+                            .join(", ");
+                        if (qtd > disponivelFirme)
+                          return (
+                            <p className="mt-1 text-[11px] font-medium text-red-600 bg-red-50 border border-red-100 rounded px-2 py-1">
+                              ⚠ Conflito de agenda: só {disponivelFirme} de {total}{" "}
+                              disponíveis nestas datas
+                              {usado > 0 ? ` — ${usado} em ${fmtEventos(comp?.eventos)}` : ""}.
+                            </p>
+                          );
+                        if (qtd > Math.max(0, disponivelFirme - emHold) && emHold > 0)
+                          return (
+                            <p className="mt-1 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-100 rounded px-2 py-1">
+                              ⏳ Atenção: {emHold} unidade(s) reservada(s) em orçamentos
+                              pendentes nas mesmas datas ({fmtEventos(res?.eventos)}) —
+                              quem aprovar primeiro leva.
+                            </p>
+                          );
+                        return null;
                       })()}
                     </div>
                     <div className="col-span-2">
@@ -897,10 +947,25 @@ export function OrcamentoForm({
                   </div>
                 ))}
 
-                <Button variant="outline" size="sm" onClick={() => addSalaItem(si)}>
-                  <Plus className="h-4 w-4" />
-                  Adicionar Item
-                </Button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button variant="outline" size="sm" onClick={() => addSalaItem(si)}>
+                    <Plus className="h-4 w-4" />
+                    Adicionar Item
+                  </Button>
+                  {kits.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setKitAlvo(si);
+                        setKitSel("");
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Adicionar Kit
+                    </Button>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -1070,6 +1135,48 @@ export function OrcamentoForm({
           </Button>
           <Button onClick={salvarNovoContato} loading={salvandoContato}>
             Criar e selecionar
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Modal de kit */}
+      <Modal open={kitAlvo !== null} onClose={() => setKitAlvo(null)} title="Adicionar Kit">
+        <ModalBody>
+          <div className="space-y-3">
+            <Select
+              label="Kit / Pacote"
+              searchable
+              value={kitSel}
+              onChange={(e) => setKitSel(e.target.value)}
+              options={kits.map((k) => ({
+                value: k.id,
+                label: `${k.nome} (${(k.itens || []).length} itens)`,
+              }))}
+              placeholder="Escolha o kit"
+            />
+            {kitSel && (
+              <ul className="text-xs text-slate-600 space-y-0.5 border border-slate-100 rounded-lg p-3">
+                {(kits.find((k) => k.id === kitSel)?.itens || []).map(
+                  (ki: { id: string; quantidade: number; item?: { nome?: string } }) => (
+                    <li key={ki.id}>
+                      {ki.quantidade}x {ki.item?.nome}
+                    </li>
+                  )
+                )}
+              </ul>
+            )}
+            <p className="text-xs text-slate-400">
+              Os itens entram como linhas normais na sala — você pode ajustar
+              quantidades, diárias e valores depois.
+            </p>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setKitAlvo(null)}>
+            Cancelar
+          </Button>
+          <Button onClick={aplicarKit} disabled={!kitSel}>
+            Adicionar itens do kit
           </Button>
         </ModalFooter>
       </Modal>

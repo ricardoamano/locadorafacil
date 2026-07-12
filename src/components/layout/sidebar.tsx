@@ -56,6 +56,7 @@ const navItems: NavEntry[] = [
     children: [
       { href: "/ativos/itens", label: "Itens", icon: Package },
       { href: "/ativos/estoque", label: "Estoque em Tempo Real", icon: Package },
+      { href: "/ativos/kits", label: "Kits / Pacotes", icon: Package },
       { href: "/ativos/categorias", label: "Categorias", icon: Package },
       { href: "/ativos/marcas", label: "Marcas", icon: Package },
     ],

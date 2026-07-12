@@ -43,6 +43,8 @@ interface ItemExtra {
   observacao: string | null;
   adicionadoPor: string | null;
   item: { id: string; nome: string; codigo: string };
+  fornecedor?: { id: string; nomeFantasia: string } | null;
+  custo?: number | null;
 }
 
 interface ItemCatalogo {
@@ -79,6 +81,10 @@ export function OsConferencia({ osId }: { osId: string }) {
   const [extraQtd, setExtraQtd] = useState(1);
   const [extraObs, setExtraObs] = useState("");
   const [addExtra, setAddExtra] = useState(false);
+  const [subLocado, setSubLocado] = useState(false);
+  const [fornecedores, setFornecedores] = useState<{ id: string; nomeFantasia: string }[]>([]);
+  const [extraFornecedor, setExtraFornecedor] = useState("");
+  const [extraCusto, setExtraCusto] = useState("");
   const [tipo, setTipo] = useState<"SAIDA" | "ENTRADA">("SAIDA");
   const [itemSel, setItemSel] = useState("");
   const [qtd, setQtd] = useState(1);
@@ -113,6 +119,10 @@ export function OsConferencia({ osId }: { osId: string }) {
       .then((r) => r.json())
       .then((d) => setCatalogo(d.itens || []))
       .catch(() => {});
+    fetch("/api/contacts?type=FORNECEDOR&limit=200")
+      .then((r) => r.json())
+      .then((d) => setFornecedores(d.contacts || []))
+      .catch(() => {});
   }, [carregar]);
 
   async function adicionarExtra() {
@@ -121,17 +131,31 @@ export function OsConferencia({ osId }: { osId: string }) {
       const res = await fetch(`/api/ordens-servico/${osId}/itens-extras`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemId: extraSel, quantidade: extraQtd, observacao: extraObs }),
+        body: JSON.stringify({
+          itemId: extraSel,
+          quantidade: extraQtd,
+          observacao: extraObs,
+          fornecedorId: subLocado ? extraFornecedor || null : null,
+          custo: subLocado && extraCusto ? parseFloat(extraCusto.replace(",", ".")) : null,
+        }),
       });
       const d = await res.json();
       if (!res.ok) {
         toast(d.error || "Erro ao adicionar item.", "error");
         return;
       }
-      toast(`${d.item?.nome || "Item"} adicionado à OS!`, "success");
+      toast(
+        `${d.item?.nome || "Item"} adicionado à OS!${
+          subLocado && extraCusto ? " Despesa de sub-locação lançada no Financeiro." : ""
+        }`,
+        "success"
+      );
       setExtraSel("");
       setExtraQtd(1);
       setExtraObs("");
+      setSubLocado(false);
+      setExtraFornecedor("");
+      setExtraCusto("");
       setAddExtra(false);
       carregar();
     } catch {
@@ -504,6 +528,45 @@ export function OsConferencia({ osId }: { osId: string }) {
                 className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+            <div className="col-span-12">
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={subLocado}
+                  onChange={(e) => setSubLocado(e.target.checked)}
+                  className="h-4 w-4 rounded"
+                />
+                Sub-locado de terceiro (cross-hire)
+              </label>
+            </div>
+            {subLocado && (
+              <>
+                <div className="col-span-12 sm:col-span-6">
+                  <Select
+                    label="Fornecedor"
+                    searchable
+                    value={extraFornecedor}
+                    onChange={(e) => setExtraFornecedor(e.target.value)}
+                    options={fornecedores.map((f) => ({ value: f.id, label: f.nomeFantasia }))}
+                    placeholder="De quem foi alugado"
+                  />
+                </div>
+                <div className="col-span-6 sm:col-span-3">
+                  <label className="text-sm font-medium text-slate-700 block mb-1">
+                    Custo (R$)
+                  </label>
+                  <input
+                    value={extraCusto}
+                    onChange={(e) => setExtraCusto(e.target.value)}
+                    placeholder="0,00"
+                    className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Lança despesa no Financeiro
+                  </p>
+                </div>
+              </>
+            )}
             <div className="col-span-6 sm:col-span-2">
               <Button className="w-full" disabled={!extraSel} onClick={adicionarExtra}>
                 Adicionar

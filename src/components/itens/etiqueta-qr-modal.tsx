@@ -19,6 +19,7 @@ interface Unidade {
   numero: number;
   codigo: string;
   status: string;
+  proximaManutencao?: string | null;
   os?: { id: string; orcamento?: { numero: number; eventoNome: string | null } } | null;
 }
 
@@ -89,6 +90,21 @@ export function EtiquetaQrModal({ open, onClose, item }: EtiquetaQrModalProps) {
       carregar();
     } catch {
       toast("Erro ao atualizar unidade.", "error");
+    }
+  }
+
+  async function agendarManutencao(u: Unidade, data: string) {
+    if (!item) return;
+    try {
+      const res = await fetch(`/api/itens/${item.id}/unidades`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ unidadeId: u.id, proximaManutencao: data || null }),
+      });
+      if (!res.ok) throw new Error();
+      carregar();
+    } catch {
+      toast("Erro ao agendar manutenção.", "error");
     }
   }
 
@@ -196,6 +212,13 @@ export function EtiquetaQrModal({ open, onClose, item }: EtiquetaQrModalProps) {
                       {u.os.orcamento.eventoNome ? ` — ${u.os.orcamento.eventoNome}` : ""}
                     </span>
                   )}
+                  <input
+                    type="date"
+                    value={u.proximaManutencao ? u.proximaManutencao.slice(0, 10) : ""}
+                    onChange={(e) => agendarManutencao(u, e.target.value)}
+                    className="h-7 rounded border border-slate-200 px-1.5 text-[11px] text-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    title="Próxima manutenção preventiva"
+                  />
                   <span className="flex-1" />
                   {u.status === "EM_ESTOQUE" && (
                     <>

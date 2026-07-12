@@ -53,14 +53,18 @@ export async function PUT(
   const status = ["EM_ESTOQUE", "MANUTENCAO", "BAIXADA"].includes(body.status)
     ? body.status
     : null;
-  if (!body.unidadeId || !status)
-    return NextResponse.json({ error: "unidadeId e status válidos são obrigatórios" }, { status: 400 });
+  const temManutencao = body.proximaManutencao !== undefined;
+  if (!body.unidadeId || (!status && !temManutencao))
+    return NextResponse.json(
+      { error: "unidadeId e status ou proximaManutencao são obrigatórios" },
+      { status: 400 }
+    );
 
   const unidade = await prisma.itemUnidade.findFirst({
     where: { id: body.unidadeId, itemId: id, companyId },
   });
   if (!unidade) return NextResponse.json({ error: "Unidade não encontrada" }, { status: 404 });
-  if (unidade.status === "NO_EVENTO")
+  if (status && unidade.status === "NO_EVENTO")
     return NextResponse.json(
       { error: "Unidade está em evento — registre a entrada na OS antes de alterar." },
       { status: 400 }
@@ -68,7 +72,16 @@ export async function PUT(
 
   const atualizada = await prisma.itemUnidade.update({
     where: { id: unidade.id },
-    data: { status, osId: null },
+    data: {
+      ...(status ? { status, osId: null } : {}),
+      ...(temManutencao
+        ? {
+            proximaManutencao: body.proximaManutencao
+              ? new Date(body.proximaManutencao)
+              : null,
+          }
+        : {}),
+    },
   });
   return NextResponse.json(atualizada);
 }

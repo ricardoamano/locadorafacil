@@ -39,6 +39,6 @@ export default authEdge((req) => {
 
 export const config = {
   matcher: [
-    "/((?!login|register|catalogo|api/auth|api/arquivos|_next/static|_next/image|favicon.ico).*)",
+    "/((?!login|register|catalogo|aprovar|api/auth|api/aprovacao|api/arquivos|_next/static|_next/image|favicon.ico).*)",
   ],
 };

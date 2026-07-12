@@ -17,6 +17,7 @@ import {
   FileText,
   Copy,
   Printer,
+  Share2,
 } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; variant: "success" | "warning" | "danger" | "info" | "neutral" }> = {
@@ -267,6 +268,30 @@ export function OrcamentosList() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={async () => {
+                            try {
+                              const res = await fetch(
+                                `/api/orcamentos/${orc.id}/link-aprovacao`,
+                                { method: "POST" }
+                              );
+                              const d = await res.json();
+                              if (!res.ok) throw new Error();
+                              const url = `${window.location.origin}${d.url}`;
+                              await navigator.clipboard.writeText(url);
+                              toast(
+                                "Link de aprovação copiado! Envie ao cliente para ele aprovar online.",
+                                "success"
+                              );
+                            } catch {
+                              toast("Erro ao gerar link.", "error");
+                            }
+                          }}
+                          className="p-1.5 rounded-md text-slate-400 hover:text-green-600 hover:bg-green-50 transition-colors"
+                          title="Copiar link de aprovação online"
+                        >
+                          <Share2 className="h-4 w-4" />
+                        </button>
                         <Link
                           href={`/orcamentos/${orc.id}/imprimir`}
                           className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"

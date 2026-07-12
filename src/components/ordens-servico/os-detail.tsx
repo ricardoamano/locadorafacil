@@ -162,7 +162,13 @@ export function OsDetail({
             OS #{orc.numero} — {orc.cliente?.nomeFantasia}
           </p>
           <p className="text-xs text-slate-400">
-            Gerada do orçamento #{orc.numero}
+            Gerada do orçamento #{orc.numero} ·{" "}
+            <a
+              href={`/ordens-servico/${os.id}/romaneio`}
+              className="text-blue-600 hover:underline"
+            >
+              🖨 Romaneio de carga
+            </a>
           </p>
         </div>
         <div className="w-48">
