@@ -511,6 +511,244 @@ export default function IndicadoresPage() {
                 evento para o número mais importante da empresa ser real.
               </p>
             </section>
+
+            {/* Freelancers: frequência e cachês no período */}
+            <section>
+              <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-2">
+                Freelancers — frequência e cachês
+              </h2>
+              <div className="bg-white rounded-xl border border-slate-100 overflow-x-auto">
+                {a.freelancers?.length > 0 ? (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-xs uppercase text-slate-400 border-b border-slate-100">
+                        <th className="px-4 py-2.5">Freelancer</th>
+                        <th className="px-4 py-2.5 text-right">Eventos</th>
+                        <th className="px-4 py-2.5 text-right">% dos eventos</th>
+                        <th className="px-4 py-2.5 text-right">Cachê médio</th>
+                        <th className="px-4 py-2.5 text-right">Cachê padrão</th>
+                        <th className="px-4 py-2.5 text-right">Total pago</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {a.freelancers.map((f: any, i: number) => (
+                        <tr key={i} className="border-b border-slate-50">
+                          <td className="px-4 py-2.5 font-medium text-slate-800">{f.nome}</td>
+                          <td className="px-4 py-2.5 text-right">{f.eventos}</td>
+                          <td className="px-4 py-2.5 text-right text-slate-500">
+                            {fmtPct(f.frequenciaPct, 0)}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {f.cacheMedio ? formatCurrency(f.cacheMedio) : "—"}
+                            {f.cachePadrao != null &&
+                              f.cacheMedio > f.cachePadrao * 1.1 && (
+                                <span className="ml-1 text-xs text-amber-600" title="Cachê médio acima do padrão cadastrado">
+                                  ▲
+                                </span>
+                              )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-slate-500">
+                            {f.cachePadrao != null ? formatCurrency(f.cachePadrao) : "—"}
+                          </td>
+                          <td className="px-4 py-2.5 text-right font-medium">
+                            {formatCurrency(f.cacheTotal)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p className="text-sm text-slate-400 p-6 text-center">
+                    Nenhum freelancer escalado em eventos deste período (lance os cachês na
+                    escala da OS para este quadro funcionar).
+                  </p>
+                )}
+              </div>
+              {a.freelancersResumo?.ativos > 0 && (
+                <p className="text-xs text-slate-400 mt-2">
+                  {a.freelancersResumo.ativos} freelancer(s) ativos · total pago{" "}
+                  {formatCurrency(a.freelancersResumo.cacheTotal)}
+                  {a.freelancersResumo.cacheMedioEvento != null &&
+                    ` · custo médio de freelancers por evento ${formatCurrency(a.freelancersResumo.cacheMedioEvento)}`}
+                </p>
+              )}
+            </section>
+
+            {/* Análises estratégicas — últimos 12 meses */}
+            {data.estrategico && (
+              <section>
+                <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-2">
+                  Análise estratégica — últimos 12 meses
+                </h2>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Perfis de evento que mais valem a pena */}
+                  <div className="bg-white rounded-xl border border-slate-100 overflow-x-auto">
+                    <p className="px-4 pt-3 pb-1 text-xs font-semibold text-slate-500 uppercase">
+                      Perfis de evento que mais valem a pena
+                    </p>
+                    {data.estrategico.perfisEvento?.length > 0 ? (
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left text-xs uppercase text-slate-400 border-b border-slate-100">
+                            <th className="px-4 py-2">Tipo de evento</th>
+                            <th className="px-4 py-2 text-right">Eventos</th>
+                            <th className="px-4 py-2 text-right">Ticket médio</th>
+                            <th className="px-4 py-2 text-right">Margem</th>
+                            <th className="px-4 py-2 text-right">%</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.estrategico.perfisEvento.slice(0, 8).map((t: any, i: number) => (
+                            <tr key={i} className="border-b border-slate-50">
+                              <td className="px-4 py-2 font-medium text-slate-800">
+                                {i === 0 && "🏆 "}
+                                {t.tipo}
+                              </td>
+                              <td className="px-4 py-2 text-right">{t.eventos}</td>
+                              <td className="px-4 py-2 text-right text-slate-500">
+                                {formatCurrency(t.ticketMedio)}
+                              </td>
+                              <td className="px-4 py-2 text-right font-medium">
+                                {formatCurrency(t.margem)}
+                              </td>
+                              <td className="px-4 py-2 text-right text-slate-500">
+                                {fmtPct(t.margemPct, 0)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <p className="text-sm text-slate-400 p-6 text-center">
+                        Sem eventos aprovados nos últimos 12 meses.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Clientes que mais valem a pena */}
+                  <div className="bg-white rounded-xl border border-slate-100 overflow-x-auto">
+                    <p className="px-4 pt-3 pb-1 text-xs font-semibold text-slate-500 uppercase">
+                      Clientes que mais valem a pena
+                    </p>
+                    {data.estrategico.perfilClientes?.length > 0 ? (
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left text-xs uppercase text-slate-400 border-b border-slate-100">
+                            <th className="px-4 py-2">Cliente</th>
+                            <th className="px-4 py-2 text-right">Eventos</th>
+                            <th className="px-4 py-2 text-right">Margem</th>
+                            <th className="px-4 py-2 text-right">%</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.estrategico.perfilClientes.map((c: any, i: number) => (
+                            <tr key={i} className="border-b border-slate-50">
+                              <td className="px-4 py-2">
+                                <span className="font-medium text-slate-800">
+                                  {i === 0 && "🏆 "}
+                                  {c.nome}
+                                </span>
+                                <span
+                                  className={`ml-1.5 rounded-full text-[10px] font-medium px-1.5 py-0.5 ${
+                                    c.tipo === "Posto de serviço"
+                                      ? "bg-sky-50 text-sky-700"
+                                      : "bg-slate-100 text-slate-600"
+                                  }`}
+                                >
+                                  {c.tipo === "Posto de serviço" ? "posto" : "externo"}
+                                </span>
+                                {c.recorrente && (
+                                  <span className="ml-1 text-[10px] text-emerald-600">↻ recorrente</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-2 text-right">{c.eventos}</td>
+                              <td className="px-4 py-2 text-right font-medium">
+                                {formatCurrency(c.margem)}
+                              </td>
+                              <td className="px-4 py-2 text-right text-slate-500">
+                                {fmtPct(c.margemPct, 0)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <p className="text-sm text-slate-400 p-6 text-center">Sem dados ainda.</p>
+                    )}
+                  </div>
+
+                  {/* Eventos que se repetem */}
+                  <div className="bg-white rounded-xl border border-slate-100 overflow-x-auto">
+                    <p className="px-4 pt-3 pb-1 text-xs font-semibold text-slate-500 uppercase">
+                      Clientes que repetem o mesmo evento
+                    </p>
+                    {data.estrategico.eventosRepetidos?.length > 0 ? (
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left text-xs uppercase text-slate-400 border-b border-slate-100">
+                            <th className="px-4 py-2">Evento</th>
+                            <th className="px-4 py-2">Cliente</th>
+                            <th className="px-4 py-2 text-right">Vezes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.estrategico.eventosRepetidos.map((r: any, i: number) => (
+                            <tr key={i} className="border-b border-slate-50">
+                              <td className="px-4 py-2 font-medium text-slate-800">{r.evento}</td>
+                              <td className="px-4 py-2 text-slate-500">
+                                {r.cliente}
+                                <span className="ml-1 text-[10px] text-slate-400">
+                                  ({r.isPosto ? "posto" : "externo"})
+                                </span>
+                              </td>
+                              <td className="px-4 py-2 text-right font-bold">{r.vezes}x</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <p className="text-sm text-slate-400 p-6 text-center">
+                        Nenhum evento repetido identificado ainda (compara o nome do evento
+                        por cliente).
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Mix externos × postos */}
+                  <div className="bg-white rounded-xl border border-slate-100 p-4">
+                    <p className="text-xs font-semibold text-slate-500 uppercase mb-3">
+                      Clientes externos × postos de serviço
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { rotulo: "Clientes externos", d: data.estrategico.mixClientes?.externos, cor: "slate" },
+                        { rotulo: "Postos de serviço", d: data.estrategico.mixClientes?.postos, cor: "sky" },
+                      ].map((b: any) => (
+                        <div
+                          key={b.rotulo}
+                          className={`rounded-lg border p-3 ${
+                            b.cor === "sky" ? "border-sky-100 bg-sky-50/40" : "border-slate-100 bg-slate-50/40"
+                          }`}
+                        >
+                          <p className="text-xs font-semibold text-slate-600">{b.rotulo}</p>
+                          <p className="text-lg font-bold text-slate-900 mt-1">
+                            {formatCurrency(b.d?.receita || 0)}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {b.d?.clientes || 0} cliente(s) · {b.d?.eventos || 0} evento(s)
+                            <br />
+                            {b.d?.recorrentes || 0} recorrente(s) (2+ eventos)
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-3">
+                      {data.estrategico.clientesQueRepetem} cliente(s) repetem o mesmo evento.
+                    </p>
+                  </div>
+                </div>
+              </section>
+            )}
           </div>
         )}
       </main>

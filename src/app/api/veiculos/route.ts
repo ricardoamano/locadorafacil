@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
       modelo: body.modelo.trim(),
       ano: body.ano ? Number(body.ano) : null,
       tipo: body.tipo || null,
+      rodizioDia: body.rodizioDia != null && body.rodizioDia !== "" ? Number(body.rodizioDia) : null,
       capacidadeCarga: body.capacidadeCarga || null,
       companyId,
     },

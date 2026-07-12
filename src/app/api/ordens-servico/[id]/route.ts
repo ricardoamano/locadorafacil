@@ -63,6 +63,13 @@ export async function GET(
       escala: {
         include: { membro: { select: { id: true, nome: true, tipo: true } } },
       },
+      veiculos: {
+        include: {
+          veiculo: {
+            select: { id: true, placa: true, modelo: true, tipo: true, rodizioDia: true },
+          },
+        },
+      },
     },
   });
 
@@ -83,7 +90,10 @@ export async function PUT(
 
   const existing = await prisma.ordemServico.findFirst({
     where: { id, companyId },
-    include: { escala: { include: { membro: { select: { id: true, nome: true } } } } },
+    include: {
+      escala: { include: { membro: { select: { id: true, nome: true } } } },
+      veiculos: { include: { veiculo: { select: { id: true, placa: true, modelo: true } } } },
+    },
   });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -184,6 +194,30 @@ export async function PUT(
     }
   }
 
+  // Escala de veículos: adicionados/removidos no histórico
+  type VeiculoInput = { veiculoId: string; motorista?: string; observacao?: string };
+  const veiculosInput: VeiculoInput[] | undefined = Array.isArray(body.veiculos)
+    ? (body.veiculos as VeiculoInput[]).filter((v) => v.veiculoId)
+    : undefined;
+  if (veiculosInput) {
+    const antigosV = new Set(existing.veiculos.map((v) => v.veiculoId));
+    const novosV = new Set(veiculosInput.map((v) => v.veiculoId));
+    const addV = [...novosV].filter((v) => !antigosV.has(v));
+    const remV = existing.veiculos.filter((v) => !novosV.has(v.veiculoId));
+    if (addV.length > 0) {
+      const vs = await prisma.veiculo.findMany({
+        where: { id: { in: addV } },
+        select: { modelo: true, placa: true },
+      });
+      alteracoes.push(`Veículo(s) escalado(s): ${vs.map((v) => `${v.modelo} (${v.placa})`).join(", ")}`);
+    }
+    if (remV.length > 0) {
+      alteracoes.push(
+        `Veículo(s) removido(s): ${remV.map((v) => `${v.veiculo.modelo} (${v.veiculo.placa})`).join(", ")}`
+      );
+    }
+  }
+
   // Informações do evento (texto livre do responsável — carimbado com autor/hora)
   const infoMudou =
     body.infoEvento !== undefined &&
@@ -191,6 +225,9 @@ export async function PUT(
   if (infoMudou) alteracoes.push("Informações do evento atualizadas");
 
   await prisma.escalaMembro.deleteMany({ where: { osId: id } });
+  if (veiculosInput) {
+    await prisma.osVeiculo.deleteMany({ where: { osId: id } });
+  }
 
   const os = await prisma.ordemServico.update({
     where: { id },
@@ -219,6 +256,17 @@ export async function PUT(
           cache: e.cache != null && e.cache !== "" ? Number(e.cache) : null,
         })),
       },
+      ...(veiculosInput
+        ? {
+            veiculos: {
+              create: veiculosInput.map((v) => ({
+                veiculoId: v.veiculoId,
+                motorista: v.motorista?.trim() || null,
+                observacao: v.observacao?.trim() || null,
+              })),
+            },
+          }
+        : {}),
     },
     include: { escala: true },
   });

@@ -20,6 +20,8 @@ import {
   Users,
   Phone,
   MessageCircle,
+  Truck,
+  AlertTriangle,
 } from "lucide-react";
 
 const statusOptions = [
@@ -43,6 +45,16 @@ interface EscalaRow {
   funcao: string;
   cache: string;
 }
+
+interface VeiculoRow {
+  veiculoId: string;
+  motorista: string;
+  observacao: string;
+}
+
+const NOME_DIA: Record<number, string> = {
+  1: "segunda-feira", 2: "terça-feira", 3: "quarta-feira", 4: "quinta-feira", 5: "sexta-feira",
+};
 
 interface ProdutorRow {
   nome: string;
@@ -102,6 +114,16 @@ export function OsDetail({
     }))
   );
   const [membros, setMembros] = useState<MembroOpt[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [veiculosDisp, setVeiculosDisp] = useState<any[]>([]);
+  const [veiculosOs, setVeiculosOs] = useState<VeiculoRow[]>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (os.veiculos || []).map((v: any) => ({
+      veiculoId: v.veiculoId,
+      motorista: v.motorista || "",
+      observacao: v.observacao || "",
+    }))
+  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -109,7 +131,33 @@ export function OsDetail({
       .then((r) => r.json())
       .then((d) => setMembros(d.membros || []))
       .catch(() => setMembros([]));
+    fetch("/api/veiculos")
+      .then((r) => r.json())
+      .then((d) => setVeiculosDisp(d.veiculos || []))
+      .catch(() => setVeiculosDisp([]));
   }, []);
+
+  // Dias relevantes da OS (montagem + período do evento) para o alerta de rodízio
+  function diasDaOs(): { data: Date; rotulo: string }[] {
+    const dias: { data: Date; rotulo: string }[] = [];
+    if (horarioMontagem) dias.push({ data: new Date(horarioMontagem), rotulo: "montagem" });
+    if (os.orcamento?.dataInicio) {
+      const ini = new Date(os.orcamento.dataInicio);
+      const fim = os.orcamento?.dataFim ? new Date(os.orcamento.dataFim) : ini;
+      for (let d = new Date(ini); d <= fim; d.setDate(d.getDate() + 1)) {
+        dias.push({ data: new Date(d), rotulo: "evento" });
+      }
+    }
+    return dias;
+  }
+
+  function alertaRodizio(veiculoId: string): string | null {
+    const v = veiculosDisp.find((x) => x.id === veiculoId);
+    if (!v?.rodizioDia) return null;
+    const conflito = diasDaOs().find((d) => d.data.getDay() === v.rodizioDia);
+    if (!conflito) return null;
+    return `Rodízio na ${NOME_DIA[v.rodizioDia]} — dia de ${conflito.rotulo} (${conflito.data.toLocaleDateString("pt-BR")})`;
+  }
 
   const orc = os.orcamento;
 
@@ -172,6 +220,7 @@ export function OsDetail({
           obsLocal,
           escala,
           produtores,
+          veiculos: veiculosOs,
         }),
       });
       if (!res.ok) throw new Error();
@@ -413,6 +462,101 @@ export function OsDetail({
         <Button variant="outline" size="sm" onClick={addEscala} className="mt-3">
           <Plus className="h-4 w-4" />
           Escalar Membro
+        </Button>
+      </div>
+
+      {/* Escala de Veículos (com alerta de rodízio) */}
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <Truck className="h-4 w-4 text-blue-600" />
+          <h3 className="text-sm font-semibold text-slate-900">Escala de Veículos</h3>
+        </div>
+        {veiculosDisp.length === 0 && (
+          <p className="text-xs text-amber-600 mb-3">
+            Nenhum veículo cadastrado — cadastre em Equipe → Veículos.
+          </p>
+        )}
+        <div className="space-y-3">
+          {veiculosOs.map((v, i) => {
+            const alerta = alertaRodizio(v.veiculoId);
+            return (
+              <div key={i}>
+                <div className="grid grid-cols-12 gap-2 items-end border-b border-slate-50 pb-1">
+                  <div className="col-span-5">
+                    <Select
+                      label={i === 0 ? "Veículo" : undefined}
+                      value={v.veiculoId}
+                      onChange={(ev) =>
+                        setVeiculosOs((prev) => {
+                          const arr = [...prev];
+                          arr[i] = { ...arr[i], veiculoId: ev.target.value };
+                          return arr;
+                        })
+                      }
+                      options={veiculosDisp.map((vd) => ({
+                        value: vd.id,
+                        label: `${vd.modelo} — ${vd.placa}${vd.rodizioDia ? ` (rodízio ${NOME_DIA[vd.rodizioDia]?.slice(0, 3)})` : ""}`,
+                      }))}
+                      placeholder="Selecione"
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <Input
+                      label={i === 0 ? "Motorista" : undefined}
+                      value={v.motorista}
+                      onChange={(ev) =>
+                        setVeiculosOs((prev) => {
+                          const arr = [...prev];
+                          arr[i] = { ...arr[i], motorista: ev.target.value };
+                          return arr;
+                        })
+                      }
+                      placeholder="Quem dirige"
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <Input
+                      label={i === 0 ? "Observação" : undefined}
+                      value={v.observacao}
+                      onChange={(ev) =>
+                        setVeiculosOs((prev) => {
+                          const arr = [...prev];
+                          arr[i] = { ...arr[i], observacao: ev.target.value };
+                          return arr;
+                        })
+                      }
+                      placeholder="Ex: leva o palco"
+                    />
+                  </div>
+                  <div className="col-span-1 pb-1.5 text-right">
+                    <button
+                      onClick={() => setVeiculosOs((prev) => prev.filter((_, idx) => idx !== i))}
+                      className="text-slate-400 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+                {alerta && (
+                  <p className="mt-1 mb-2 inline-flex items-center gap-1.5 rounded-md bg-red-50 border border-red-200 px-2 py-1 text-xs font-medium text-red-700">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    {alerta}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            setVeiculosOs((prev) => [...prev, { veiculoId: "", motorista: "", observacao: "" }])
+          }
+          className="mt-3"
+        >
+          <Plus className="h-4 w-4" />
+          Escalar Veículo
         </Button>
       </div>
 

@@ -335,6 +335,60 @@ async function calcularKpis(companyId: string, inicio: Date, fim: Date) {
     ? ((faturamento * (365 / dias)) / parqueReposicao) * 100
     : null;
 
+  // Freelancers: frequência de trabalho e cachês no período.
+  const escalasPeriodo = await prisma.escalaMembro.findMany({
+    where: {
+      os: {
+        companyId,
+        orcamento: { status: "APROVADO", dataInicio: { gte: inicio, lt: fim } },
+      },
+    },
+    select: {
+      osId: true,
+      cache: true,
+      membro: { select: { id: true, nome: true, tipo: true, cache: true } },
+    },
+  });
+  const porFreela = new Map<
+    string,
+    { nome: string; tipo: string; eventos: Set<string>; cacheTotal: number; cachePadrao: number | null }
+  >();
+  for (const e of escalasPeriodo) {
+    const atual = porFreela.get(e.membro.id) || {
+      nome: e.membro.nome,
+      tipo: e.membro.tipo,
+      eventos: new Set<string>(),
+      cacheTotal: 0,
+      cachePadrao: e.membro.cache,
+    };
+    atual.eventos.add(e.osId);
+    atual.cacheTotal += e.cache || 0;
+    porFreela.set(e.membro.id, atual);
+  }
+  const freelancers = [...porFreela.values()]
+    .filter((f) => f.tipo === "FREELANCER")
+    .map((f) => ({
+      nome: f.nome,
+      eventos: f.eventos.size,
+      frequenciaPct: nEventos ? (f.eventos.size / nEventos) * 100 : null,
+      cacheTotal: f.cacheTotal,
+      cacheMedio: f.eventos.size ? f.cacheTotal / f.eventos.size : 0,
+      cachePadrao: f.cachePadrao,
+    }))
+    .sort((a, b) => b.eventos - a.eventos || b.cacheTotal - a.cacheTotal)
+    .slice(0, 15);
+  const freelancersResumo = {
+    ativos: freelancers.length,
+    cacheTotal: freelancers.reduce((s, f) => s + f.cacheTotal, 0),
+    cacheMedioEvento:
+      escalasPeriodo.filter((e) => e.membro.tipo === "FREELANCER").length > 0
+        ? freelancers.reduce((s, f) => s + f.cacheTotal, 0) /
+          new Set(
+            escalasPeriodo.filter((e) => e.membro.tipo === "FREELANCER").map((e) => e.osId)
+          ).size
+        : null,
+  };
+
   return {
     dias,
     faturamento,
@@ -365,7 +419,154 @@ async function calcularKpis(companyId: string, inicio: Date, fim: Date) {
     utilizacaoPorCategoria: utilizacaoPorCategoria.slice(0, 12),
     topEquipamentos,
     dollarUtilizationPct,
+    freelancers,
+    freelancersResumo,
   };
+}
+
+/**
+ * Análises estratégicas (foto dos últimos 12 meses, independente do período):
+ * perfis de evento e de cliente que mais valem a pena, e recorrência —
+ * clientes que repetem o mesmo evento, separando externos de postos de serviço.
+ */
+async function analisesEstrategicas(companyId: string) {
+  const hoje = new Date();
+  const desde = new Date(hoje.getTime() - 365 * DIA_MS);
+
+  const aprovados = await prisma.orcamento.findMany({
+    where: { companyId, status: "APROVADO", dataInicio: { gte: desde } },
+    select: {
+      id: true,
+      tipoEvento: true,
+      eventoNome: true,
+      total: true,
+      clienteId: true,
+      cliente: { select: { nomeFantasia: true, isPostoServico: true } },
+      transacoes: { select: { tipo: true, valor: true } },
+      os: {
+        select: {
+          escala: { select: { cache: true } },
+          itensExtras: { select: { custo: true } },
+        },
+      },
+    },
+  });
+
+  const custosDe = (e: (typeof aprovados)[number]) =>
+    e.transacoes.filter((t) => t.tipo === "DESPESA").reduce((s, t) => s + t.valor, 0) +
+    (e.os?.escala || []).reduce((s, x) => s + (x.cache || 0), 0) +
+    (e.os?.itensExtras || []).reduce((s, x) => s + (x.custo || 0), 0);
+
+  // Perfis de evento (por tipo de evento): qual perfil mais vale a pena.
+  const porTipo = new Map<
+    string,
+    { n: number; receita: number; custos: number }
+  >();
+  for (const e of aprovados) {
+    const tipo = e.tipoEvento?.trim() || "Sem tipo";
+    const atual = porTipo.get(tipo) || { n: 0, receita: 0, custos: 0 };
+    atual.n += 1;
+    atual.receita += e.total || 0;
+    atual.custos += custosDe(e);
+    porTipo.set(tipo, atual);
+  }
+  const perfisEvento = [...porTipo.entries()]
+    .map(([tipo, v]) => ({
+      tipo,
+      eventos: v.n,
+      receita: v.receita,
+      margem: v.receita - v.custos,
+      margemPct: v.receita ? ((v.receita - v.custos) / v.receita) * 100 : null,
+      ticketMedio: v.n ? v.receita / v.n : 0,
+      margemMediaEvento: v.n ? (v.receita - v.custos) / v.n : 0,
+    }))
+    .sort((a, b) => b.margem - a.margem);
+
+  // Perfil de cliente: quem mais vale a pena (margem, ticket, recorrência).
+  const porCliente = new Map<
+    string,
+    { nome: string; isPosto: boolean; n: number; receita: number; custos: number }
+  >();
+  for (const e of aprovados) {
+    const atual = porCliente.get(e.clienteId) || {
+      nome: e.cliente?.nomeFantasia || "?",
+      isPosto: !!e.cliente?.isPostoServico,
+      n: 0,
+      receita: 0,
+      custos: 0,
+    };
+    atual.n += 1;
+    atual.receita += e.total || 0;
+    atual.custos += custosDe(e);
+    porCliente.set(e.clienteId, atual);
+  }
+  const perfilClientes = [...porCliente.values()]
+    .map((c) => ({
+      nome: c.nome,
+      tipo: c.isPosto ? "Posto de serviço" : "Cliente externo",
+      eventos: c.n,
+      receita: c.receita,
+      margem: c.receita - c.custos,
+      margemPct: c.receita ? ((c.receita - c.custos) / c.receita) * 100 : null,
+      ticketMedio: c.n ? c.receita / c.n : 0,
+      recorrente: c.n >= 2,
+    }))
+    .sort((a, b) => b.margem - a.margem)
+    .slice(0, 10);
+
+  // Recorrência: clientes que repetem O MESMO evento (mesmo nome normalizado).
+  const norm = (s: string) =>
+    s
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/\s+/g, " ")
+      .replace(/\b(20\d\d|\d+ª?|edicao|edição)\b/g, "")
+      .trim();
+  const porEventoCliente = new Map<
+    string,
+    { cliente: string; isPosto: boolean; evento: string; vezes: number }
+  >();
+  for (const e of aprovados) {
+    if (!e.eventoNome?.trim()) continue;
+    const chave = `${e.clienteId}::${norm(e.eventoNome)}`;
+    const atual = porEventoCliente.get(chave) || {
+      cliente: e.cliente?.nomeFantasia || "?",
+      isPosto: !!e.cliente?.isPostoServico,
+      evento: e.eventoNome.trim(),
+      vezes: 0,
+    };
+    atual.vezes += 1;
+    porEventoCliente.set(chave, atual);
+  }
+  const eventosRepetidos = [...porEventoCliente.values()]
+    .filter((r) => r.vezes >= 2)
+    .sort((a, b) => b.vezes - a.vezes)
+    .slice(0, 10);
+  const clientesQueRepetem = new Set(
+    eventosRepetidos.map((r) => r.cliente)
+  ).size;
+
+  // Mix externos × postos de serviço.
+  const clientes = [...porCliente.values()];
+  const externos = clientes.filter((c) => !c.isPosto);
+  const postos = clientes.filter((c) => c.isPosto);
+  const mixClientes = {
+    externos: {
+      clientes: externos.length,
+      eventos: externos.reduce((s, c) => s + c.n, 0),
+      receita: externos.reduce((s, c) => s + c.receita, 0),
+      recorrentes: externos.filter((c) => c.n >= 2).length,
+    },
+    postos: {
+      clientes: postos.length,
+      eventos: postos.reduce((s, c) => s + c.n, 0),
+      receita: postos.reduce((s, c) => s + c.receita, 0),
+      recorrentes: postos.filter((c) => c.n >= 2).length,
+    },
+  };
+
+  return { perfisEvento, perfilClientes, eventosRepetidos, clientesQueRepetem, mixClientes };
 }
 
 export async function GET(req: NextRequest) {
@@ -383,9 +584,10 @@ export async function GET(req: NextRequest) {
   const { inicio, fim, antInicio, antFim, label } = limitesPeriodo(tipo, ref);
 
   const hoje = new Date();
-  const [atual, anterior, pipelineAgg, inadimplenciaAgg] = await Promise.all([
+  const [atual, anterior, estrategico, pipelineAgg, inadimplenciaAgg] = await Promise.all([
     calcularKpis(companyId, inicio, fim),
     calcularKpis(companyId, antInicio, antFim),
+    analisesEstrategicas(companyId),
     // Pipeline 90 dias e inadimplência são fotos de HOJE, não do período.
     prisma.orcamento.aggregate({
       where: {
@@ -419,6 +621,7 @@ export async function GET(req: NextRequest) {
     },
     atual,
     anterior,
+    estrategico,
     pipeline90: {
       valor: pipelineAgg._sum.total || 0,
       eventos: pipelineAgg._count._all,

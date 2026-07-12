@@ -29,6 +29,7 @@ export async function PUT(
       modelo: body.modelo || existing.modelo,
       ano: body.ano ? Number(body.ano) : null,
       tipo: body.tipo || null,
+      rodizioDia: body.rodizioDia != null && body.rodizioDia !== "" ? Number(body.rodizioDia) : null,
       capacidadeCarga: body.capacidadeCarga || null,
     },
   });

@@ -415,6 +415,7 @@ model OrdemServico {
   mensagensWhatsapp MensagemWhatsapp[]
   anexos       OsAnexo[]
   alteracoes   OsAlteracao[]
+  veiculos     OsVeiculo[]
 }
 
 // Histórico de alterações da OS — visível também na OS pública, para toda a equipe
@@ -603,9 +604,23 @@ model Veiculo {
   ano             Int?
   tipo            String?
   capacidadeCarga String?
+  rodizioDia      Int?     // dia de rodízio: 1=seg ... 5=sex (regra SP pelo final da placa)
   companyId       String
   company         Company  @relation(fields: [companyId], references: [id])
   createdAt       DateTime @default(now())
+
+  osVeiculos OsVeiculo[]
+}
+
+// Escala de veículos da OS (com alerta de rodízio no dia do evento/montagem)
+model OsVeiculo {
+  id         String       @id @default(cuid())
+  osId       String
+  os         OrdemServico @relation(fields: [osId], references: [id], onDelete: Cascade)
+  veiculoId  String
+  veiculo    Veiculo      @relation(fields: [veiculoId], references: [id])
+  motorista  String?
+  observacao String?
 }
 
 // ── Financeiro ──────────────────────────────────────────────────────────────────

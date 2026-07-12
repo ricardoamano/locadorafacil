@@ -17,6 +17,7 @@ interface Veiculo {
   ano: number | null;
   tipo: string | null;
   capacidadeCarga: string | null;
+  rodizioDia: number | null;
 }
 
 interface FormData {
@@ -26,9 +27,34 @@ interface FormData {
   ano: string;
   tipo: string;
   capacidadeCarga: string;
+  rodizioDia: string;
 }
 
-const empty = (): FormData => ({ placa: "", modelo: "", ano: "", tipo: "", capacidadeCarga: "" });
+const empty = (): FormData => ({ placa: "", modelo: "", ano: "", tipo: "", capacidadeCarga: "", rodizioDia: "" });
+
+const DIAS_RODIZIO = [
+  { value: "", label: "Sem rodízio" },
+  { value: "1", label: "Segunda-feira (finais 1 e 2)" },
+  { value: "2", label: "Terça-feira (finais 3 e 4)" },
+  { value: "3", label: "Quarta-feira (finais 5 e 6)" },
+  { value: "4", label: "Quinta-feira (finais 7 e 8)" },
+  { value: "5", label: "Sexta-feira (finais 9 e 0)" },
+];
+export const NOME_DIA: Record<number, string> = {
+  1: "segunda", 2: "terça", 3: "quarta", 4: "quinta", 5: "sexta",
+};
+
+// Regra do rodízio de SP pelo último dígito da placa
+function rodizioPelaPlaca(placa: string): string {
+  const dig = placa.replace(/\D/g, "").slice(-1);
+  if (!dig) return "";
+  const n = Number(dig);
+  if (n === 1 || n === 2) return "1";
+  if (n === 3 || n === 4) return "2";
+  if (n === 5 || n === 6) return "3";
+  if (n === 7 || n === 8) return "4";
+  return "5";
+}
 
 export default function VeiculosPage() {
   const { toast } = useToast();
@@ -231,6 +257,7 @@ export default function VeiculosPage() {
                               ano: v.ano != null ? String(v.ano) : "",
                               tipo: v.tipo || "",
                               capacidadeCarga: v.capacidadeCarga || "",
+                              rodizioDia: v.rodizioDia != null ? String(v.rodizioDia) : "",
                             });
                             setModalOpen(true);
                           }}
@@ -297,6 +324,33 @@ export default function VeiculosPage() {
                   onChange={(e) => setForm((p) => ({ ...p, capacidadeCarga: e.target.value }))}
                   placeholder="Ex: 1.500 kg"
                 />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 block mb-1">
+                  Dia de rodízio
+                </label>
+                <select
+                  value={form.rodizioDia}
+                  onChange={(e) => setForm((p) => ({ ...p, rodizioDia: e.target.value }))}
+                  className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                >
+                  {DIAS_RODIZIO.map((d) => (
+                    <option key={d.value} value={d.value}>
+                      {d.label}
+                    </option>
+                  ))}
+                </select>
+                {form.placa && rodizioPelaPlaca(form.placa) && form.rodizioDia !== rodizioPelaPlaca(form.placa) && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setForm((p) => ({ ...p, rodizioDia: rodizioPelaPlaca(p.placa) }))
+                    }
+                    className="mt-1 text-xs text-blue-600 hover:underline"
+                  >
+                    Sugerir pela placa (regra SP): {DIAS_RODIZIO.find((d) => d.value === rodizioPelaPlaca(form.placa))?.label}
+                  </button>
+                )}
               </div>
             </div>
           </ModalBody>
