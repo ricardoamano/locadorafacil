@@ -57,7 +57,7 @@ export default async function OsPublicaPage({
         },
       },
       itensExtras: { include: { item: { select: { nome: true, codigo: true } } } },
-      escala: { include: { membro: { select: { nome: true } } } },
+      escala: { include: { membro: { select: { nome: true, telefone: true, email: true } } } },
       anexos: { orderBy: { createdAt: "desc" } },
       alteracoes: { orderBy: { createdAt: "desc" }, take: 40 },
     },
@@ -88,7 +88,7 @@ export default async function OsPublicaPage({
 
   const produtores = (
     Array.isArray(os.produtores) ? os.produtores : []
-  ) as { nome?: string; telefone?: string; funcao?: string }[];
+  ) as { nome?: string; telefone?: string; funcao?: string; observacao?: string }[];
 
   function waMe(telefone: string) {
     let d = telefone.replace(/\D/g, "");
@@ -244,6 +244,11 @@ export default async function OsPublicaPage({
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-slate-800 truncate">{p.nome}</p>
                     {p.funcao && <p className="text-xs text-slate-400">{p.funcao}</p>}
+                    {p.observacao?.trim() ? (
+                      <p className="text-xs text-slate-600 bg-slate-50 rounded-md px-2 py-1 mt-1">
+                        {p.observacao}
+                      </p>
+                    ) : null}
                   </div>
                   {p.telefone && (
                     <a
@@ -300,19 +305,35 @@ export default async function OsPublicaPage({
             </div>
             <ul className="text-sm space-y-1.5">
               {os.escala.map((e) => (
-                <li key={e.id} className="flex justify-between border-b border-slate-50 pb-1">
-                  <span className="font-medium text-slate-800">
-                    {e.membro?.nome}
-                    {e.funcao ? <span className="text-slate-400 font-normal"> · {e.funcao}</span> : null}
-                  </span>
-                  <span className="text-slate-500 text-xs">
-                    {e.horarioEntrada
-                      ? new Date(e.horarioEntrada).toLocaleTimeString("pt-BR", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : ""}
-                  </span>
+                <li key={e.id} className="border-b border-slate-50 pb-1.5">
+                  <div className="flex justify-between">
+                    <span className="font-medium text-slate-800">
+                      {e.membro?.nome}
+                      {e.funcao ? <span className="text-slate-400 font-normal"> · {e.funcao}</span> : null}
+                    </span>
+                    <span className="text-slate-500 text-xs">
+                      {e.horarioEntrada
+                        ? new Date(e.horarioEntrada).toLocaleTimeString("pt-BR", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : ""}
+                    </span>
+                  </div>
+                  {(e.membro?.telefone || e.membro?.email) && (
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs">
+                      {e.membro?.telefone && (
+                        <a href={waMe(e.membro.telefone)} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">
+                          📱 {e.membro.telefone}
+                        </a>
+                      )}
+                      {e.membro?.email && (
+                        <a href={`mailto:${e.membro.email}`} className="text-blue-600 hover:underline">
+                          ✉️ {e.membro.email}
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

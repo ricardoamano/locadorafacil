@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
     data: {
       nome: body.nome.trim(),
       telefone: body.telefone || null,
+      email: body.email || null,
       rg: body.rg || null,
       cpf: body.cpf || null,
       tipo: body.tipo || "FREELANCER",

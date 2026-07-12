@@ -145,7 +145,9 @@ export async function PUT(
   }
 
   // Produtores/contatos do evento
-  let produtoresData: { nome: string; telefone: string; funcao: string }[] | undefined;
+  let produtoresData:
+    | { nome: string; telefone: string; funcao: string; observacao: string }[]
+    | undefined;
   if (Array.isArray(body.produtores)) {
     produtoresData = body.produtores
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -155,6 +157,7 @@ export async function PUT(
         nome: String(p.nome || "").trim(),
         telefone: String(p.telefone || "").trim(),
         funcao: String(p.funcao || "").trim(),
+        observacao: String(p.observacao || "").trim(),
       }));
     if (JSON.stringify(produtoresData) !== JSON.stringify(existing.produtores ?? [])) {
       alteracoes.push("Contatos do evento atualizados");

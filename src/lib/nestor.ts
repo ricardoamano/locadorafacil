@@ -236,6 +236,7 @@ export interface ProdutorEvento {
   nome?: string | null;
   telefone?: string | null;
   funcao?: string | null;
+  observacao?: string | null;
 }
 
 /** Lista de produtores formatada para a mensagem (um por linha, com link direto). */
@@ -250,6 +251,7 @@ export function formatarProdutores(produtores: unknown): string | null {
       const partes = [`• ${nome}${funcao ? ` (${funcao})` : ""}`];
       if (p.telefone?.trim()) partes.push(`: ${p.telefone.trim()}`);
       if (tel) partes.push(` — https://wa.me/${tel}`);
+      if (p.observacao?.trim()) partes.push(`\n  ↳ ${p.observacao.trim()}`);
       return partes.join("");
     });
   // começa com quebra de linha para a lista ficar abaixo do rótulo no template

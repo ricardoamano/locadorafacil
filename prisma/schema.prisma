@@ -546,6 +546,7 @@ model Membro {
   id        String   @id @default(cuid())
   nome      String
   telefone  String?
+  email     String?
   rg        String?
   cpf       String?
   tipo      String

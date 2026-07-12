@@ -28,6 +28,7 @@ export async function PUT(
     data: {
       nome: body.nome,
       telefone: body.telefone || null,
+      email: body.email || null,
       rg: body.rg || null,
       cpf: body.cpf || null,
       tipo: body.tipo || existing.tipo,

@@ -22,6 +22,7 @@ interface Membro {
   id: string;
   nome: string;
   telefone: string | null;
+  email: string | null;
   rg: string | null;
   cpf: string | null;
   tipo: string;
@@ -33,6 +34,7 @@ interface FormData {
   id?: string;
   nome: string;
   telefone: string;
+  email: string;
   rg: string;
   cpf: string;
   tipo: string;
@@ -41,7 +43,7 @@ interface FormData {
 }
 
 const empty = (): FormData => ({
-  nome: "", telefone: "", rg: "", cpf: "", tipo: "FREELANCER", pix: "", cache: "",
+  nome: "", telefone: "", email: "", rg: "", cpf: "", tipo: "FREELANCER", pix: "", cache: "",
 });
 
 export default function MembrosPage() {
@@ -115,6 +117,7 @@ export default function MembrosPage() {
       id: m.id,
       nome: m.nome,
       telefone: m.telefone || "",
+      email: m.email || "",
       rg: m.rg || "",
       cpf: m.cpf || "",
       tipo: m.tipo,
@@ -322,6 +325,13 @@ export default function MembrosPage() {
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                  label="E-mail"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                  placeholder="tecnico@email.com"
+                />
                 <Input
                   label="Chave PIX"
                   value={form.pix}

@@ -48,6 +48,7 @@ interface ProdutorRow {
   nome: string;
   telefone: string;
   funcao: string;
+  observacao: string;
 }
 
 function waMeLink(telefone: string): string | null {
@@ -94,6 +95,7 @@ export function OsDetail({
       nome: p.nome || "",
       telefone: p.telefone || "",
       funcao: p.funcao || "",
+      observacao: p.observacao || "",
     }))
   );
   const [membros, setMembros] = useState<MembroOpt[]>([]);
@@ -196,6 +198,13 @@ export function OsDetail({
               className="text-blue-600 hover:underline"
             >
               🖨 Romaneio de carga
+            </a>{" "}
+            ·{" "}
+            <a
+              href={`/ordens-servico/${os.id}/recibo-entrega`}
+              className="text-blue-600 hover:underline"
+            >
+              ✍️ Termo de entrega (cliente assina)
             </a>
           </p>
         </div>
@@ -458,6 +467,19 @@ export function OsDetail({
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
+                <div className="col-span-12">
+                  <Input
+                    value={p.observacao}
+                    onChange={(ev) =>
+                      setProdutores((prev) => {
+                        const arr = [...prev];
+                        arr[i] = { ...arr[i], observacao: ev.target.value };
+                        return arr;
+                      })
+                    }
+                    placeholder="Observação (ex: responsável pela cenografia, chegará às 12h)"
+                  />
+                </div>
               </div>
             );
           })}
@@ -466,7 +488,10 @@ export function OsDetail({
           variant="outline"
           size="sm"
           onClick={() =>
-            setProdutores((prev) => [...prev, { nome: "", telefone: "", funcao: "" }])
+            setProdutores((prev) => [
+              ...prev,
+              { nome: "", telefone: "", funcao: "", observacao: "" },
+            ])
           }
           className="mt-3"
         >
