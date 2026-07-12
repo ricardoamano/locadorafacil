@@ -24,7 +24,7 @@ export const MODULOS: ModuloDef[] = [
     key: "ordens-servico",
     label: "Ordens de Serviço",
     href: "/ordens-servico",
-    apiPrefixes: ["/api/ordens-servico"],
+    apiPrefixes: ["/api/ordens-servico", "/api/nestor"],
   },
   { key: "financeiro", label: "Financeiro", href: "/financeiro", apiPrefixes: ["/api/transacoes"] },
   { key: "calendario", label: "Calendário", href: "/calendario", apiPrefixes: [] },

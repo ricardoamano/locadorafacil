@@ -25,6 +25,7 @@ import {
   X,
   Settings,
   CalendarDays,
+  Bot,
 } from "lucide-react";
 import React from "react";
 
@@ -91,6 +92,7 @@ const navItems: NavEntry[] = [
       { href: "/configuracoes/modelos-contratos", label: "Modelos de Contratos", icon: FileSignature },
       { href: "/configuracoes/precos", label: "Política de Preços", icon: Package },
       { href: "/configuracoes/tipos-evento", label: "Tipos de Evento", icon: CalendarDays },
+      { href: "/configuracoes/whatsapp", label: "WhatsApp (NESTOR)", icon: Bot },
       { href: "/configuracoes/menu", label: "Personalização do Menu", icon: Menu },
     ],
   },

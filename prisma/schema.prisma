@@ -44,6 +44,10 @@ model Company {
   menuConfig         Json?
   tiposEvento        Json?
   icsToken           String?  @unique // token do link privado de agenda (Google Agenda etc.)
+  // NESTOR — assistente de WhatsApp da empresa (WhatsApp Business Cloud API)
+  whatsappNumero     String?  // número exibido (ex.: +55 11 99999-9999)
+  whatsappPhoneId    String?  // Phone Number ID da Cloud API (Meta)
+  whatsappToken      String?  // token de acesso permanente da Cloud API
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -389,6 +393,24 @@ model OrdemServico {
   conferencias OsConferencia[]
   unidadesNoEvento ItemUnidade[]
   itensExtras  OsItemExtra[]
+  mensagensWhatsapp MensagemWhatsapp[]
+}
+
+// NESTOR — log de mensagens de WhatsApp enviadas à equipe
+model MensagemWhatsapp {
+  id        String        @id @default(cuid())
+  companyId String
+  osId      String?
+  os        OrdemServico? @relation(fields: [osId], references: [id], onDelete: SetNull)
+  membroId  String?
+  membro    Membro?       @relation(fields: [membroId], references: [id], onDelete: SetNull)
+  telefone  String
+  tipo      String        // ESCALA | ALTERACAO | LEMBRETE | AVULSA
+  mensagem  String
+  status    String        @default("ENVIADA") // ENVIADA | ERRO | LINK (aberta no WhatsApp Web)
+  erro      String?
+  enviadoPor String?      // nome do usuário (ou "NESTOR" nos automáticos)
+  createdAt DateTime      @default(now())
 }
 
 // Item lançado direto na OS (fora do orçamento): esquecido pelo comercial ou acessório operacional
@@ -507,6 +529,7 @@ model Membro {
   avaliacoes     Avaliacao[]
   tarefas        TarefaMembro[]
   escala         EscalaMembro[]
+  mensagensWhatsapp MensagemWhatsapp[]
 }
 
 model MembroEspecialidade {

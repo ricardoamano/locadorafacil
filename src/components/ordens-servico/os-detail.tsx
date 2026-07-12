@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { OsConferencia } from "./os-conferencia";
+import { OsNestor } from "./os-nestor";
 import {
   User,
   CalendarDays,
@@ -351,6 +352,9 @@ export function OsDetail({
           Escalar Membro
         </Button>
       </div>
+
+      {/* NESTOR — comunicação com a equipe via WhatsApp */}
+      <OsNestor osId={os.id} />
 
       {/* Observações */}
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
