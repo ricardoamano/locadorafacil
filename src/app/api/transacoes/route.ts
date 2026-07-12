@@ -23,6 +23,8 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status") || "";
   const bancoId = searchParams.get("bancoId") || "";
   const mes = searchParams.get("mes") || ""; // formato YYYY-MM
+  const sort = searchParams.get("sort") || "data";
+  const dir = searchParams.get("dir") === "asc" ? ("asc" as const) : ("desc" as const);
   const page = parseInt(searchParams.get("page") || "1");
   const limit = Math.min(1000, parseInt(searchParams.get("limit") || "20"));
   const skip = (page - 1) * limit;
@@ -70,7 +72,16 @@ export async function GET(req: NextRequest) {
           orcamento: { select: { id: true, numero: true } },
           banco: { select: { id: true, nome: true } },
         },
-        orderBy: { dataRecebimento: "desc" },
+        orderBy:
+          sort === "nome"
+            ? { nome: dir }
+            : sort === "status"
+            ? { status: dir }
+            : sort === "valor"
+            ? { valor: dir }
+            : sort === "orcamento"
+            ? { orcamento: { numero: dir } }
+            : { dataRecebimento: dir },
         skip,
         take: limit,
       }),

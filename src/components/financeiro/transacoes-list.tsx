@@ -23,6 +23,8 @@ import {
   Download,
   Landmark,
   Clock,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; variant: "success" | "warning" | "danger" }> = {
@@ -75,6 +77,8 @@ export function TransacoesList() {
   const [showSaldo, setShowSaldo] = useState(true);
   const [bancoFilter, setBancoFilter] = useState("");
   const [mesFilter, setMesFilter] = useState("");
+  const [sortField, setSortField] = useState("data");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [bancosOpts, setBancosOpts] = useState<{ id: string; nome: string }[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -102,6 +106,8 @@ export function TransacoesList() {
         status: statusFilter,
         bancoId: bancoFilter,
         mes: mesFilter,
+        sort: sortField,
+        dir: sortDir,
       });
       const res = await fetch(`/api/transacoes?${params}`);
       const data = await res.json();
@@ -114,7 +120,7 @@ export function TransacoesList() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, tipoFilter, statusFilter, bancoFilter, mesFilter, toast]);
+  }, [page, search, tipoFilter, statusFilter, bancoFilter, mesFilter, sortField, sortDir, toast]);
 
   useEffect(() => {
     fetchTransacoes();
@@ -204,6 +210,50 @@ export function TransacoesList() {
     } finally {
       setDeleteLoading(false);
     }
+  }
+
+  function ordenar(campo: string) {
+    if (sortField === campo) {
+      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    } else {
+      setSortField(campo);
+      // Data e valor começam do maior/mais recente; textos começam A-Z
+      setSortDir(campo === "data" || campo === "valor" ? "desc" : "asc");
+    }
+    setPage(1);
+  }
+
+  function Th({
+    campo,
+    align = "left",
+    children,
+  }: {
+    campo?: string;
+    align?: "left" | "right";
+    children: React.ReactNode;
+  }) {
+    const ativo = campo && sortField === campo;
+    return (
+      <th
+        className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider select-none ${
+          align === "right" ? "text-right" : "text-left"
+        } ${campo ? "cursor-pointer hover:text-slate-800" : ""} ${
+          ativo ? "text-blue-700" : "text-slate-500"
+        }`}
+        onClick={campo ? () => ordenar(campo) : undefined}
+        title={campo ? "Clique para ordenar" : undefined}
+      >
+        <span className={`inline-flex items-center gap-1 ${align === "right" ? "flex-row-reverse" : ""}`}>
+          {children}
+          {ativo &&
+            (sortDir === "desc" ? (
+              <ArrowDown className="h-3 w-3" />
+            ) : (
+              <ArrowUp className="h-3 w-3" />
+            ))}
+        </span>
+      </th>
+    );
   }
 
   return (
@@ -467,24 +517,12 @@ export function TransacoesList() {
           <table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Transação
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Data
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Orçamento
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Valor
-                </th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Ações
-                </th>
+                <Th campo="nome">Transação</Th>
+                <Th campo="data">Data</Th>
+                <Th campo="orcamento">Orçamento</Th>
+                <Th campo="status">Status</Th>
+                <Th campo="valor" align="right">Valor</Th>
+                <Th align="right">Ações</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
