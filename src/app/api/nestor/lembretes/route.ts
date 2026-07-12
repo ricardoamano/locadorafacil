@@ -84,6 +84,7 @@ export async function GET(req: NextRequest) {
         dataFim: os.orcamento?.dataFim,
         horarioMontagem: os.horarioMontagem,
         local: os.orcamento?.local || null,
+        produtores: os.produtores,
         empresaNome: company.name,
         assistenteNome: company.whatsappAssistente,
         linkOs: `${origin}/os/${publicToken}`,

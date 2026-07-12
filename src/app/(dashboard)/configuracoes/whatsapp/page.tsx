@@ -24,6 +24,7 @@ const VARIAVEIS: { chave: string; descricao: string }[] = [
   { chave: "{link_maps}", descricao: "link Google Maps" },
   { chave: "{link_waze}", descricao: "link Waze" },
   { chave: "{link_os}", descricao: "link público da OS" },
+  { chave: "{produtores}", descricao: "produtores/contatos do evento (com link de WhatsApp)" },
   { chave: "{observacoes}", descricao: "observações da OS" },
 ];
 
@@ -262,6 +263,22 @@ export default function ConfigWhatsappPage() {
           <Button onClick={() => salvar(false)} loading={saving}>
             Salvar
           </Button>
+        </div>
+        <div className="mt-4 rounded-lg bg-amber-50 border border-amber-100 p-3 text-xs text-amber-800 space-y-1">
+          <p className="font-semibold">Teste enviado mas não chegou? Regras do WhatsApp (Meta):</p>
+          <p>
+            1. <strong>Janela de 24h:</strong> a API só entrega texto livre para quem falou com o
+            número nas últimas 24h. Peça para a pessoa mandar um &quot;oi&quot; para o número do
+            assistente e teste de novo — vale para os técnicos também.
+          </p>
+          <p>
+            2. <strong>Número de teste da Meta:</strong> só entrega para telefones adicionados em
+            &quot;Destinatários permitidos&quot; no painel do app.
+          </p>
+          <p>
+            3. <strong>Token temporário</strong> expira em 24h — gere um token permanente
+            (Usuários do sistema) para produção.
+          </p>
         </div>
       </div>
     </div>

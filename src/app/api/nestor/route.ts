@@ -59,6 +59,7 @@ function dadosOs(os: any, empresaNome: string, assistenteNome: string | null, or
     horarioDesmontagem: os.horarioDesmontagem,
     local: os.orcamento?.local || null,
     observacoes: os.observacoes,
+    produtores: os.produtores,
     empresaNome,
     assistenteNome,
     linkOs: os.publicToken ? `${origin}/os/${os.publicToken}` : null,

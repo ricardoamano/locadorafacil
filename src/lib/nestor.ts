@@ -80,6 +80,7 @@ export const VARIAVEIS_TEMPLATE: { chave: string; descricao: string }[] = [
   { chave: "{link_maps}", descricao: "Link do local no Google Maps" },
   { chave: "{link_waze}", descricao: "Link do local no Waze" },
   { chave: "{link_os}", descricao: "Link público simplificado da OS" },
+  { chave: "{produtores}", descricao: "Produtores/contatos do evento (nome, função e WhatsApp)" },
   { chave: "{observacoes}", descricao: "Observações operacionais da OS" },
 ];
 
@@ -100,6 +101,8 @@ export const TEMPLATES_PADRAO: Record<TipoTemplate, string> = {
     "🚗 Waze: {link_waze}",
     "📄 OS completa: {link_os}",
     "",
+    "📞 Contatos no evento: {produtores}",
+    "",
     "📝 Observações: {observacoes}",
     "",
     "Qualquer dúvida, fale com a produção. Bom trabalho! 💪",
@@ -117,6 +120,8 @@ export const TEMPLATES_PADRAO: Record<TipoTemplate, string> = {
     "📍 Local: {local}",
     "🗺️ Google Maps: {link_maps}",
     "📄 OS completa: {link_os}",
+    "",
+    "📞 Contatos no evento: {produtores}",
     "",
     "📝 Observações: {observacoes}",
     "",
@@ -136,6 +141,8 @@ export const TEMPLATES_PADRAO: Record<TipoTemplate, string> = {
     "🗺️ Google Maps: {link_maps}",
     "🚗 Waze: {link_waze}",
     "📄 OS completa: {link_os}",
+    "",
+    "📞 Contatos no evento: {produtores}",
     "",
     "Até amanhã! 💪",
   ].join("\n"),
@@ -225,6 +232,30 @@ export function linkWaze(local: LocalOs | null | undefined): string | null {
   return q ? `https://waze.com/ul?q=${encodeURIComponent(q)}&navigate=yes` : null;
 }
 
+export interface ProdutorEvento {
+  nome?: string | null;
+  telefone?: string | null;
+  funcao?: string | null;
+}
+
+/** Lista de produtores formatada para a mensagem (um por linha, com link direto). */
+export function formatarProdutores(produtores: unknown): string | null {
+  if (!Array.isArray(produtores)) return null;
+  const linhas = (produtores as ProdutorEvento[])
+    .filter((p) => p?.nome || p?.telefone)
+    .map((p) => {
+      const nome = p.nome?.trim() || "Contato";
+      const funcao = p.funcao?.trim();
+      const tel = normalizarTelefone(p.telefone);
+      const partes = [`• ${nome}${funcao ? ` (${funcao})` : ""}`];
+      if (p.telefone?.trim()) partes.push(`: ${p.telefone.trim()}`);
+      if (tel) partes.push(` — https://wa.me/${tel}`);
+      return partes.join("");
+    });
+  // começa com quebra de linha para a lista ficar abaixo do rótulo no template
+  return linhas.length > 0 ? "\n" + linhas.join("\n") : null;
+}
+
 export interface DadosOsMensagem {
   numero: number | string;
   eventoNome?: string | null;
@@ -237,6 +268,7 @@ export interface DadosOsMensagem {
   empresaNome: string;
   assistenteNome?: string | null;
   linkOs?: string | null;
+  produtores?: unknown;
 }
 
 export interface DadosEscalado {
@@ -269,6 +301,7 @@ export function variaveisMensagem(
     link_maps: linkMaps(os.local),
     link_waze: linkWaze(os.local),
     link_os: os.linkOs || null,
+    produtores: formatarProdutores(os.produtores),
     observacoes: os.observacoes || null,
   };
 }
