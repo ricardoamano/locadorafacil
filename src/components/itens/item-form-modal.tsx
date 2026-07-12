@@ -18,6 +18,8 @@ interface Categoria {
 
 interface ItemFormData {
   id?: string;
+  natureza: string;
+  cobranca: string;
   codigo: string;
   nome: string;
   apelidos: string;
@@ -49,6 +51,8 @@ const tipoOptions = [
 
 function emptyForm(): ItemFormData {
   return {
+    natureza: "EQUIPAMENTO",
+    cobranca: "FIXO",
     codigo: "",
     nome: "",
     apelidos: "",
@@ -103,6 +107,8 @@ export function ItemFormModal({
         setForm({
           ...emptyForm(),
           ...initial,
+          natureza: initial.natureza || "EQUIPAMENTO",
+          cobranca: initial.cobranca || "FIXO",
           apelidos: initial.apelidos || "",
           watts: initial.watts != null ? String(initial.watts) : "",
           valorAluguel: initial.valorAluguel != null ? String(initial.valorAluguel) : "",
@@ -207,6 +213,32 @@ export function ItemFormModal({
     >
       <ModalBody>
         <div className="space-y-4">
+          {/* Natureza: locação de equipamento ou prestação de serviço */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setField("natureza", "EQUIPAMENTO")}
+              className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                form.natureza !== "SERVICO"
+                  ? "border-blue-300 bg-blue-50 text-blue-700"
+                  : "border-slate-200 text-slate-500 hover:bg-slate-50"
+              }`}
+            >
+              📦 Equipamento (locação, com estoque)
+            </button>
+            <button
+              type="button"
+              onClick={() => setField("natureza", "SERVICO")}
+              className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                form.natureza === "SERVICO"
+                  ? "border-purple-300 bg-purple-50 text-purple-700"
+                  : "border-slate-200 text-slate-500 hover:bg-slate-50"
+              }`}
+            >
+              🛠 Serviço (prestação, sem estoque)
+            </button>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="col-span-2">
               <Input
@@ -238,30 +270,55 @@ export function ItemFormModal({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Input
-              label="Valor da Diária (R$) *"
+              label={
+                form.natureza === "SERVICO"
+                  ? "Valor do Serviço (R$) *"
+                  : "Valor da Diária (R$) *"
+              }
               type="number"
               step="0.01"
               value={form.valorAluguel}
               onChange={(e) => setField("valorAluguel", e.target.value)}
               placeholder="0,00"
             />
-            <Input
-              label="Quantidade em Estoque"
-              type="number"
-              value={form.quantidade}
-              onChange={(e) => setField("quantidade", e.target.value)}
-              placeholder="0"
-            />
-            <Select
-              label="Tipo"
-              value={form.tipo}
-              onChange={(e) => setField("tipo", e.target.value)}
-              options={tipoOptions}
-            />
+            {form.natureza === "SERVICO" ? (
+              <Select
+                label="Forma de cobrança"
+                value={form.cobranca}
+                onChange={(e) => setField("cobranca", e.target.value)}
+                options={[
+                  { value: "FIXO", label: "Valor fixo (pacote)" },
+                  { value: "HORA", label: "Por hora" },
+                  { value: "DIARIA", label: "Por diária" },
+                ]}
+              />
+            ) : (
+              <>
+                <Input
+                  label="Quantidade em Estoque"
+                  type="number"
+                  value={form.quantidade}
+                  onChange={(e) => setField("quantidade", e.target.value)}
+                  placeholder="0"
+                />
+                <Select
+                  label="Tipo"
+                  value={form.tipo}
+                  onChange={(e) => setField("tipo", e.target.value)}
+                  options={tipoOptions}
+                />
+              </>
+            )}
           </div>
+          {form.natureza === "SERVICO" && (
+            <p className="text-xs text-slate-400 -mt-2">
+              Serviços não geram estoque, unidades nem etiquetas QR — entram no
+              orçamento normalmente, sozinhos ou junto com equipamentos.
+            </p>
+          )}
 
-          {/* Consumo elétrico */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+          {/* Consumo elétrico (só equipamentos) */}
+          <div className={`grid grid-cols-1 sm:grid-cols-3 gap-3 items-end ${form.natureza === "SERVICO" ? "hidden" : ""}`}>
             <Input
               label="Consumo (Watts)"
               type="number"
@@ -288,8 +345,8 @@ export function ItemFormModal({
             </p>
           </div>
 
-          {/* Preços por período (política de preços) */}
-          {(() => {
+          {/* Preços por período (política de preços — só equipamentos) */}
+          {form.natureza !== "SERVICO" && (() => {
             const diaria = parseFloat(form.valorAluguel) || 0;
             const calc = calcularPrecos(diaria, politica);
             const periodos = [

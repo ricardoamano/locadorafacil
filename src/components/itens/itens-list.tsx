@@ -31,6 +31,7 @@ interface Item {
   codigo: string;
   nome: string;
   apelidos?: string | null;
+  natureza?: string;
   valorAluguel: number;
   tipo: string;
   quantidade: number;
@@ -56,6 +57,7 @@ export function ItensList() {
   const [searchInput, setSearchInput] = useState(buscaInicial);
   const [etiquetaItem, setEtiquetaItem] = useState<Item | null>(null);
   const [view, setView] = useState<"todos" | "catalogo">("todos");
+  const [naturezaFilter, setNaturezaFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<Item | null>(null);
@@ -72,6 +74,7 @@ export function ItensList() {
         page: String(page),
         limit: String(limit),
         search,
+        natureza: naturezaFilter,
       });
       const res = await fetch(`/api/itens?${params}`);
       const data = await res.json();
@@ -82,7 +85,7 @@ export function ItensList() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, toast]);
+  }, [page, search, naturezaFilter, toast]);
 
   useEffect(() => {
     fetchItens();
@@ -178,10 +181,24 @@ export function ItensList() {
           )}
         </form>
 
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4" />
-          Novo Item
-        </Button>
+        <div className="flex items-center gap-2">
+          <select
+            value={naturezaFilter}
+            onChange={(e) => {
+              setNaturezaFilter(e.target.value);
+              setPage(1);
+            }}
+            className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Equipamentos e Serviços</option>
+            <option value="EQUIPAMENTO">Só Equipamentos</option>
+            <option value="SERVICO">Só Serviços</option>
+          </select>
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4" />
+            Novo Item
+          </Button>
+        </div>
       </div>
 
       {/* Table */}
@@ -251,6 +268,11 @@ export function ItensList() {
                       <div>
                         <p className="text-sm font-medium text-slate-900">
                           {item.nome}
+                          {item.natureza === "SERVICO" && (
+                            <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-full align-middle">
+                              serviço
+                            </span>
+                          )}
                         </p>
                         {item.apelidos && (
                           <p className="text-xs text-slate-400 italic">
@@ -332,13 +354,15 @@ export function ItensList() {
                           <Globe className="h-4 w-4" />
                         </button>
                       )}
-                      <button
-                        onClick={() => setEtiquetaItem(item)}
-                        className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                        title="Etiqueta QR code"
-                      >
-                        <QrCode className="h-4 w-4" />
-                      </button>
+                      {item.natureza !== "SERVICO" && (
+                        <button
+                          onClick={() => setEtiquetaItem(item)}
+                          className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                          title="Etiqueta QR code"
+                        >
+                          <QrCode className="h-4 w-4" />
+                        </button>
+                      )}
                       <button
                         onClick={() => openEdit(item)}
                         className="p-1.5 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"

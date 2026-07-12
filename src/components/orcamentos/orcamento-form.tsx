@@ -38,6 +38,7 @@ interface ItemOpt {
   nome: string;
   apelidos?: string | null;
   descricaoComercial?: string | null;
+  natureza?: string;
   codigo: string;
   valorAluguel: number;
 }
@@ -376,8 +377,12 @@ export function OrcamentoForm({
   const localOptions = locais.map((l) => ({ value: l.id, label: l.nome }));
   const itemOptions = itens.map((i) => ({
     value: i.id,
-    label: `${i.codigo ? i.codigo + " — " : ""}${i.nome}`,
-    keywords: i.apelidos || "",
+    label: `${i.codigo ? i.codigo + " — " : ""}${i.nome}${
+      i.natureza === "SERVICO" ? " 🛠 (serviço)" : ""
+    }`,
+    keywords: [i.apelidos, i.natureza === "SERVICO" ? "servico serviço" : ""]
+      .filter(Boolean)
+      .join(" "),
   }));
   // Inclui o valor atual mesmo que o tipo tenha sido removido das configurações
   const tipoEventoOptions = (

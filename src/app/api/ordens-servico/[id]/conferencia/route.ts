@@ -29,6 +29,7 @@ async function getOsComItens(osId: string, companyId: string) {
                       codigo: true,
                       apelidos: true,
                       descricaoComercial: true,
+                      natureza: true,
                     },
                   },
                 },
@@ -58,6 +59,8 @@ async function itensDaOs(os: any): Promise<Map<string, ItemEsperado>> {
   for (const sala of os.orcamento?.salas || []) {
     for (const si of sala.itens || []) {
       if (!si.item) continue;
+      // Serviços não movimentam estoque — ficam fora da conferência
+      if (si.item.natureza === "SERVICO") continue;
       const atual = esperado.get(si.item.id);
       if (atual) atual.quantidade += si.quantidade || 0;
       else
@@ -76,10 +79,11 @@ async function itensDaOs(os: any): Promise<Map<string, ItemEsperado>> {
   const extras = await prisma.osItemExtra.findMany({
     where: { osId: os.id },
     include: {
-      item: { select: { id: true, nome: true, codigo: true, apelidos: true, descricaoComercial: true } },
+      item: { select: { id: true, nome: true, codigo: true, apelidos: true, descricaoComercial: true, natureza: true } },
     },
   });
   for (const ex of extras) {
+    if (ex.item.natureza === "SERVICO") continue;
     const atual = esperado.get(ex.itemId);
     if (atual) atual.quantidade += ex.quantidade;
     else

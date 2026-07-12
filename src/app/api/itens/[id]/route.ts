@@ -80,6 +80,13 @@ export async function PUT(
     data: {
       codigo: codigoFinal,
       nome: data.nome,
+      natureza: data.natureza === "SERVICO" ? "SERVICO" : "EQUIPAMENTO",
+      cobranca:
+        data.natureza === "SERVICO"
+          ? ["FIXO", "HORA", "DIARIA"].includes(data.cobranca)
+            ? data.cobranca
+            : "FIXO"
+          : null,
       apelidos: data.apelidos || null,
       valorAluguel: diaria,
       precoManual,

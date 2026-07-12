@@ -233,6 +233,8 @@ model Item {
   valorQuinzena  Float?
   valorMes       Float?
   precoManual    Boolean      @default(false)
+  natureza       String       @default("EQUIPAMENTO") // EQUIPAMENTO (locação) | SERVICO (prestação, sem estoque)
+  cobranca       String?      // p/ serviços: FIXO | HORA | DIARIA
   watts          Float?
   kva            Float?
   tipo           String

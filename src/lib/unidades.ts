@@ -25,9 +25,11 @@ export async function proximoCodigoItem(companyId: string): Promise<string> {
 export async function sincronizarUnidades(itemId: string) {
   const item = await prisma.item.findUnique({
     where: { id: itemId },
-    select: { id: true, codigo: true, quantidade: true, companyId: true },
+    select: { id: true, codigo: true, quantidade: true, companyId: true, natureza: true },
   });
   if (!item || !item.codigo) return;
+  // Serviços não têm estoque físico — nunca geram unidades
+  if (item.natureza === "SERVICO") return;
 
   const ativas = await prisma.itemUnidade.count({
     where: { itemId, status: { not: "BAIXADA" } },
