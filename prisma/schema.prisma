@@ -78,6 +78,7 @@ model User {
   isOwner       Boolean   @default(false)
   ativo         Boolean   @default(true)
   permissions   Json?
+  tarefasIcsToken String? @unique // link privado de tarefas do usuário (Google Agenda)
   companyId     String?
   company       Company?  @relation(fields: [companyId], references: [id])
   createdAt     DateTime  @default(now())

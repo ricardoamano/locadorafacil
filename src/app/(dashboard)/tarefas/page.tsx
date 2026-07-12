@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Header } from "@/components/layout/header";
+import { IntegracaoTarefas } from "@/components/tarefas/integracao-tarefas";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -164,7 +165,7 @@ export default function TarefasPage() {
               Organize o trabalho da equipe com prazos e responsáveis
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -177,6 +178,7 @@ export default function TarefasPage() {
                 </option>
               ))}
             </select>
+            <IntegracaoTarefas />
             <Button onClick={openCreate}>
               <Plus className="h-4 w-4" />
               Nova Tarefa
