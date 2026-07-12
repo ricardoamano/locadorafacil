@@ -49,6 +49,7 @@ interface ItemOpt {
   descricaoComercial?: string | null;
   natureza?: string;
   codigo: string;
+  quantidade?: number;
   valorAluguel: number;
 }
 
@@ -194,6 +195,9 @@ export function OrcamentoForm({
   const [novoContato, setNovoContato] = useState({ nome: "", cargo: "", telefone: "", email: "" });
   const [salvandoContato, setSalvandoContato] = useState(false);
   const [novoItemAlvo, setNovoItemAlvo] = useState<{ si: number; ii: number } | null>(null);
+  const [comprometidos, setComprometidos] = useState<
+    Record<string, { quantidade: number; eventos: { numero: number; evento: string | null }[] }>
+  >({});
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState<Record<string, boolean>>({
     cliente: true,
@@ -230,6 +234,29 @@ export function OrcamentoForm({
       .then((d) => setTiposEvento(d.tipos || []))
       .catch(() => {});
   }, []);
+
+  // Checagem de disponibilidade nas datas do evento (conflito de agenda)
+  useEffect(() => {
+    if (!form.dataInicio) {
+      setComprometidos({});
+      return;
+    }
+    const t = setTimeout(() => {
+      fetch("/api/itens/disponibilidade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          inicio: form.dataInicio,
+          fim: form.dataFim || form.dataInicio,
+          excluirOrcamentoId: form.id || null,
+        }),
+      })
+        .then((r) => r.json())
+        .then((d) => setComprometidos(d.comprometidos || {}))
+        .catch(() => {});
+    }, 400);
+    return () => clearTimeout(t);
+  }, [form.dataInicio, form.dataFim, form.id]);
 
   useEffect(() => {
     if (initial) {
@@ -787,6 +814,25 @@ export function OrcamentoForm({
                         placeholder="Descrição comercial (visível ao cliente e à equipe)..."
                         className="mt-1 h-7 w-full rounded-md border border-dashed border-slate-200 bg-transparent px-2 text-xs italic text-slate-600 placeholder:not-italic placeholder:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-400"
                       />
+                      {(() => {
+                        const sel = itens.find((x) => x.id === it.itemId);
+                        if (!sel || sel.natureza === "SERVICO" || !form.dataInicio) return null;
+                        const total = sel.quantidade || 0;
+                        const comp = comprometidos[sel.id];
+                        const usado = comp?.quantidade || 0;
+                        const disponivel = Math.max(0, total - usado);
+                        if ((it.quantidade || 0) <= disponivel) return null;
+                        const eventos = (comp?.eventos || [])
+                          .slice(0, 3)
+                          .map((e) => `#${e.numero}${e.evento ? ` (${e.evento})` : ""}`)
+                          .join(", ");
+                        return (
+                          <p className="mt-1 text-[11px] font-medium text-red-600 bg-red-50 border border-red-100 rounded px-2 py-1">
+                            ⚠ Conflito de agenda: só {disponivel} de {total} disponíveis
+                            nestas datas{usado > 0 ? ` — ${usado} em ${eventos}` : ""}.
+                          </p>
+                        );
+                      })()}
                     </div>
                     <div className="col-span-2">
                       <Input

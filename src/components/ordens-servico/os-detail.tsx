@@ -100,6 +100,31 @@ export function OsDetail({
   }
 
   async function handleSave() {
+    // Ao concluir, confere se ainda há unidades não devolvidas ao estoque
+    if (status === "CONCLUIDA" && os.status !== "CONCLUIDA") {
+      try {
+        const res = await fetch(`/api/ordens-servico/${os.id}/conferencia`);
+        if (res.ok) {
+          const d = await res.json();
+          const pendentes = (d.unidades || []).filter(
+            (u: { status: string; osAtualId: string | null }) =>
+              u.status === "NO_EVENTO" && u.osAtualId === os.id
+          );
+          if (pendentes.length > 0) {
+            const lista = pendentes
+              .slice(0, 5)
+              .map((u: { codigo: string }) => u.codigo)
+              .join(", ");
+            const ok = window.confirm(
+              `⚠ Ainda há ${pendentes.length} unidade(s) não devolvida(s) ao estoque (${lista}${
+                pendentes.length > 5 ? "..." : ""
+              }).\n\nConcluir a OS mesmo assim? Elas continuarão marcadas como "No evento" até a entrada ser registrada.`
+            );
+            if (!ok) return;
+          }
+        }
+      } catch {}
+    }
     setSaving(true);
     try {
       const res = await fetch(`/api/ordens-servico/${os.id}`, {
