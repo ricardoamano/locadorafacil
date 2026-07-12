@@ -92,6 +92,13 @@ Sistema multiempresa de gestão de locação de equipamentos e serviços para ev
   resposta truncada por max_tokens é aproveitada parcialmente (toast avisa "leitura parcial").
 - **Módulo Ajuda** (/ajuda): chat que responde "quem tem X" / "quanto custa a diária" com base no PrecoMercado
   + estoque próprio; nunca inventa; sugere alimentar o banco.
+- **Importar OS de posto** (Postos de Serviço → "Importar OS do posto"): anexa a OS que o posto enviou (mesmos
+  formatos do Banco de Preços, via `src/lib/documentos.ts` compartilhado) ou cola o texto → Sonnet extrai posto/
+  nº OS externa/evento/datas/local/contatos/salas+itens (natureza EQUIPAMENTO|SERVICO) → tela de revisão (Select
+  do posto; sem seleção cadastra o posto detectado como novo Contact isPostoServico) → cria Orcamento (itens
+  casados com o catálogo por nome/apelidos/modelo; não casados viram Item novo, padrão dos acessórios). Extração
+  fica em `OsPostoImportada` (companyId/clienteId/orcamentoId/documento/dados Json) — a última OS do mesmo posto
+  vira exemplo de padrão no prompt das próximas análises.
 - **Autofill locais/clientes** (PreencherIa) e **chat de propostas** no Projeto Especial (usa iaInstrucoes).
 - ÚNICO passo do usuário: criar chave em platform.claude.com e colar em Configurações → IA.
 

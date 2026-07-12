@@ -759,6 +759,22 @@ model PrecoMercado {
   createdAt   DateTime @default(now())
 }
 
+// OS recebida de um posto de serviço (cliente isPostoServico), interpretada
+// pela IA. A extração fica guardada: as OSs de cada posto seguem um padrão,
+// então a última importação vira exemplo nas próximas análises do mesmo posto.
+model OsPostoImportada {
+  id          String   @id @default(cuid())
+  companyId   String
+  clienteId   String?  // posto (Contact) identificado
+  orcamentoId String?  // orçamento criado a partir desta OS
+  documento   String   // nome do arquivo ou "texto colado"
+  dados       Json     // extração estruturada da IA
+  createdAt   DateTime @default(now())
+
+  @@index([companyId])
+  @@index([clienteId])
+}
+
 // Snapshot de backup da empresa (JSON gzip de todas as tabelas, sem imagens)
 model BackupSnapshot {
   id         String   @id @default(cuid())

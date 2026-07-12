@@ -1,13 +1,18 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, Wrench, Pencil } from "lucide-react";
+import { Plus, Wrench, Pencil, Sparkles, FileUp } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; variant: "success" | "warning" | "danger" | "info" | "neutral" }> = {
   PENDENTE: { label: "Pendente", variant: "warning" },
@@ -28,10 +33,62 @@ interface Orcamento {
   local: { id: string; nome: string } | null;
 }
 
+// Resultado da análise da OS do posto pela IA (rota importar-os).
+interface ItemAnalisado {
+  descricao: string;
+  natureza: string;
+  quantidade: number;
+  diarias: number;
+  valorUnitario: number | null;
+  itemId: string | null;
+  itemNome: string | null;
+  valorCatalogo: number | null;
+}
+interface Analise {
+  documento: string;
+  dados: {
+    posto?: string | null;
+    numeroOsExterna?: string | null;
+    eventoNome?: string | null;
+    tipoEvento?: string | null;
+    localNome?: string | null;
+    dataMontagem?: string | null;
+    dataInicio?: string | null;
+    dataFim?: string | null;
+    observacoes?: string | null;
+  };
+  salas: { nome: string; itens: ItemAnalisado[] }[];
+  clienteSugeridoId: string | null;
+  localSugeridoId: string | null;
+  postos: { id: string; nomeFantasia: string }[];
+  parcial: boolean;
+}
+
+function fmtData(v?: string | null) {
+  if (!v) return "—";
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return v;
+  const temHora = d.getHours() + d.getMinutes() > 0;
+  return (
+    d.toLocaleDateString("pt-BR") +
+    (temHora ? ` ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : "")
+  );
+}
+
 export default function PostosServicoPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Importação de OS do posto com IA
+  const [importAberto, setImportAberto] = useState(false);
+  const [textoColado, setTextoColado] = useState("");
+  const [analisando, setAnalisando] = useState(false);
+  const [criando, setCriando] = useState(false);
+  const [analise, setAnalise] = useState<Analise | null>(null);
+  const [clienteId, setClienteId] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -50,6 +107,97 @@ export default function PostosServicoPage() {
     fetchData();
   }, [fetchData]);
 
+  function fecharImport() {
+    if (analisando || criando) return;
+    setImportAberto(false);
+    setAnalise(null);
+    setTextoColado("");
+    setClienteId("");
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  async function analisar(entrada: File | string) {
+    setAnalisando(true);
+    try {
+      let res: Response;
+      if (typeof entrada === "string") {
+        res = await fetch("/api/postos-servico/importar-os", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ texto: entrada, nome: "texto colado" }),
+        });
+      } else {
+        const fd = new FormData();
+        fd.append("file", entrada);
+        res = await fetch("/api/postos-servico/importar-os", { method: "POST", body: fd });
+      }
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setAnalise(d);
+      setClienteId(d.clienteSugeridoId || "");
+      if (d.parcial)
+        toast("O documento era grande e a leitura foi parcial — revise os itens.", "error");
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro na análise.", "error");
+    } finally {
+      setAnalisando(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  async function criarOrcamento() {
+    if (!analise) return;
+    setCriando(true);
+    try {
+      const salas = analise.salas.map((s) => ({
+        nome: s.nome,
+        itens: s.itens.map((i) => ({
+          ...i,
+          valorUnitario: i.valorUnitario ?? i.valorCatalogo ?? 0,
+        })),
+      }));
+      const res = await fetch("/api/postos-servico/importar-os?etapa=criar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          documento: analise.documento,
+          dados: analise.dados,
+          clienteId: clienteId || null,
+          novoPostoNome: clienteId ? null : analise.dados.posto || null,
+          localId: analise.localSugeridoId,
+          salas,
+        }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      toast(
+        `✅ Orçamento #${d.numero} criado!${
+          d.itensCriados?.length
+            ? ` ${d.itensCriados.length} item(ns) novo(s) cadastrado(s) no catálogo.`
+            : ""
+        }`,
+        "success"
+      );
+      fecharImport();
+      router.push(`/orcamentos/${d.orcamentoId}`);
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro ao criar o orçamento.", "error");
+      setCriando(false);
+    }
+  }
+
+  const totalPrevisto = analise
+    ? analise.salas.reduce(
+        (acc, s) =>
+          acc +
+          s.itens.reduce(
+            (a, i) => a + i.quantidade * i.diarias * (i.valorUnitario ?? i.valorCatalogo ?? 0),
+            0
+          ),
+        0
+      )
+    : 0;
+
   return (
     <>
       <Header breadcrumbs={[{ label: "Postos de Serviço" }]} />
@@ -61,13 +209,197 @@ export default function PostosServicoPage() {
               Eventos e orçamentos de clientes marcados como posto de serviço oficial
             </p>
           </div>
-          <Link href="/orcamentos/novo">
-            <Button>
-              <Plus className="h-4 w-4" />
-              Novo Evento de Posto
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" onClick={() => setImportAberto(true)}>
+              <Sparkles className="h-4 w-4 text-violet-600" />
+              Importar OS do posto
             </Button>
-          </Link>
+            <Link href="/orcamentos/novo">
+              <Button>
+                <Plus className="h-4 w-4" />
+                Novo Evento de Posto
+              </Button>
+            </Link>
+          </div>
         </div>
+
+        <Modal
+          open={importAberto}
+          onClose={fecharImport}
+          title={analise ? "Revisar OS interpretada" : "Importar OS do posto com IA"}
+          size="2xl"
+        >
+          {!analise ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-slate-500">
+                Anexe a OS enviada pelo posto de serviço (PDF, planilha XLSX/CSV, DOCX,
+                TXT/MD) ou cole o texto dela. A IA interpreta as informações do evento e
+                dos itens pedidos, guarda o padrão da OS do posto e monta um orçamento.
+              </p>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".pdf,.xlsx,.xls,.csv,.docx,.txt,.md,application/pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) analisar(f);
+                }}
+              />
+              <Button
+                variant="outline"
+                onClick={() => fileRef.current?.click()}
+                loading={analisando}
+                className="w-full"
+              >
+                <FileUp className="h-4 w-4" />
+                {analisando ? "Analisando OS..." : "Anexar arquivo da OS"}
+              </Button>
+              <div className="flex items-center gap-3 text-xs text-slate-400">
+                <div className="h-px bg-slate-100 flex-1" />
+                ou cole o texto
+                <div className="h-px bg-slate-100 flex-1" />
+              </div>
+              <Textarea
+                value={textoColado}
+                onChange={(e) => setTextoColado(e.target.value)}
+                placeholder="Cole aqui o conteúdo da OS do posto..."
+                className="min-h-[180px] font-mono text-xs"
+                disabled={analisando}
+              />
+              <div className="flex justify-end">
+                <Button
+                  loading={analisando}
+                  disabled={!textoColado.trim()}
+                  onClick={() => analisar(textoColado)}
+                >
+                  <Sparkles className="h-4 w-4" />
+                  {analisando ? "Analisando OS..." : "Analisar com IA"}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm bg-slate-50 rounded-lg p-3">
+                <p className="col-span-2">
+                  <span className="text-slate-400">Evento:</span>{" "}
+                  <span className="font-medium text-slate-800">
+                    {analise.dados.eventoNome || "—"}
+                  </span>
+                  {analise.dados.tipoEvento ? (
+                    <span className="text-slate-500"> · {analise.dados.tipoEvento}</span>
+                  ) : null}
+                </p>
+                <p>
+                  <span className="text-slate-400">Montagem:</span>{" "}
+                  {fmtData(analise.dados.dataMontagem)}
+                </p>
+                <p>
+                  <span className="text-slate-400">Evento:</span>{" "}
+                  {fmtData(analise.dados.dataInicio)}
+                  {analise.dados.dataFim ? ` → ${fmtData(analise.dados.dataFim)}` : ""}
+                </p>
+                <p className="col-span-2">
+                  <span className="text-slate-400">Local:</span>{" "}
+                  {analise.dados.localNome || "—"}
+                </p>
+                {analise.dados.numeroOsExterna ? (
+                  <p className="col-span-2">
+                    <span className="text-slate-400">OS do posto:</span>{" "}
+                    {analise.dados.numeroOsExterna}
+                  </p>
+                ) : null}
+              </div>
+
+              <div>
+                <Select
+                  label="Posto de serviço (cliente)"
+                  value={clienteId}
+                  onChange={(e) => setClienteId(e.target.value)}
+                  options={analise.postos.map((p) => ({ value: p.id, label: p.nomeFantasia }))}
+                  placeholder={
+                    analise.dados.posto
+                      ? `Cadastrar "${analise.dados.posto}" como novo posto`
+                      : "Selecione o posto"
+                  }
+                  searchable
+                  clearable
+                />
+                {!clienteId && analise.dados.posto ? (
+                  <p className="text-xs text-amber-600 mt-1">
+                    Sem posto selecionado, &quot;{analise.dados.posto}&quot; será cadastrado
+                    como novo cliente Posto de Serviço.
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="border border-slate-100 rounded-lg overflow-hidden">
+                <div className="max-h-64 overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-slate-50">
+                      <tr className="text-left text-xs uppercase tracking-wider text-slate-400">
+                        <th className="px-3 py-2">Item pedido</th>
+                        <th className="px-3 py-2 text-center">Qtd</th>
+                        <th className="px-3 py-2 text-center">Diárias</th>
+                        <th className="px-3 py-2 text-right">Unit.</th>
+                        <th className="px-3 py-2">Catálogo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {analise.salas.map((s, si) => (
+                        <React.Fragment key={si}>
+                          {analise.salas.length > 1 && (
+                            <tr className="bg-violet-50/60">
+                              <td colSpan={5} className="px-3 py-1.5 text-xs font-semibold text-violet-700">
+                                {s.nome}
+                              </td>
+                            </tr>
+                          )}
+                          {s.itens.map((i, ii) => (
+                            <tr key={ii} className="border-t border-slate-50">
+                              <td className="px-3 py-2 text-slate-800">{i.descricao}</td>
+                              <td className="px-3 py-2 text-center">{i.quantidade}</td>
+                              <td className="px-3 py-2 text-center">{i.diarias}</td>
+                              <td className="px-3 py-2 text-right">
+                                {formatCurrency(i.valorUnitario ?? i.valorCatalogo ?? 0)}
+                              </td>
+                              <td className="px-3 py-2">
+                                {i.itemId ? (
+                                  <Badge variant="success">{i.itemNome}</Badge>
+                                ) : (
+                                  <Badge variant="warning">novo item</Badge>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <p className="text-xs text-slate-400 -mt-2">
+                Itens marcados como &quot;novo item&quot; serão cadastrados no catálogo.
+                Total previsto: <strong>{formatCurrency(totalPrevisto)}</strong> — dá para
+                ajustar tudo depois no editor do orçamento.
+              </p>
+
+              <div className="flex justify-between gap-2">
+                <Button variant="ghost" onClick={() => setAnalise(null)} disabled={criando}>
+                  ← Analisar outra OS
+                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={fecharImport} disabled={criando}>
+                    Cancelar
+                  </Button>
+                  <Button loading={criando} onClick={criarOrcamento}>
+                    {criando ? "Criando orçamento..." : "Criar orçamento"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </Modal>
 
         <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-x-auto">
           {loading ? (
