@@ -30,8 +30,10 @@ import {
   DatabaseBackup,
   Sparkles,
   LifeBuoy,
+  LogOut,
 } from "lucide-react";
 import React from "react";
+import { signOut } from "next-auth/react";
 
 type NavChild = { href: string; label: string; icon: React.ElementType; moduleKey?: string };
 type NavEntry = {
@@ -286,7 +288,14 @@ function SidebarContent({
       </nav>
 
       {/* Footer */}
-      <div className="px-3 py-3 border-t border-slate-100">
+      <div className="px-3 py-3 border-t border-slate-100 flex flex-col gap-2">
+        <button
+          onClick={() => signOut({ redirectTo: "/login" })}
+          className="flex items-center justify-center gap-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-colors"
+        >
+          <LogOut className="h-4 w-4" />
+          Sair
+        </button>
         <p className="text-xs text-slate-400 text-center">LocadoraFácil</p>
       </div>
     </>

@@ -114,7 +114,7 @@ export function Header({ breadcrumbs = [] }: HeaderProps) {
                 </p>
               </div>
               <button
-                onClick={() => signOut({ callbackUrl: "/login" })}
+                onClick={() => signOut({ redirectTo: "/login" })}
                 className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
               >
                 <LogOut className="h-4 w-4" />
