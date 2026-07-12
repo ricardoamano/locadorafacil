@@ -89,7 +89,13 @@ Sistema multiempresa de gestão de locação de equipamentos e serviços para ev
   arquivo (PDF, XLSX/XLS via `xlsx`, CSV, DOCX via `mammoth`, TXT/MD) ou TEXTO COLADO (modal "Colar texto",
   aceita Markdown, POST JSON `{texto, nome?}`) → Sonnet extrai equipamento/marca/modelo/valores unitários +
   EMPRESA fonte → tabela PrecoMercado. Rotas de IA têm `maxDuration=60` (timeout Vercel matava o upload);
-  resposta truncada por max_tokens é aproveitada parcialmente (toast avisa "leitura parcial").
+  resposta truncada por max_tokens é aproveitada parcialmente (toast avisa "leitura parcial"). Campo "Empresa
+  fonte (opcional)" no colar texto sobrepõe a detecção; IA instruída a devolver null (nunca "não identificado").
+  Tabela mostra "Importado em" (createdAt). **Manutenção com IA** (/api/precos-mercado/ia): orientação em
+  linguagem natural ("apague os da empresa X", "exclua importados há +1 ano", "reajuste diárias em 10%") →
+  IA recebe retrato do banco (groupBy fonte/documento com datas) e devolve plano {resposta, acoes[deletar|
+  atualizar c/ filtro fonte/equipamento/marca/documento/antesDe/depoisDe, percentual multiply]} → tela mostra
+  prévia com nº de afetados → só executa (etapa=executar) após confirmação do usuário.
 - **Módulo Ajuda** (/ajuda): chat que responde "quem tem X" / "quanto custa a diária" com base no PrecoMercado
   + estoque próprio; nunca inventa; sugere alimentar o banco.
 - **Importar OS de posto** (Postos de Serviço → "Importar OS do posto"): anexa a OS que o posto enviou (mesmos

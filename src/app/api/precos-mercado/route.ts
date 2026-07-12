@@ -93,7 +93,10 @@ export async function POST(req: NextRequest) {
   const entrada = await lerDocumentoDaRequisicao(req);
   if ("erro" in entrada)
     return NextResponse.json({ error: entrada.erro }, { status: entrada.status });
-  const { blocos, nomeDocumento } = entrada;
+  const { blocos, nomeDocumento, extras } = entrada;
+  // Empresa fonte informada pelo usuário — vale mais que a detecção da IA
+  // (útil quando o documento não traz o nome da empresa).
+  const fonteInformada = String(extras.fonte || "").trim().slice(0, 200);
 
   try {
     const resposta = await ia.messages.create({
@@ -110,7 +113,7 @@ export async function POST(req: NextRequest) {
 
 Responda APENAS com um JSON válido:
 {
-  "fonte": "nome da empresa que EMITIU este orçamento (a que tem os equipamentos)",
+  "fonte": "nome da empresa que EMITIU este orçamento (a que tem os equipamentos), ou null se o documento não identificar a empresa — NUNCA invente nem escreva 'não identificado'",
   "itens": [
     {
       "equipamento": "nome do equipamento como está no documento",
@@ -148,11 +151,13 @@ Regras: valores UNITÁRIOS (divida pelo número de unidades e diárias se o docu
     }
 
     const dados = extrairJson(texto);
-    const fonteTexto =
+    let fonteTexto =
       String(dados?.fonte || "").trim() ||
       /"fonte"\s*:\s*"([^"]+)"/.exec(texto)?.[1]?.trim() ||
       "";
-    const fonte = fonteTexto || nomeDocumento.replace(/\.[a-z0-9]+$/i, "");
+    if (/não identificad|nao identificad|desconhecid|^null$/i.test(fonteTexto)) fonteTexto = "";
+    const fonte =
+      fonteInformada || fonteTexto || nomeDocumento.replace(/\.[a-z0-9]+$/i, "");
     const criados = await prisma.precoMercado.createMany({
       data: itens
         .filter((i) => i?.equipamento)

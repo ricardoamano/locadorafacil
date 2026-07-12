@@ -8,7 +8,7 @@ import { Modal } from "@/components/ui/modal";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { formatCurrency } from "@/lib/utils";
-import { FileUp, Trash2, Search, Database, ClipboardPaste } from "lucide-react";
+import { FileUp, Trash2, Search, Database, ClipboardPaste, Sparkles } from "lucide-react";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -24,7 +24,18 @@ export default function PrecosMercadoPage() {
   const [colarAberto, setColarAberto] = useState(false);
   const [textoColado, setTextoColado] = useState("");
   const [nomeColado, setNomeColado] = useState("");
+  const [fonteColada, setFonteColada] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Orientações por IA (manutenção do banco: limpar antigos, reajustar...)
+  const [comando, setComando] = useState("");
+  const [iaPensando, setIaPensando] = useState(false);
+  const [iaAplicando, setIaAplicando] = useState(false);
+  const [plano, setPlano] = useState<{
+    resposta: string;
+    acoes: any[];
+    totalAfetados: number;
+  } | null>(null);
 
   const carregar = useCallback(
     (q?: string) => {
@@ -47,7 +58,7 @@ export default function PrecosMercadoPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busca]);
 
-  async function importar(body: FormData | { texto: string; nome?: string }) {
+  async function importar(body: FormData | { texto: string; nome?: string; fonte?: string }) {
     setEnviando(true);
     try {
       const res = await fetch("/api/precos-mercado", {
@@ -70,6 +81,7 @@ export default function PrecosMercadoPage() {
       setColarAberto(false);
       setTextoColado("");
       setNomeColado("");
+      setFonteColada("");
       carregar();
     } catch (e) {
       toast(e instanceof Error && e.message ? e.message : "Erro na importação.", "error");
@@ -88,6 +100,64 @@ export default function PrecosMercadoPage() {
   async function excluir(id: string) {
     await fetch(`/api/precos-mercado?id=${id}`, { method: "DELETE" });
     carregar();
+  }
+
+  async function pedirPlano() {
+    setIaPensando(true);
+    setPlano(null);
+    try {
+      const res = await fetch("/api/precos-mercado/ia", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comando }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setPlano(d);
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro na IA.", "error");
+    } finally {
+      setIaPensando(false);
+    }
+  }
+
+  async function aplicarPlano() {
+    if (!plano?.acoes?.length) return;
+    setIaAplicando(true);
+    try {
+      const res = await fetch("/api/precos-mercado/ia?etapa=executar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acoes: plano.acoes }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      toast(`✅ Pronto — ${d.afetados} registro(s) afetado(s).`, "success");
+      setPlano(null);
+      setComando("");
+      carregar();
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro ao aplicar.", "error");
+    } finally {
+      setIaAplicando(false);
+    }
+  }
+
+  function descreveAcao(a: any) {
+    const filtros = [
+      a.filtro?.fonte && `fonte contém "${a.filtro.fonte}"`,
+      a.filtro?.equipamento && `equipamento contém "${a.filtro.equipamento}"`,
+      a.filtro?.marca && `marca contém "${a.filtro.marca}"`,
+      a.filtro?.documento && `documento contém "${a.filtro.documento}"`,
+      a.filtro?.antesDe &&
+        `importados antes de ${new Date(a.filtro.antesDe).toLocaleDateString("pt-BR")}`,
+      a.filtro?.depoisDe &&
+        `importados depois de ${new Date(a.filtro.depoisDe).toLocaleDateString("pt-BR")}`,
+    ].filter(Boolean);
+    const alvo = filtros.length ? filtros.join(", ") : "TODOS os registros";
+    return a.tipo === "deletar"
+      ? `Excluir ${a.afetados} registro(s) — ${alvo}`
+      : `Reajustar ${a.afetados} registro(s) em ${a.percentual > 0 ? "+" : ""}${a.percentual}% (${(a.campos || []).join(", ")}) — ${alvo}`;
   }
 
   return (
@@ -143,12 +213,20 @@ export default function PrecosMercadoPage() {
               Cole abaixo o conteúdo do orçamento ou tabela de preços (texto simples ou
               Markdown) — a IA identifica os equipamentos, valores e a empresa de origem.
             </p>
-            <Input
-              label="Identificação do documento (opcional)"
-              value={nomeColado}
-              onChange={(e) => setNomeColado(e.target.value)}
-              placeholder='Ex.: "Orçamento Mega Eventos jun/2026"'
-            />
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Input
+                label="Empresa fonte (opcional)"
+                value={fonteColada}
+                onChange={(e) => setFonteColada(e.target.value)}
+                placeholder="Se o texto não traz o nome da empresa"
+              />
+              <Input
+                label="Identificação do documento (opcional)"
+                value={nomeColado}
+                onChange={(e) => setNomeColado(e.target.value)}
+                placeholder='Ex.: "Orçamento Mega Eventos jun/2026"'
+              />
+            </div>
             <Textarea
               label="Texto do orçamento"
               value={textoColado}
@@ -168,7 +246,11 @@ export default function PrecosMercadoPage() {
                 loading={enviando}
                 disabled={!textoColado.trim()}
                 onClick={() =>
-                  importar({ texto: textoColado, nome: nomeColado.trim() || undefined })
+                  importar({
+                    texto: textoColado,
+                    nome: nomeColado.trim() || undefined,
+                    fonte: fonteColada.trim() || undefined,
+                  })
                 }
               >
                 {enviando ? "Analisando texto..." : "Importar preços"}
@@ -176,6 +258,84 @@ export default function PrecosMercadoPage() {
             </div>
           </div>
         </Modal>
+
+        <div className="bg-violet-50/60 border border-violet-100 rounded-xl p-4 mb-4">
+          <p className="text-sm font-medium text-violet-800 flex items-center gap-1.5 mb-2">
+            <Sparkles className="h-4 w-4" />
+            Manutenção do banco com IA
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            <Input
+              value={comando}
+              onChange={(e) => setComando(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && comando.trim() && !iaPensando) pedirPlano();
+              }}
+              placeholder='Ex.: "apague os preços da empresa X", "exclua o que foi importado há mais de 1 ano", "reajuste as diárias de moving em 10%"'
+              className="flex-1 min-w-[260px] bg-white"
+              disabled={iaPensando || iaAplicando}
+            />
+            <Button
+              onClick={pedirPlano}
+              loading={iaPensando}
+              disabled={!comando.trim() || iaAplicando}
+            >
+              {iaPensando ? "Interpretando..." : "Analisar"}
+            </Button>
+          </div>
+          <p className="text-xs text-violet-500 mt-1.5">
+            Nada é alterado sem a sua confirmação — a IA mostra o plano e quantos
+            registros serão afetados antes de aplicar.
+          </p>
+          {plano && (
+            <div className="mt-3 bg-white rounded-lg border border-violet-100 p-3">
+              <p className="text-sm text-slate-700 whitespace-pre-wrap">{plano.resposta}</p>
+              {plano.acoes.length > 0 && (
+                <>
+                  <ul className="mt-2 space-y-1">
+                    {plano.acoes.map((a, i) => (
+                      <li key={i} className="text-sm text-slate-600 flex items-start gap-1.5">
+                        <span
+                          className={
+                            a.tipo === "deletar" ? "text-red-500" : "text-amber-600"
+                          }
+                        >
+                          {a.tipo === "deletar" ? "🗑" : "✎"}
+                        </span>
+                        {descreveAcao(a)}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex justify-end gap-2 mt-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => setPlano(null)}
+                      disabled={iaAplicando}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      loading={iaAplicando}
+                      onClick={aplicarPlano}
+                      variant={plano.acoes.some((a) => a.tipo === "deletar") ? "destructive" : "default"}
+                    >
+                      {iaAplicando
+                        ? "Aplicando..."
+                        : `Confirmar (${plano.totalAfetados} registro(s))`}
+                    </Button>
+                  </div>
+                </>
+              )}
+              {plano.acoes.length === 0 && (
+                <div className="flex justify-end mt-2">
+                  <Button variant="outline" onClick={() => setPlano(null)}>
+                    Fechar
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="relative mb-4 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -208,6 +368,7 @@ export default function PrecosMercadoPage() {
                   <th className="px-4 py-3 text-right">Semana</th>
                   <th className="px-4 py-3 text-right">Mês</th>
                   <th className="px-4 py-3">Documento</th>
+                  <th className="px-4 py-3">Importado em</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -234,6 +395,9 @@ export default function PrecosMercadoPage() {
                     </td>
                     <td className="px-4 py-2.5 text-xs text-slate-400 max-w-[140px] truncate">
                       {r.documento || "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-slate-400 whitespace-nowrap">
+                      {r.createdAt ? new Date(r.createdAt).toLocaleDateString("pt-BR") : "—"}
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       <button
