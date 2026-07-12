@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { ExportarCsv } from "@/components/ui/exportar-csv";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -153,6 +154,7 @@ export default function VeiculosPage() {
                 Copiar dados ({selecionados.size})
               </Button>
             )}
+            <ExportarCsv tipo="veiculos" />
             <Button
               onClick={() => {
                 setForm(empty());

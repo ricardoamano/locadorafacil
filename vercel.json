@@ -3,6 +3,10 @@
     {
       "path": "/api/nestor/lembretes",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/backup/automatico",
+      "schedule": "0 3 * * *"
     }
   ]
 }

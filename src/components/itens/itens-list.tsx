@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { ExportarCsv } from "@/components/ui/exportar-csv";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -205,6 +206,7 @@ export function ItensList() {
             <option value="EQUIPAMENTO">Só Equipamentos</option>
             <option value="SERVICO">Só Serviços</option>
           </select>
+          <ExportarCsv tipo="itens" />
           <Button onClick={openCreate}>
             <Plus className="h-4 w-4" />
             Novo Item

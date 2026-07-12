@@ -733,6 +733,17 @@ model MetodoPagamento {
 }
 
 // Arquivos enviados (imagens de logo, fotos de itens etc.)
+// Snapshot de backup da empresa (JSON gzip de todas as tabelas, sem imagens)
+model BackupSnapshot {
+  id         String   @id @default(cuid())
+  companyId  String
+  tamanho    Int      // bytes do arquivo comprimido
+  dados      Bytes    // JSON gzip
+  automatico Boolean  @default(false)
+  criadoPor  String?
+  createdAt  DateTime @default(now())
+}
+
 model Arquivo {
   id        String   @id @default(cuid())
   nome      String

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { ExportarCsv } from "@/components/ui/exportar-csv";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -185,6 +186,7 @@ export default function MembrosPage() {
                 Copiar dados ({selecionados.size})
               </Button>
             )}
+            <ExportarCsv tipo="membros" />
             <Button onClick={openCreate}>
               <Plus className="h-4 w-4" />
               Novo Membro
