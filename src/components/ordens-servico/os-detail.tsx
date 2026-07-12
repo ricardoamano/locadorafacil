@@ -79,6 +79,9 @@ export function OsDetail({
   );
   const [observacoes, setObservacoes] = useState(os.observacoes || "");
   const [infoEvento, setInfoEvento] = useState(os.infoEvento || "");
+  const [obsMontagem, setObsMontagem] = useState(os.obsMontagem || "");
+  const [obsDesmontagem, setObsDesmontagem] = useState(os.obsDesmontagem || "");
+  const [obsLocal, setObsLocal] = useState(os.obsLocal || "");
   const [escala, setEscala] = useState<EscalaRow[]>(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (os.escala || []).map((e: any) => ({
@@ -164,6 +167,9 @@ export function OsDetail({
           horarioDesmontagem: horarioDesmontagem || null,
           observacoes,
           infoEvento,
+          obsMontagem,
+          obsDesmontagem,
+          obsLocal,
           escala,
           produtores,
         }),
@@ -240,6 +246,13 @@ export function OsDetail({
               {orc.local.nome}
             </p>
           )}
+          <div className="mt-2">
+            <Input
+              value={obsLocal}
+              onChange={(e) => setObsLocal(e.target.value)}
+              placeholder='Obs. do local (ex: "entrada pelo portão 5")'
+            />
+          </div>
         </div>
       </div>
 
@@ -249,18 +262,32 @@ export function OsDetail({
           Horários de Montagem e Desmontagem
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Input
-            label="Montagem"
-            type="datetime-local"
-            value={horarioMontagem}
-            onChange={(e) => setHorarioMontagem(e.target.value)}
-          />
-          <Input
-            label="Desmontagem"
-            type="datetime-local"
-            value={horarioDesmontagem}
-            onChange={(e) => setHorarioDesmontagem(e.target.value)}
-          />
+          <div className="space-y-2">
+            <Input
+              label="Montagem"
+              type="datetime-local"
+              value={horarioMontagem}
+              onChange={(e) => setHorarioMontagem(e.target.value)}
+            />
+            <Input
+              value={obsMontagem}
+              onChange={(e) => setObsMontagem(e.target.value)}
+              placeholder='Obs. da montagem (ex: "combinei de chegar às 13h")'
+            />
+          </div>
+          <div className="space-y-2">
+            <Input
+              label="Desmontagem"
+              type="datetime-local"
+              value={horarioDesmontagem}
+              onChange={(e) => setHorarioDesmontagem(e.target.value)}
+            />
+            <Input
+              value={obsDesmontagem}
+              onChange={(e) => setObsDesmontagem(e.target.value)}
+              placeholder='Obs. da desmontagem (ex: "previsto terminar às 22h")'
+            />
+          </div>
         </div>
       </div>
 

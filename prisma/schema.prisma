@@ -390,7 +390,10 @@ model OrdemServico {
   infoEventoPor      String?  // quem alterou por último
   status             String   @default("ABERTA")
   horarioMontagem    DateTime?
+  obsMontagem        String?  // texto livre (ex.: "combinei de chegar às 13h")
   horarioDesmontagem DateTime?
+  obsDesmontagem     String?  // texto livre (ex.: "previsto para terminar às 22h")
+  obsLocal           String?  // texto livre do local (ex.: "entrada pelo portão 5")
   observacoes        String?
   companyId          String
   createdAt          DateTime @default(now())

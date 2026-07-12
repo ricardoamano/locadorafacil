@@ -126,6 +126,26 @@ export async function PUT(
     alteracoes.push("Observações operacionais atualizadas");
   }
 
+  function resumo(t: string | null): string {
+    if (!t) return "(removida)";
+    return t.length > 80 ? `"${t.slice(0, 80)}..."` : `"${t}"`;
+  }
+  const novaObsMontagem = body.obsMontagem?.trim() || null;
+  if (body.obsMontagem !== undefined && (novaObsMontagem || "") !== (existing.obsMontagem || "")) {
+    alteracoes.push(`Observação da montagem: ${resumo(novaObsMontagem)}`);
+  }
+  const novaObsDesmontagem = body.obsDesmontagem?.trim() || null;
+  if (
+    body.obsDesmontagem !== undefined &&
+    (novaObsDesmontagem || "") !== (existing.obsDesmontagem || "")
+  ) {
+    alteracoes.push(`Observação da desmontagem: ${resumo(novaObsDesmontagem)}`);
+  }
+  const novaObsLocal = body.obsLocal?.trim() || null;
+  if (body.obsLocal !== undefined && (novaObsLocal || "") !== (existing.obsLocal || "")) {
+    alteracoes.push(`Observação do local: ${resumo(novaObsLocal)}`);
+  }
+
   // Escala: membros adicionados/removidos
   const antigosIds = new Set(existing.escala.map((e) => e.membroId));
   const novosIds = new Set(escala.map((e) => e.membroId));
@@ -179,6 +199,9 @@ export async function PUT(
       horarioMontagem: novaMontagem,
       horarioDesmontagem: novaDesmontagem,
       observacoes: novasObs,
+      ...(body.obsMontagem !== undefined ? { obsMontagem: novaObsMontagem } : {}),
+      ...(body.obsDesmontagem !== undefined ? { obsDesmontagem: novaObsDesmontagem } : {}),
+      ...(body.obsLocal !== undefined ? { obsLocal: novaObsLocal } : {}),
       produtores: produtoresData ?? existing.produtores ?? undefined,
       ...(infoMudou
         ? {

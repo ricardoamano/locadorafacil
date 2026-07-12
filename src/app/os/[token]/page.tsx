@@ -147,23 +147,41 @@ export default async function OsPublicaPage({
                   : ""}
               </dd>
             </div>
-            {os.horarioMontagem && (
-              <div className="flex justify-between">
-                <dt className="text-slate-500">🔧 Montagem</dt>
-                <dd className="font-medium text-slate-800">{fmtDataHora(os.horarioMontagem)}</dd>
+            {(os.horarioMontagem || os.obsMontagem) && (
+              <div>
+                <div className="flex justify-between">
+                  <dt className="text-slate-500">🔧 Montagem</dt>
+                  <dd className="font-medium text-slate-800">
+                    {fmtDataHora(os.horarioMontagem) || "a combinar"}
+                  </dd>
+                </div>
+                {os.obsMontagem && (
+                  <p className="text-xs text-amber-700 bg-amber-50 rounded-md px-2 py-1 mt-1">
+                    📝 {os.obsMontagem}
+                  </p>
+                )}
               </div>
             )}
-            {os.horarioDesmontagem && (
-              <div className="flex justify-between">
-                <dt className="text-slate-500">📦 Desmontagem</dt>
-                <dd className="font-medium text-slate-800">{fmtDataHora(os.horarioDesmontagem)}</dd>
+            {(os.horarioDesmontagem || os.obsDesmontagem) && (
+              <div>
+                <div className="flex justify-between">
+                  <dt className="text-slate-500">📦 Desmontagem</dt>
+                  <dd className="font-medium text-slate-800">
+                    {fmtDataHora(os.horarioDesmontagem) || "a combinar"}
+                  </dd>
+                </div>
+                {os.obsDesmontagem && (
+                  <p className="text-xs text-amber-700 bg-amber-50 rounded-md px-2 py-1 mt-1">
+                    📝 {os.obsDesmontagem}
+                  </p>
+                )}
               </div>
             )}
           </dl>
         </div>
 
         {/* Local + navegação */}
-        {(local || endereco) && (
+        {(local || endereco || os.obsLocal) && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
             <div className="flex items-center gap-2 mb-2">
               <MapPin className="h-4 w-4 text-blue-600" />
@@ -171,6 +189,11 @@ export default async function OsPublicaPage({
             </div>
             <p className="text-sm font-medium text-slate-800">{local?.nome}</p>
             {endereco && <p className="text-sm text-slate-500">{endereco}</p>}
+            {os.obsLocal && (
+              <p className="text-xs text-amber-700 bg-amber-50 rounded-md px-2 py-1 mt-2">
+                📝 {os.obsLocal}
+              </p>
+            )}
             {(maps || waze) && (
               <div className="grid grid-cols-2 gap-2 mt-3">
                 {maps && (
