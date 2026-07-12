@@ -107,6 +107,9 @@ export function ItemFormModal({
   const [fotos, setFotos] = useState<string[]>([]);
   const [acessorios, setAcessorios] = useState<{ nome: string; incluir: boolean }[]>([]);
   const [novoAcessorio, setNovoAcessorio] = useState("");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [precosMercado, setPrecosMercado] = useState<any | null>(null);
+  const [pesquisandoPrecos, setPesquisandoPrecos] = useState(false);
   const [politica, setPolitica] = useState<PoliticaPrecos>(POLITICA_PADRAO);
   const [permitirManual, setPermitirManual] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -149,11 +152,13 @@ export function ItemFormModal({
         }
         setAcessorios([]);
         setNovoAcessorio("");
+        setPrecosMercado(null);
       } else {
         setForm(emptyForm());
         setFotos([]);
         setAcessorios([]);
         setNovoAcessorio("");
+        setPrecosMercado(null);
       }
       fetch("/api/marcas")
         .then((r) => r.json())
@@ -384,6 +389,9 @@ export function ItemFormModal({
                       especificacoesPublicas:
                         p.especificacoesPublicas || d.especificacoesPublicas || "",
                       watts: p.watts || (d.watts != null ? String(d.watts) : ""),
+                      valorReposicao:
+                        p.valorReposicao ||
+                        (d.valorReposicao != null ? String(d.valorReposicao) : ""),
                       apelidos:
                         p.apelidos ||
                         [d.apelidoComercial, d.apelidos].filter(Boolean).join(", "),
@@ -515,6 +523,103 @@ export function ItemFormModal({
               <p className="text-xs text-slate-400 sm:col-span-2 self-end pb-2">
                 Impresso no romaneio de carga da OS como termo de responsabilidade.
               </p>
+            </div>
+          )}
+
+          {/* Sugestões de preço de mercado (pesquisa na web via IA) */}
+          {form.natureza !== "SERVICO" && (
+            <div className="rounded-lg border border-violet-100 bg-violet-50/40 p-4">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">
+                    💰 Sugestões de preço de mercado
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Pesquisa quanto concorrentes cobram pela locação deste equipamento
+                    (diária e períodos) e o valor de reposição.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={pesquisandoPrecos}
+                  onClick={async () => {
+                    if (!form.nome || form.nome.trim().length < 3) {
+                      toast("Preencha o nome do item primeiro.", "error");
+                      return;
+                    }
+                    setPesquisandoPrecos(true);
+                    try {
+                      const res = await fetch("/api/ia/preencher", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          tipo: "precos",
+                          texto: form.nome,
+                          marca: marcas.find((m) => m.id === form.marcaId)?.nome || "",
+                          modelo: form.modelo,
+                        }),
+                      });
+                      const d = await res.json();
+                      if (!res.ok) throw new Error(d.error);
+                      setPrecosMercado(d.dados);
+                    } catch (e) {
+                      toast(
+                        e instanceof Error && e.message ? e.message : "Erro na pesquisa.",
+                        "error"
+                      );
+                    } finally {
+                      setPesquisandoPrecos(false);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-violet-200 bg-white text-xs font-medium text-violet-700 hover:bg-violet-100 transition-colors disabled:opacity-60 shrink-0"
+                >
+                  {pesquisandoPrecos ? (
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-violet-400 border-t-transparent" />
+                  ) : (
+                    "🔎"
+                  )}
+                  {pesquisandoPrecos ? "Pesquisando..." : "Pesquisar mercado"}
+                </button>
+              </div>
+
+              {precosMercado && (
+                <div className="mt-3 space-y-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    {[
+                      { rotulo: "Diária", valor: precosMercado.diaria, aplicar: () => setField("valorAluguel", String(precosMercado.diaria)) },
+                      { rotulo: "Semana", valor: precosMercado.semana, aplicar: () => { setField("precoManual", true); setField("valorSemana", String(precosMercado.semana)); } },
+                      { rotulo: "Quinzena", valor: precosMercado.quinzena, aplicar: () => { setField("precoManual", true); setField("valorQuinzena", String(precosMercado.quinzena)); } },
+                      { rotulo: "Mês", valor: precosMercado.mes, aplicar: () => { setField("precoManual", true); setField("valorMes", String(precosMercado.mes)); } },
+                      { rotulo: "Reposição", valor: precosMercado.reposicao, aplicar: () => setField("valorReposicao", String(precosMercado.reposicao)) },
+                    ].map((c) => (
+                      <div key={c.rotulo} className="rounded-lg bg-white border border-violet-100 p-2 text-center">
+                        <p className="text-[10px] uppercase tracking-wide text-slate-400">{c.rotulo}</p>
+                        <p className="text-sm font-bold text-slate-800">
+                          {c.valor != null ? formatCurrency(Number(c.valor)) : "—"}
+                        </p>
+                        {c.valor != null && (
+                          <button
+                            type="button"
+                            onClick={c.aplicar}
+                            className="mt-1 text-[11px] font-medium text-violet-600 hover:underline"
+                          >
+                            Aplicar
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {precosMercado.diariaMin != null && precosMercado.diariaMax != null && (
+                    <p className="text-xs text-slate-500">
+                      Faixa de diária encontrada: {formatCurrency(Number(precosMercado.diariaMin))}{" "}
+                      a {formatCurrency(Number(precosMercado.diariaMax))}
+                    </p>
+                  )}
+                  {precosMercado.observacao && (
+                    <p className="text-xs text-slate-400 italic">{precosMercado.observacao}</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

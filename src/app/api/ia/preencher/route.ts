@@ -31,6 +31,7 @@ Responda APENAS com um JSON válido neste formato (sem texto antes ou depois):
   "watts": consumo típico em watts do modelo (número, ou null se não se aplica),
   "apelidoComercial": "UM apelido comercial curto e memorável para o equipamento (como a equipe chamaria no dia a dia, ex: 'Moving Beam', 'Line Array P')",
   "apelidos": "sinônimos e apelidos de busca separados por vírgula",
+  "valorReposicao": preço aproximado de compra de uma unidade NOVA no Brasil, em reais (número, ou null se não souber),
   "categoriaSugerida": "nome da categoria mais adequada da lista fornecida, ou null",
   "acessorios": ["lista de acessórios que normalmente acompanham este equipamento, ex: 'Cabo de energia PowerCon', 'Controle remoto', 'Case de transporte' — máximo 6"]
 }`,
@@ -138,6 +139,65 @@ export async function POST(req: NextRequest) {
       modelo ? `\nModelo: ${modelo}` : ""
     }`;
   }
+  if (tipo === "precos") {
+    if (texto.length < 3)
+      return NextResponse.json({ error: "Digite o nome primeiro" }, { status: 400 });
+    const iaP = await clienteIa(companyId);
+    if (!iaP)
+      return NextResponse.json(
+        { error: "IA não configurada — peça ao administrador para configurar em Configurações → Inteligência Artificial." },
+        { status: 400 }
+      );
+    try {
+      const consulta = [String(body.marca || ""), String(body.modelo || "") || String(body.texto || "")]
+        .filter(Boolean)
+        .join(" ");
+      const resposta = await iaP.messages.create({
+        model: MODELO_AUTOFILL,
+        max_tokens: 2000,
+        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }],
+        messages: [
+          {
+            role: "user",
+            content: `Pesquise na web quanto locadoras de equipamentos para eventos NO BRASIL estão cobrando pela LOCAÇÃO de: "${consulta}" (${String(
+              body.texto || ""
+            )}).
+
+Procure preços reais de diária de locação em sites de locadoras brasileiras concorrentes. Pesquise também o preço de COMPRA de uma unidade nova no Brasil (valor de reposição).
+
+Responda APENAS com um JSON válido:
+{
+  "diaria": valor médio de mercado da diária de locação em reais (número, ou null),
+  "diariaMin": menor valor encontrado (número ou null),
+  "diariaMax": maior valor encontrado (número ou null),
+  "semana": valor semanal praticado, ou estimativa típica de mercado (≈3x a diária) (número ou null),
+  "quinzena": valor quinzenal praticado ou estimativa (≈4,5x a diária) (número ou null),
+  "mes": valor mensal praticado ou estimativa (≈6x a diária) (número ou null),
+  "reposicao": preço de compra de uma unidade nova no Brasil em reais (número ou null),
+  "observacao": "1-2 frases: em quais fontes/faixas se baseou e o quão confiável é a estimativa"
+}`,
+          },
+        ],
+      });
+      const textoR = resposta.content
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .filter((b: any) => b.type === "text")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((b: any) => b.text)
+        .join("");
+      const dadosP = extrairJson(textoR);
+      if (!dadosP)
+        return NextResponse.json(
+          { error: "A IA não encontrou preços — tente novamente." },
+          { status: 502 }
+        );
+      return NextResponse.json({ dados: dadosP });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Erro na IA";
+      return NextResponse.json({ error: `Erro na pesquisa de preços: ${msg}` }, { status: 502 });
+    }
+  }
+
   if (!PROMPTS[tipo]) return NextResponse.json({ error: "tipo inválido" }, { status: 400 });
   if (texto.length < 3)
     return NextResponse.json({ error: "Digite o nome primeiro" }, { status: 400 });
