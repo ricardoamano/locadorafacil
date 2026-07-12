@@ -190,6 +190,17 @@ export function TransacoesList() {
     }
   }
 
+
+  // Busca em tempo real (debounce) — o botão Buscar continua funcionando
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
+
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     setSearch(searchInput);
@@ -309,7 +320,7 @@ export function TransacoesList() {
             {/* Fluxo mensal */}
             <div className="lg:col-span-2 bg-white rounded-xl border border-slate-100 shadow-sm p-4">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5" /> Fluxo de caixa — últimos 6 meses (pagas)
+                <Clock className="h-3.5 w-3.5" /> Fluxo de caixa — últimos 6 meses (pagas + previstas)
               </p>
               {(() => {
                 const max = Math.max(1, ...resumo.fluxoMensal.flatMap((m) => [m.entradas, m.saidas]));

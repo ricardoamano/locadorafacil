@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { OsDetail } from "@/components/ordens-servico/os-detail";
+import { NaoEncontrado } from "@/components/ui/nao-encontrado";
 
 export default function OsDetalhePage() {
   const params = useParams<{ id: string }>();
@@ -38,7 +39,7 @@ export default function OsDetalhePage() {
             <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full" />
           </div>
         ) : notFound ? (
-          <p className="text-sm text-slate-500">OS não encontrada.</p>
+          <NaoEncontrado mensagem="OS não encontrada." voltarHref="/ordens-servico" voltarLabel="Voltar para Ordens de Serviço" />
         ) : (
           <>
             <div className="mb-6">

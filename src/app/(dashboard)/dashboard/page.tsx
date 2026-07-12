@@ -9,9 +9,10 @@ import {
   CheckSquare,
   TrendingUp,
   Clock,
-  AlertTriangle,
 } from "lucide-react";
+import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
+import { BannerTarefas } from "@/components/dashboard/banner-tarefas";
 
 async function getDashboardData(companyId: string) {
   const [
@@ -70,36 +71,42 @@ export default async function DashboardPage() {
       value: data.totalClientes,
       icon: Users,
       color: "blue",
+      href: "/clientes",
     },
     {
       label: "Orçamentos",
       value: data.totalOrcamentos,
       icon: FileText,
       color: "indigo",
+      href: "/orcamentos",
     },
     {
       label: "Aprovados",
       value: data.orcamentosAprovados,
       icon: TrendingUp,
       color: "green",
+      href: "/orcamentos?status=APROVADO",
     },
     {
       label: "Aguardando",
       value: data.orcamentosAguardando,
       icon: Clock,
       color: "yellow",
+      href: "/orcamentos?status=AGUARDANDO",
     },
     {
       label: "Saldo Financeiro",
       value: formatCurrency(saldo),
       icon: DollarSign,
       color: saldo >= 0 ? "green" : "red",
+      href: "/financeiro",
     },
     {
       label: "Tarefas Pendentes",
       value: data.tarefasPendentes,
       icon: CheckSquare,
       color: data.tarefasPendentes > 0 ? "orange" : "green",
+      href: "/tarefas",
     },
   ];
 
@@ -125,9 +132,10 @@ export default async function DashboardPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {stats.map((stat) => (
-            <div
+            <Link
               key={stat.label}
-              className="bg-white rounded-xl border border-slate-100 p-5 shadow-sm"
+              href={stat.href}
+              className="bg-white rounded-xl border border-slate-100 p-5 shadow-sm hover:shadow-md hover:border-blue-200 transition-all cursor-pointer"
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -144,19 +152,12 @@ export default async function DashboardPage() {
                   <stat.icon className="h-5 w-5" />
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
 
         {data.tarefasPendentes > 0 && (
-          <div className="mt-6 bg-yellow-50 border border-yellow-100 rounded-xl p-4 flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 text-yellow-600 shrink-0" />
-            <p className="text-sm text-yellow-800">
-              Você tem{" "}
-              <strong>{data.tarefasPendentes} tarefa(s) pendente(s)</strong>.
-              Acesse o módulo de tarefas para visualizá-las.
-            </p>
-          </div>
+          <BannerTarefas quantidade={data.tarefasPendentes} />
         )}
       </main>
     </>

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Printer } from "lucide-react";
+import { NaoEncontrado } from "@/components/ui/nao-encontrado";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -43,7 +44,7 @@ export default function RomaneioPage() {
         <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full" />
       </div>
     );
-  if (!os) return <p className="p-8 text-sm text-slate-500">OS não encontrada.</p>;
+  if (!os) return <NaoEncontrado mensagem="OS não encontrada." voltarHref="/ordens-servico" voltarLabel="Voltar para Ordens de Serviço" />;
 
   const orc = os.orcamento;
   // Só equipamentos vão no romaneio (serviços não embarcam no caminhão)

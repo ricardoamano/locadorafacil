@@ -47,7 +47,11 @@ export function OrcamentosList() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const statusInicial =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("status") || ""
+      : "";
+  const [statusFilter, setStatusFilter] = useState(statusInicial);
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -78,6 +82,17 @@ export function OrcamentosList() {
   useEffect(() => {
     fetchOrcamentos();
   }, [fetchOrcamentos]);
+
+
+  // Busca em tempo real (debounce) — o botão Buscar continua funcionando
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();

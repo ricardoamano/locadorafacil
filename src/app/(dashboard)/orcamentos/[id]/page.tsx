@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { OrcamentoForm } from "@/components/orcamentos/orcamento-form";
+import { NaoEncontrado } from "@/components/ui/nao-encontrado";
 
 export default function EditarOrcamentoPage() {
   const params = useParams<{ id: string }>();
@@ -38,7 +39,7 @@ export default function EditarOrcamentoPage() {
             <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full" />
           </div>
         ) : notFound ? (
-          <p className="text-sm text-slate-500">Orçamento não encontrado.</p>
+          <NaoEncontrado mensagem="Orçamento não encontrado." voltarHref="/orcamentos" voltarLabel="Voltar para Orçamentos" />
         ) : (
           <>
             <div className="mb-6">

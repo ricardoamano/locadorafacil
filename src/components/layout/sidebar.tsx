@@ -276,7 +276,7 @@ function SidebarContent({
 
       {/* Footer */}
       <div className="px-3 py-3 border-t border-slate-100">
-        <p className="text-xs text-slate-400 text-center">LocadoraFácil v1.0</p>
+        <p className="text-xs text-slate-400 text-center">LocadoraFácil</p>
       </div>
     </>
   );

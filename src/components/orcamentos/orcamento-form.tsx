@@ -133,6 +133,7 @@ function Section({
   filled,
   open,
   onToggle,
+  opcional,
   children,
 }: {
   icon: React.ElementType;
@@ -140,6 +141,7 @@ function Section({
   filled: boolean;
   open: boolean;
   onToggle: () => void;
+  opcional?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -159,10 +161,12 @@ function Section({
           className={`text-xs font-medium px-2 py-0.5 rounded-full ${
             filled
               ? "bg-green-100 text-green-700"
+              : opcional
+              ? "bg-slate-100 text-slate-500"
               : "bg-amber-100 text-amber-700"
           }`}
         >
-          {filled ? "Preenchido" : "Pendente"}
+          {filled ? "Preenchido" : opcional ? "Opcional" : "Pendente"}
         </span>
         {open ? (
           <ChevronDown className="h-4 w-4 text-slate-400" />
@@ -648,10 +652,11 @@ export function OrcamentoForm({
                 Novo
               </Button>
             </div>
-            <p className="text-xs text-slate-400 mt-1">
-              Com dois clientes (ex.: agência no Cliente 1 e cliente final no
-              Cliente 2), o PDF sai "Cliente 1, Cliente 2" e na fatura você escolhe
-              contra quem emitir.
+            <p
+              className="text-xs text-slate-400 mt-1 inline-flex items-center gap-1 cursor-help"
+              title='Com dois clientes (ex.: agência no Cliente 1 e cliente final no Cliente 2), o PDF sai "Cliente 1, Cliente 2" e na fatura você escolhe contra quem emitir.'
+            >
+              ⓘ Quando usar dois clientes?
             </p>
             {(() => {
               if (!form.cliente2Id) return null;
@@ -981,6 +986,7 @@ export function OrcamentoForm({
       <Section
         icon={MessageSquare}
         title="4. Observações"
+        opcional
         filled={!!form.observacoes}
         open={open.obs}
         onToggle={() => toggle("obs")}
@@ -997,6 +1003,7 @@ export function OrcamentoForm({
       <Section
         icon={CreditCard}
         title="5. Forma de Pagamento"
+        opcional
         filled={!!form.formaPagamento}
         open={open.pagamento}
         onToggle={() => toggle("pagamento")}
@@ -1022,6 +1029,7 @@ export function OrcamentoForm({
       <Section
         icon={Percent}
         title="6. Desconto"
+        opcional
         filled={!!form.desconto}
         open={open.desconto}
         onToggle={() => toggle("desconto")}
@@ -1057,6 +1065,7 @@ export function OrcamentoForm({
       <Section
         icon={Lock}
         title="7. Observações Internas"
+        opcional
         filled={!!form.obsInternas}
         open={open.interno}
         onToggle={() => toggle("interno")}

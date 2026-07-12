@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Printer } from "lucide-react";
+import { NaoEncontrado } from "@/components/ui/nao-encontrado";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -100,7 +101,7 @@ export default function ImprimirOrcamentoPage() {
     );
   }
   if (!orc) {
-    return <p className="p-8 text-sm text-slate-500">Orçamento não encontrado.</p>;
+    return <NaoEncontrado mensagem="Orçamento não encontrado." voltarHref="/orcamentos" voltarLabel="Voltar para Orçamentos" />;
   }
 
   const salas: any[] = orc.salas || [];

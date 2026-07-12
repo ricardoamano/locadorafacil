@@ -88,6 +88,17 @@ export function LocaisList() {
     fetchLocais();
   }, [fetchLocais]);
 
+
+  // Busca em tempo real (debounce) — o botão Buscar continua funcionando
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
+
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     setSearch(searchInput);

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { Printer, FileCheck } from "lucide-react";
+import { NaoEncontrado } from "@/components/ui/nao-encontrado";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -57,7 +58,7 @@ export default function ImprimirFaturaPage() {
     );
   }
   if (!dados) {
-    return <p className="p-8 text-sm text-slate-500">Fatura não encontrada.</p>;
+    return <NaoEncontrado mensagem="Fatura não encontrada." voltarHref="/faturas" voltarLabel="Voltar para Faturas" />;
   }
 
   const e = dados.empresa || {};

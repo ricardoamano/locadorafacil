@@ -119,7 +119,7 @@ export async function GET(req: NextRequest) {
         _sum: { valor: true },
       }),
       prisma.transacao.findMany({
-        where: { companyId, status: "PAGO", dataRecebimento: { gte: seisMesesAtras } },
+        where: { companyId, dataRecebimento: { gte: seisMesesAtras } },
         select: { dataRecebimento: true, tipo: true, valor: true },
       }),
       prisma.transacao.groupBy({
