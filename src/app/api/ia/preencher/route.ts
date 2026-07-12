@@ -60,6 +60,70 @@ Responda APENAS com um JSON válido:
 }`,
 };
 
+// Busca na web URLs de imagens do produto, baixa (máx 3, 3MB cada) e grava
+// no banco como Arquivo — devolve URLs internas prontas para a galeria.
+async function buscarFotosDoModelo(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ia: any,
+  companyId: string,
+  info: { nome: string; marca: string; modelo: string }
+): Promise<string[]> {
+  const consulta = [info.marca, info.modelo || info.nome].filter(Boolean).join(" ");
+  if (!consulta.trim()) return [];
+
+  const resposta = await ia.messages.create({
+    model: MODELO_AUTOFILL,
+    max_tokens: 1500,
+    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],
+    messages: [
+      {
+        role: "user",
+        content: `Encontre até 3 URLs DIRETAS de imagens (terminadas em .jpg, .jpeg, .png ou .webp, ou URLs de imagem de CDNs) do produto "${consulta}" (equipamento de eventos), preferindo fotos oficiais do fabricante em fundo branco. Responda APENAS com um JSON: {"imagens": ["url1", "url2", "url3"]}`,
+      },
+    ],
+  });
+
+  const texto = resposta.content
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((b: any) => b.type === "text")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((b: any) => b.text)
+    .join("");
+  const json = extrairJson(texto);
+  const urls: string[] = Array.isArray(json?.imagens)
+    ? (json!.imagens as string[]).filter((u) => /^https?:\/\//i.test(u)).slice(0, 3)
+    : [];
+
+  const salvas: string[] = [];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(8000),
+        headers: { "User-Agent": "Mozilla/5.0 (LocadoraFacil)" },
+      });
+      if (!res.ok) continue;
+      const mime = res.headers.get("content-type")?.split(";")[0] || "";
+      if (!mime.startsWith("image/")) continue;
+      const buffer = Buffer.from(await res.arrayBuffer());
+      if (buffer.length < 5_000 || buffer.length > 3 * 1024 * 1024) continue;
+      const arquivo = await prisma.arquivo.create({
+        data: {
+          nome: `ia_${consulta.slice(0, 40)}.${mime.split("/")[1] || "jpg"}`,
+          mime,
+          tamanho: buffer.length,
+          dados: buffer,
+          companyId,
+        },
+        select: { id: true },
+      });
+      salvas.push(`/api/arquivos/${arquivo.id}`);
+    } catch {
+      // imagem inacessível — segue para a próxima
+    }
+  }
+  return salvas;
+}
+
 export async function POST(req: NextRequest) {
   const companyId = await getCompanyId();
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -111,6 +175,20 @@ export async function POST(req: NextRequest) {
     const dados = extrairJson(textoResposta);
     if (!dados)
       return NextResponse.json({ error: "A IA não retornou dados válidos — tente de novo." }, { status: 502 });
+
+    // Itens: busca fotos reais do modelo na web e grava no banco
+    if (tipo === "item") {
+      try {
+        dados.fotos = await buscarFotosDoModelo(ia, companyId, {
+          nome: String(body.texto || ""),
+          marca: String(dados.marca || body.marca || ""),
+          modelo: String(dados.modelo || body.modelo || ""),
+        });
+      } catch {
+        dados.fotos = [];
+      }
+    }
+
     return NextResponse.json({ dados });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Erro na IA";

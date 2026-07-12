@@ -71,7 +71,7 @@ function emptyForm(): ItemFormData {
     quantidade: "",
     especificacoes: "",
     emCatalogo: true,
-    publicado: false,
+    publicado: true,
     slug: "",
     descricaoComercial: "",
     especificacoesPublicas: "",
@@ -280,7 +280,62 @@ export function ItemFormModal({
                 error={errors.nome}
                 placeholder="Ex: Caixa de Som Line Array"
               />
-              <div className="mt-2">
+            </div>
+            <Input
+              label="Código"
+              value={form.codigo}
+              onChange={(e) => setField("codigo", e.target.value)}
+              placeholder="Ex: #336-1"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Select
+                  label="Marca / Fabricante"
+                  value={form.marcaId}
+                  onChange={(e) => setField("marcaId", e.target.value)}
+                  options={marcas.map((m) => ({ value: m.id, label: m.nome }))}
+                  placeholder="Selecione ou crie"
+                  searchable
+                  clearable
+                />
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  const nome = window.prompt("Nome da nova marca:");
+                  if (!nome?.trim()) return;
+                  try {
+                    const res = await fetch("/api/marcas", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ nome: nome.trim() }),
+                    });
+                    const nova = await res.json();
+                    if (!res.ok) throw new Error(nova.error);
+                    setMarcas((p) => [...p, nova]);
+                    setField("marcaId", nova.id);
+                    toast(`Marca "${nova.nome}" criada!`, "success");
+                  } catch (e) {
+                    toast(e instanceof Error && e.message ? e.message : "Erro ao criar marca.", "error");
+                  }
+                }}
+                className="h-10 px-3 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:border-blue-300 hover:text-blue-700 transition-colors shrink-0"
+              >
+                + Nova
+              </button>
+            </div>
+            <Input
+              label="Modelo"
+              value={form.modelo}
+              onChange={(e) => setField("modelo", e.target.value)}
+              placeholder="Ex: MAC Aura XB, SM58, X32"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
                 <PreencherIa
                   tipo="item"
                   texto={form.nome}
@@ -333,6 +388,13 @@ export function ItemFormModal({
                         p.apelidos ||
                         [d.apelidoComercial, d.apelidos].filter(Boolean).join(", "),
                     }));
+                    // Fotos do modelo encontradas na web (já salvas no banco)
+                    if (Array.isArray(d.fotos) && d.fotos.length > 0) {
+                      setFotos((prev) => [
+                        ...prev,
+                        ...d.fotos.filter((u: string) => !prev.includes(u)),
+                      ]);
+                    }
                     // Acessórios sugeridos (desmarcados por padrão — você escolhe)
                     if (Array.isArray(d.acessorios) && d.acessorios.length > 0) {
                       setAcessorios((prev) => {
@@ -345,32 +407,10 @@ export function ItemFormModal({
                     }
                   }}
                 />
-              </div>
-            </div>
-            <Input
-              label="Código"
-              value={form.codigo}
-              onChange={(e) => setField("codigo", e.target.value)}
-              placeholder="Ex: #336-1"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Select
-              label="Marca / Fabricante"
-              value={form.marcaId}
-              onChange={(e) => setField("marcaId", e.target.value)}
-              options={marcas.map((m) => ({ value: m.id, label: m.nome }))}
-              placeholder="Selecione (ou deixe a IA identificar)"
-              searchable
-              clearable
-            />
-            <Input
-              label="Modelo"
-              value={form.modelo}
-              onChange={(e) => setField("modelo", e.target.value)}
-              placeholder="Ex: MAC Aura XB, SM58, X32"
-            />
+            <p className="text-xs text-slate-400">
+              Dica: preencha marca e modelo antes — a IA busca as especificações e fotos do
+              modelo real.
+            </p>
           </div>
 
           <div>
