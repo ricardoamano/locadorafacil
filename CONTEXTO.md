@@ -85,8 +85,11 @@ Sistema multiempresa de gestão de locação de equipamentos e serviços para ev
   FotosUpload → Item.fotos (JSON de URLs).
 - **Sugestões de preço de mercado** (card no item): 3 camadas — 1) Banco interno PrecoMercado (médias + empresas
   fonte), 2) web search, 3) estimativa com AVISO "não tivemos informações suficientes". Botões Aplicar por valor.
-- **Banco de Preços de Mercado** (Ativos → Banco de Preços): upload PDF de orçamento de concorrente/parceiro →
-  Sonnet lê o PDF e extrai equipamento/marca/modelo/valores unitários + EMPRESA fonte → tabela PrecoMercado.
+- **Banco de Preços de Mercado** (Ativos → Banco de Preços): importa orçamento de concorrente/parceiro por
+  arquivo (PDF, XLSX/XLS via `xlsx`, CSV, DOCX via `mammoth`, TXT/MD) ou TEXTO COLADO (modal "Colar texto",
+  aceita Markdown, POST JSON `{texto, nome?}`) → Sonnet extrai equipamento/marca/modelo/valores unitários +
+  EMPRESA fonte → tabela PrecoMercado. Rotas de IA têm `maxDuration=60` (timeout Vercel matava o upload);
+  resposta truncada por max_tokens é aproveitada parcialmente (toast avisa "leitura parcial").
 - **Módulo Ajuda** (/ajuda): chat que responde "quem tem X" / "quanto custa a diária" com base no PrecoMercado
   + estoque próprio; nunca inventa; sugere alimentar o banco.
 - **Autofill locais/clientes** (PreencherIa) e **chat de propostas** no Projeto Especial (usa iaInstrucoes).

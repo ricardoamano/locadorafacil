@@ -4,20 +4,26 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { formatCurrency } from "@/lib/utils";
-import { FileUp, Trash2, Search, Database } from "lucide-react";
+import { FileUp, Trash2, Search, Database, ClipboardPaste } from "lucide-react";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-// Banco de Preços de Mercado: suba PDFs de orçamentos de concorrentes e
-// parceiros — a IA extrai os preços e alimenta as sugestões do sistema.
+// Banco de Preços de Mercado: suba orçamentos de concorrentes e parceiros
+// (PDF, planilha, DOCX, texto) ou cole o texto — a IA extrai os preços e
+// alimenta as sugestões do sistema.
 
 export default function PrecosMercadoPage() {
   const { toast } = useToast();
   const [registros, setRegistros] = useState<any[]>([]);
   const [busca, setBusca] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [colarAberto, setColarAberto] = useState(false);
+  const [textoColado, setTextoColado] = useState("");
+  const [nomeColado, setNomeColado] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const carregar = useCallback(
@@ -41,20 +47,29 @@ export default function PrecosMercadoPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busca]);
 
-  async function enviarPdf(file: File) {
+  async function importar(body: FormData | { texto: string; nome?: string }) {
     setEnviando(true);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch("/api/precos-mercado", { method: "POST", body: fd });
+      const res = await fetch("/api/precos-mercado", {
+        method: "POST",
+        ...(body instanceof FormData
+          ? { body }
+          : {
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            }),
+      });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);
       toast(
         d.parcial
-          ? `⚠️ ${d.importados} preço(s) importado(s) de "${d.fonte}" — o PDF era grande e a leitura foi parcial; revise se faltou algum item.`
+          ? `⚠️ ${d.importados} preço(s) importado(s) de "${d.fonte}" — o documento era grande e a leitura foi parcial; revise se faltou algum item.`
           : `✅ ${d.importados} preço(s) importado(s) de "${d.fonte}"!`,
         "success"
       );
+      setColarAberto(false);
+      setTextoColado("");
+      setNomeColado("");
       carregar();
     } catch (e) {
       toast(e instanceof Error && e.message ? e.message : "Erro na importação.", "error");
@@ -62,6 +77,12 @@ export default function PrecosMercadoPage() {
       setEnviando(false);
       if (fileRef.current) fileRef.current.value = "";
     }
+  }
+
+  function enviarArquivo(file: File) {
+    const fd = new FormData();
+    fd.append("file", file);
+    importar(fd);
   }
 
   async function excluir(id: string) {
@@ -80,27 +101,81 @@ export default function PrecosMercadoPage() {
               Banco de Preços de Mercado
             </h1>
             <p className="text-sm text-slate-500 mt-1">
-              Suba PDFs de orçamentos de concorrentes e parceiros — a IA extrai os preços,
-              guarda a empresa de origem e alimenta as sugestões de preço e o chat de Ajuda.
+              Suba orçamentos de concorrentes e parceiros (PDF, planilha XLSX/CSV, DOCX,
+              TXT/MD) ou cole o texto — a IA extrai os preços, guarda a empresa de origem
+              e alimenta as sugestões de preço e o chat de Ajuda.
             </p>
           </div>
-          <div>
+          <div className="flex gap-2 flex-wrap">
             <input
               ref={fileRef}
               type="file"
-              accept="application/pdf"
+              accept=".pdf,.xlsx,.xls,.csv,.docx,.txt,.md,application/pdf"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) enviarPdf(f);
+                if (f) enviarArquivo(f);
               }}
             />
+            <Button
+              variant="outline"
+              onClick={() => setColarAberto(true)}
+              disabled={enviando}
+            >
+              <ClipboardPaste className="h-4 w-4" />
+              Colar texto
+            </Button>
             <Button onClick={() => fileRef.current?.click()} loading={enviando}>
               <FileUp className="h-4 w-4" />
-              {enviando ? "Analisando PDF..." : "Importar PDF de orçamento"}
+              {enviando ? "Analisando documento..." : "Importar arquivo"}
             </Button>
           </div>
         </div>
+
+        <Modal
+          open={colarAberto}
+          onClose={() => !enviando && setColarAberto(false)}
+          title="Colar texto do orçamento"
+          size="2xl"
+        >
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-slate-500">
+              Cole abaixo o conteúdo do orçamento ou tabela de preços (texto simples ou
+              Markdown) — a IA identifica os equipamentos, valores e a empresa de origem.
+            </p>
+            <Input
+              label="Identificação do documento (opcional)"
+              value={nomeColado}
+              onChange={(e) => setNomeColado(e.target.value)}
+              placeholder='Ex.: "Orçamento Mega Eventos jun/2026"'
+            />
+            <Textarea
+              label="Texto do orçamento"
+              value={textoColado}
+              onChange={(e) => setTextoColado(e.target.value)}
+              placeholder="Cole aqui o texto ou .md do orçamento..."
+              className="min-h-[260px] font-mono text-xs"
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setColarAberto(false)}
+                disabled={enviando}
+              >
+                Cancelar
+              </Button>
+              <Button
+                loading={enviando}
+                disabled={!textoColado.trim()}
+                onClick={() =>
+                  importar({ texto: textoColado, nome: nomeColado.trim() || undefined })
+                }
+              >
+                {enviando ? "Analisando texto..." : "Importar preços"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
 
         <div className="relative mb-4 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -119,7 +194,7 @@ export default function PrecosMercadoPage() {
               <p className="text-sm">
                 {busca
                   ? "Nada encontrado"
-                  : "Nenhum preço no banco ainda — importe o primeiro PDF de orçamento."}
+                  : "Nenhum preço no banco ainda — importe um orçamento (arquivo ou texto colado)."}
               </p>
             </div>
           ) : (
