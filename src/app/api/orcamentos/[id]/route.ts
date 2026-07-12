@@ -41,7 +41,7 @@ export async function GET(
       local: { select: { id: true, nome: true } },
       salas: {
         include: {
-          itens: { include: { item: { select: { id: true, nome: true, codigo: true, descricaoComercial: true } } } },
+          itens: { include: { item: { select: { id: true, nome: true, codigo: true, descricaoComercial: true, watts: true, kva: true } } } },
         },
       },
     },

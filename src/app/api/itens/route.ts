@@ -116,6 +116,12 @@ export async function POST(req: NextRequest) {
       apelidos: data.apelidos || null,
       valorAluguel: diaria,
       precoManual,
+      // kVA = Watts ÷ (1000 × FP 0,8) — cálculo automático
+      watts: data.watts != null && data.watts !== "" ? Number(data.watts) : null,
+      kva:
+        data.watts != null && data.watts !== "" && Number(data.watts) > 0
+          ? Math.round((Number(data.watts) / 800) * 1000) / 1000
+          : null,
       valorSemana: precoManual && data.valorSemana != null ? Number(data.valorSemana) : calc.valorSemana,
       valorQuinzena: precoManual && data.valorQuinzena != null ? Number(data.valorQuinzena) : calc.valorQuinzena,
       valorMes: precoManual && data.valorMes != null ? Number(data.valorMes) : calc.valorMes,

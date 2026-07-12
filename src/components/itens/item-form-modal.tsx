@@ -21,6 +21,7 @@ interface ItemFormData {
   codigo: string;
   nome: string;
   apelidos: string;
+  watts: string;
   valorAluguel: string;
   tipo: string;
   categoriaId: string;
@@ -51,6 +52,7 @@ function emptyForm(): ItemFormData {
     codigo: "",
     nome: "",
     apelidos: "",
+    watts: "",
     valorAluguel: "",
     tipo: "PROPRIO",
     categoriaId: "",
@@ -102,6 +104,7 @@ export function ItemFormModal({
           ...emptyForm(),
           ...initial,
           apelidos: initial.apelidos || "",
+          watts: initial.watts != null ? String(initial.watts) : "",
           valorAluguel: initial.valorAluguel != null ? String(initial.valorAluguel) : "",
           publicado: !!initial.publicado,
           slug: initial.slug || "",
@@ -255,6 +258,34 @@ export function ItemFormModal({
               onChange={(e) => setField("tipo", e.target.value)}
               options={tipoOptions}
             />
+          </div>
+
+          {/* Consumo elétrico */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+            <Input
+              label="Consumo (Watts)"
+              type="number"
+              step="1"
+              value={form.watts}
+              onChange={(e) => setField("watts", e.target.value)}
+              placeholder="Ex: 800"
+            />
+            <div>
+              <label className="text-sm font-medium text-slate-700 block mb-1">
+                kVA (automático)
+              </label>
+              <p className="h-9 flex items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700">
+                {parseFloat(form.watts) > 0
+                  ? `${(parseFloat(form.watts) / 800).toLocaleString("pt-BR", {
+                      maximumFractionDigits: 3,
+                    })} kVA`
+                  : "—"}
+              </p>
+            </div>
+            <p className="text-xs text-slate-400 pb-2">
+              kVA = Watts ÷ (1.000 × FP 0,8). Usado na soma de carga elétrica do
+              orçamento.
+            </p>
           </div>
 
           {/* Preços por período (política de preços) */}

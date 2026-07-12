@@ -16,6 +16,7 @@ import {
   ChevronRight,
   FileText,
   Copy,
+  Printer,
 } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; variant: "success" | "warning" | "danger" | "info" | "neutral" }> = {
@@ -266,6 +267,13 @@ export function OrcamentosList() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
+                        <Link
+                          href={`/orcamentos/${orc.id}/imprimir`}
+                          className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                          title="Imprimir / PDF"
+                        >
+                          <Printer className="h-4 w-4" />
+                        </Link>
                         <Link
                           href={`/orcamentos/${orc.id}`}
                           className="p-1.5 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"

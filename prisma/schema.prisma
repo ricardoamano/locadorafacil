@@ -232,6 +232,8 @@ model Item {
   valorQuinzena  Float?
   valorMes       Float?
   precoManual    Boolean      @default(false)
+  watts          Float?
+  kva            Float?
   tipo           String
   categoriaId    String?
   categoria      Categoria?   @relation(fields: [categoriaId], references: [id])
