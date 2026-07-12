@@ -243,6 +243,7 @@ model Item {
   id             String       @id @default(cuid())
   codigo         String
   nome           String
+  modelo         String?      // modelo do fabricante (ex.: MAC Aura XB)
   apelidos       String?
   valorAluguel   Float        @default(0)
   valorSemana    Float?

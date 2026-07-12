@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { vincularAcessorios } from "@/lib/acessorios";
 import { auth } from "@/lib/auth";
 import { calcularPrecos } from "@/lib/precos";
 import { slugify } from "@/lib/utils";
@@ -91,6 +92,9 @@ export async function PUT(
       valorAluguel: diaria,
       precoManual,
       // kVA = Watts ÷ (1000 × FP 0,8) — cálculo automático
+      marcaId: data.marcaId || null,
+      modelo: data.modelo?.trim() || null,
+      ...(Array.isArray(data.fotos) ? { fotos: JSON.stringify(data.fotos) } : {}),
       watts: data.watts != null && data.watts !== "" ? Number(data.watts) : null,
       kva:
         data.watts != null && data.watts !== "" && Number(data.watts) > 0
@@ -117,6 +121,10 @@ export async function PUT(
   // Mantém unidades serializadas em dia com código e quantidade
   if (codigoFinal !== existing.codigo) await renomearCodigosUnidades(id, codigoFinal);
   await sincronizarUnidades(id);
+
+  if (Array.isArray(body.acessorios) && body.acessorios.length > 0) {
+    await vincularAcessorios(companyId, item.id, body.acessorios);
+  }
 
   return NextResponse.json(item);
 }

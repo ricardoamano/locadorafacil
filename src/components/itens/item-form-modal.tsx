@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageUpload } from "@/components/ui/image-upload";
+import { FotosUpload } from "@/components/ui/fotos-upload";
 import { useToast } from "@/components/ui/toast";
 import { calcularPrecos, POLITICA_PADRAO, type PoliticaPrecos } from "@/lib/precos";
 import { formatCurrency } from "@/lib/utils";
@@ -23,6 +24,8 @@ interface ItemFormData {
   cobranca: string;
   codigo: string;
   nome: string;
+  marcaId: string;
+  modelo: string;
   apelidos: string;
   watts: string;
   valorReposicao: string;
@@ -57,6 +60,8 @@ function emptyForm(): ItemFormData {
     cobranca: "FIXO",
     codigo: "",
     nome: "",
+    marcaId: "",
+    modelo: "",
     apelidos: "",
     watts: "",
     valorReposicao: "",
@@ -98,6 +103,10 @@ export function ItemFormModal({
   const { toast } = useToast();
   const [form, setForm] = useState<ItemFormData>(emptyForm());
   const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [marcas, setMarcas] = useState<Categoria[]>([]);
+  const [fotos, setFotos] = useState<string[]>([]);
+  const [acessorios, setAcessorios] = useState<{ nome: string; incluir: boolean }[]>([]);
+  const [novoAcessorio, setNovoAcessorio] = useState("");
   const [politica, setPolitica] = useState<PoliticaPrecos>(POLITICA_PADRAO);
   const [permitirManual, setPermitirManual] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -130,10 +139,26 @@ export function ItemFormModal({
           quantidade: initial.quantidade != null ? String(initial.quantidade) : "",
           categoriaId: initial.categoriaId || "",
           especificacoes: initial.especificacoes || "",
+          marcaId: initial.marcaId || "",
+          modelo: initial.modelo || "",
         });
+        try {
+          setFotos(initial.fotos ? JSON.parse(initial.fotos) : []);
+        } catch {
+          setFotos([]);
+        }
+        setAcessorios([]);
+        setNovoAcessorio("");
       } else {
         setForm(emptyForm());
+        setFotos([]);
+        setAcessorios([]);
+        setNovoAcessorio("");
       }
+      fetch("/api/marcas")
+        .then((r) => r.json())
+        .then((d) => setMarcas(d.marcas || []))
+        .catch(() => setMarcas([]));
       fetch("/api/categorias")
         .then((r) => r.json())
         .then((d) => setCategorias(d.categorias || []))
@@ -186,6 +211,9 @@ export function ItemFormModal({
           valorMes: form.precoManual ? parseFloat(form.valorMes) || 0 : undefined,
           quantidade: parseInt(form.quantidade) || 0,
           categoriaId: form.categoriaId || null,
+          marcaId: form.marcaId || null,
+          fotos,
+          acessorios: acessorios.filter((a) => a.incluir).map((a) => a.nome),
         }),
       });
       const data = await res.json();
@@ -256,16 +284,65 @@ export function ItemFormModal({
                 <PreencherIa
                   tipo="item"
                   texto={form.nome}
-                  onDados={(d) => {
+                  extra={{
+                    marca: marcas.find((m) => m.id === form.marcaId)?.nome || "",
+                    modelo: form.modelo,
+                  }}
+                  onDados={async (d) => {
+                    // Marca: seleciona existente ou cria automaticamente
+                    let marcaId = form.marcaId;
+                    if (!marcaId && d.marca) {
+                      const existente = marcas.find(
+                        (m) => m.nome.toLowerCase() === String(d.marca).toLowerCase()
+                      );
+                      if (existente) marcaId = existente.id;
+                      else {
+                        try {
+                          const res = await fetch("/api/marcas", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ nome: d.marca }),
+                          });
+                          const nova = await res.json();
+                          if (res.ok && nova?.id) {
+                            setMarcas((p) => [...p, nova]);
+                            marcaId = nova.id;
+                          }
+                        } catch {}
+                      }
+                    }
+                    // Categoria sugerida (se bater com uma existente)
+                    let categoriaId = form.categoriaId;
+                    if (!categoriaId && d.categoriaSugerida) {
+                      const cat = categorias.find(
+                        (c) => c.nome.toLowerCase() === String(d.categoriaSugerida).toLowerCase()
+                      );
+                      if (cat) categoriaId = cat.id;
+                    }
                     setForm((p) => ({
                       ...p,
+                      marcaId,
+                      categoriaId,
+                      modelo: p.modelo || d.modelo || "",
                       especificacoes: p.especificacoes || d.especificacoes || "",
                       descricaoComercial: p.descricaoComercial || d.descricaoComercial || "",
                       especificacoesPublicas:
                         p.especificacoesPublicas || d.especificacoesPublicas || "",
                       watts: p.watts || (d.watts != null ? String(d.watts) : ""),
-                      apelidos: p.apelidos || d.apelidos || "",
+                      apelidos:
+                        p.apelidos ||
+                        [d.apelidoComercial, d.apelidos].filter(Boolean).join(", "),
                     }));
+                    // Acessórios sugeridos (desmarcados por padrão — você escolhe)
+                    if (Array.isArray(d.acessorios) && d.acessorios.length > 0) {
+                      setAcessorios((prev) => {
+                        const nomes = new Set(prev.map((a) => a.nome.toLowerCase()));
+                        const novos = d.acessorios
+                          .filter((n: string) => n && !nomes.has(String(n).toLowerCase()))
+                          .map((n: string) => ({ nome: String(n), incluir: false }));
+                        return [...prev, ...novos];
+                      });
+                    }
                   }}
                 />
               </div>
@@ -277,6 +354,25 @@ export function ItemFormModal({
               placeholder="Ex: #336-1"
             />
           </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Select
+              label="Marca / Fabricante"
+              value={form.marcaId}
+              onChange={(e) => setField("marcaId", e.target.value)}
+              options={marcas.map((m) => ({ value: m.id, label: m.nome }))}
+              placeholder="Selecione (ou deixe a IA identificar)"
+              searchable
+              clearable
+            />
+            <Input
+              label="Modelo"
+              value={form.modelo}
+              onChange={(e) => setField("modelo", e.target.value)}
+              placeholder="Ex: MAC Aura XB, SM58, X32"
+            />
+          </div>
+
           <div>
             <Input
               label="Apelidos"
@@ -472,7 +568,74 @@ export function ItemFormModal({
                     onChange={(url) => setField("fotoCapaUrl", url)}
                   />
                 </div>
-                <Textarea
+                          {/* Fotos do item (galeria — várias fotos, gravadas no banco) */}
+          <FotosUpload label="Fotos do equipamento" value={fotos} onChange={setFotos} />
+
+          {/* Acessórios que acompanham (podem virar itens vinculados) */}
+          <div className="rounded-lg border border-slate-100 p-3">
+            <p className="text-sm font-medium text-slate-700">Acessórios que acompanham</p>
+            <p className="text-xs text-slate-400 mb-2">
+              Marque os que devem virar itens vinculados (ex.: cabo de energia, controle
+              remoto). Os que não existirem serão criados automaticamente.
+            </p>
+            {acessorios.length > 0 && (
+              <div className="space-y-1 mb-2">
+                {acessorios.map((a, i) => (
+                  <label key={i} className="flex items-center gap-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={a.incluir}
+                      onChange={() =>
+                        setAcessorios((p) =>
+                          p.map((x, idx2) => (idx2 === i ? { ...x, incluir: !x.incluir } : x))
+                        )
+                      }
+                      className="h-4 w-4 rounded border-slate-300 text-blue-600"
+                    />
+                    <span className={a.incluir ? "" : "text-slate-500"}>{a.nome}</span>
+                    <button
+                      type="button"
+                      onClick={() => setAcessorios((p) => p.filter((_, idx2) => idx2 !== i))}
+                      className="ml-auto text-slate-300 hover:text-red-500 text-xs"
+                    >
+                      remover
+                    </button>
+                  </label>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Input
+                value={novoAcessorio}
+                onChange={(e) => setNovoAcessorio(e.target.value)}
+                placeholder="Adicionar acessório manualmente..."
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (novoAcessorio.trim()) {
+                      setAcessorios((p) => [...p, { nome: novoAcessorio.trim(), incluir: true }]);
+                      setNovoAcessorio("");
+                    }
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (novoAcessorio.trim()) {
+                    setAcessorios((p) => [...p, { nome: novoAcessorio.trim(), incluir: true }]);
+                    setNovoAcessorio("");
+                  }
+                }}
+              >
+                Adicionar
+              </Button>
+            </div>
+          </div>
+
+          <Textarea
                   label="Descrição comercial"
                   value={form.descricaoComercial}
                   onChange={(e) => setField("descricaoComercial", e.target.value)}

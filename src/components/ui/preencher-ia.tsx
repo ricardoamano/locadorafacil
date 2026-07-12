@@ -10,10 +10,12 @@ import { useToast } from "@/components/ui/toast";
 export function PreencherIa({
   tipo,
   texto,
+  extra,
   onDados,
 }: {
   tipo: "item" | "local" | "cliente";
   texto: string;
+  extra?: Record<string, string>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onDados: (dados: any) => void;
 }) {
@@ -30,7 +32,7 @@ export function PreencherIa({
       const res = await fetch("/api/ia/preencher", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tipo, texto: texto.trim() }),
+        body: JSON.stringify({ tipo, texto: texto.trim(), ...(extra || {}) }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);

@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { calcularPrecos } from "@/lib/precos";
 import { slugify } from "@/lib/utils";
 import { proximoCodigoItem, sincronizarUnidades } from "@/lib/unidades";
+import { vincularAcessorios } from "@/lib/acessorios";
 
 type SessionUser = { companyId?: string };
 
@@ -146,6 +147,9 @@ export async function POST(req: NextRequest) {
       fotoCapaUrl: data.fotoCapaUrl || null,
       videoUrl: data.videoUrl || null,
       mostrarCodigo: !!data.mostrarCodigo,
+      marcaId: data.marcaId || null,
+      modelo: data.modelo?.trim() || null,
+      fotos: Array.isArray(data.fotos) ? JSON.stringify(data.fotos) : "[]",
       companyId,
     },
   });
@@ -153,5 +157,11 @@ export async function POST(req: NextRequest) {
   // Cria as unidades físicas serializadas (codigo-01, codigo-02, ...)
   await sincronizarUnidades(item.id);
 
-  return NextResponse.json(item, { status: 201 });
+  // Acessórios sugeridos/selecionados viram itens vinculados
+  let acessoriosInfo = null;
+  if (Array.isArray(body.acessorios) && body.acessorios.length > 0) {
+    acessoriosInfo = await vincularAcessorios(companyId, item.id, body.acessorios);
+  }
+
+  return NextResponse.json({ ...item, acessoriosInfo }, { status: 201 });
 }

@@ -16,17 +16,23 @@ async function getCompanyId() {
 const PROMPTS: Record<string, (texto: string, contexto: string) => string> = {
   item: (texto, contexto) => `Você preenche cadastros de equipamentos/serviços de uma locadora de tecnologia para eventos no Brasil.
 
-Equipamento/serviço: "${texto}"
+${texto}
 ${contexto}
+
+Se marca e modelo forem informados, baseie as especificações e o consumo NO MODELO REAL do fabricante (dados de catálogo). Se não conhecer o modelo exato, use valores típicos da categoria e seja conservador.
 
 Responda APENAS com um JSON válido neste formato (sem texto antes ou depois):
 {
-  "especificacoes": "especificações técnicas realistas do produto, em tópicos separados por \\n",
+  "marca": "marca/fabricante identificado no nome ou informado (ex: Chauvet, Shure), ou null",
+  "modelo": "modelo específico do fabricante (ex: MAC Aura XB, SM58), ou null",
+  "especificacoes": "especificações técnicas do modelo em tópicos separados por \\n (potência, dimensões, peso, conexões, ângulo/alcance, alimentação...)",
   "descricaoComercial": "descrição comercial curta e vendedora (máx 100 caracteres)",
   "especificacoesPublicas": "versão resumida das especificações para o catálogo público",
-  "watts": consumo típico em watts (número, ou null se não se aplica),
+  "watts": consumo típico em watts do modelo (número, ou null se não se aplica),
+  "apelidoComercial": "UM apelido comercial curto e memorável para o equipamento (como a equipe chamaria no dia a dia, ex: 'Moving Beam', 'Line Array P')",
   "apelidos": "sinônimos e apelidos de busca separados por vírgula",
-  "categoriaSugerida": "nome da categoria mais adequada da lista fornecida, ou null"
+  "categoriaSugerida": "nome da categoria mais adequada da lista fornecida, ou null",
+  "acessorios": ["lista de acessórios que normalmente acompanham este equipamento, ex: 'Cabo de energia PowerCon', 'Controle remoto', 'Case de transporte' — máximo 6"]
 }`,
   local: (texto) => `Você preenche cadastros de locais de eventos no Brasil.
 
@@ -60,7 +66,14 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const tipo = String(body.tipo || "");
-  const texto = String(body.texto || "").trim();
+  let texto = String(body.texto || "").trim();
+  if (tipo === "item") {
+    const marca = String(body.marca || "").trim();
+    const modelo = String(body.modelo || "").trim();
+    texto = `Equipamento/serviço: "${texto}"${marca ? `\nMarca: ${marca}` : ""}${
+      modelo ? `\nModelo: ${modelo}` : ""
+    }`;
+  }
   if (!PROMPTS[tipo]) return NextResponse.json({ error: "tipo inválido" }, { status: 400 });
   if (texto.length < 3)
     return NextResponse.json({ error: "Digite o nome primeiro" }, { status: 400 });
@@ -88,7 +101,7 @@ export async function POST(req: NextRequest) {
   try {
     const resposta = await ia.messages.create({
       model: MODELO_AUTOFILL,
-      max_tokens: 1024,
+      max_tokens: 2000,
       messages: [{ role: "user", content: PROMPTS[tipo](texto, contexto) }],
     });
     const textoResposta = resposta.content
