@@ -48,7 +48,14 @@ export async function extrairTextoArquivo(file: File): Promise<string | null> {
 }
 
 export type EntradaDocumento =
-  | { blocos: BlocoDocumento[]; nomeDocumento: string; extras: Record<string, unknown> }
+  | {
+      blocos: BlocoDocumento[];
+      nomeDocumento: string;
+      extras: Record<string, unknown>;
+      // Texto bruto quando a entrada não é PDF — permite dividir documentos
+      // grandes em partes para análises em paralelo.
+      texto?: string;
+    }
   | { erro: string; status: number };
 
 /**
@@ -64,10 +71,12 @@ export async function lerDocumentoDaRequisicao(req: NextRequest): Promise<Entrad
     const texto = String(body?.texto || "").trim();
     if (!texto) return { erro: "Cole o texto do documento", status: 400 };
     const { texto: _t, nome: _n, ...extras } = body as Record<string, unknown>;
+    const textoLimitado = texto.slice(0, LIMITE_TEXTO);
     return {
-      blocos: [{ type: "text", text: `DOCUMENTO:\n\n${texto.slice(0, LIMITE_TEXTO)}` }],
+      blocos: [{ type: "text", text: `DOCUMENTO:\n\n${textoLimitado}` }],
       nomeDocumento: String(body?.nome || "").trim().slice(0, 200) || "texto colado",
       extras,
+      texto: textoLimitado,
     };
   }
 
@@ -110,9 +119,30 @@ export async function lerDocumentoDaRequisicao(req: NextRequest): Promise<Entrad
     };
   if (!texto.trim()) return { erro: "O arquivo não contém texto legível.", status: 422 };
 
+  const textoLimitado = texto.slice(0, LIMITE_TEXTO);
   return {
-    blocos: [{ type: "text", text: `DOCUMENTO:\n\n${texto.slice(0, LIMITE_TEXTO)}` }],
+    blocos: [{ type: "text", text: `DOCUMENTO:\n\n${textoLimitado}` }],
     nomeDocumento: file.name,
     extras,
+    texto: textoLimitado,
   };
+}
+
+/**
+ * Divide um texto grande em partes de até `tamanho` caracteres, quebrando por
+ * linha — para analisar documentos longos em chamadas de IA em paralelo.
+ */
+export function dividirTexto(texto: string, tamanho = 12_000): string[] {
+  if (texto.length <= tamanho) return [texto];
+  const partes: string[] = [];
+  let atual = "";
+  for (const linha of texto.split("\n")) {
+    if (atual && atual.length + linha.length + 1 > tamanho) {
+      partes.push(atual);
+      atual = "";
+    }
+    atual += (atual ? "\n" : "") + linha;
+  }
+  if (atual) partes.push(atual);
+  return partes;
 }

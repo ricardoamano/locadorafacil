@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { clienteIa, extrairJson, MODELO_PROPOSTA } from "@/lib/ia";
-import { lerDocumentoDaRequisicao } from "@/lib/documentos";
+import { dividirTexto, lerDocumentoDaRequisicao } from "@/lib/documentos";
 
 // Banco de Preços de Mercado — alimentado por orçamentos de concorrentes/
 // parceiros em PDF, planilha (XLSX/CSV), DOCX, TXT/MD ou texto colado.
@@ -98,18 +98,7 @@ export async function POST(req: NextRequest) {
   // (útil quando o documento não traz o nome da empresa).
   const fonteInformada = String(extras.fonte || "").trim().slice(0, 200);
 
-  try {
-    const resposta = await ia.messages.create({
-      model: MODELO_PROPOSTA,
-      max_tokens: 8000,
-      messages: [
-        {
-          role: "user",
-          content: [
-            ...blocos,
-            {
-              type: "text",
-              text: `O documento acima é um orçamento/proposta ou tabela de preços de uma empresa de locação de equipamentos para eventos. Extraia os preços de locação por equipamento.
+  const PROMPT = `O documento acima é um orçamento/proposta ou tabela de preços de uma empresa de locação de equipamentos para eventos. Extraia os preços de locação por equipamento — TODOS os itens, sem resumir.
 
 Responda APENAS com um JSON válido:
 {
@@ -127,41 +116,75 @@ Responda APENAS com um JSON válido:
   ]
 }
 
-Regras: valores UNITÁRIOS (divida pelo número de unidades e diárias se o documento mostrar subtotais). Ignore taxas de frete, montagem e serviços de mão de obra. Se o período de locação for de N diárias com valor total, calcule a diária unitária.`,
+Regras: valores UNITÁRIOS (divida pelo número de unidades e diárias se o documento mostrar subtotais). Ignore taxas de frete, montagem e serviços de mão de obra. Se o período de locação for de N diárias com valor total, calcule a diária unitária.`;
+
+  try {
+    // Documentos de texto grandes são divididos em partes analisadas em
+    // PARALELO — uma única resposta da IA estoura o limite de tokens com
+    // listas longas (centenas de itens) e cortava a importação.
+    const partes =
+      entrada.texto != null ? dividirTexto(entrada.texto) : [null /* PDF: bloco único */];
+
+    const respostas = await Promise.all(
+      partes.slice(0, 16).map((parte, idx) =>
+        ia.messages.create({
+          model: MODELO_PROPOSTA,
+          max_tokens: 8000,
+          messages: [
+            {
+              role: "user",
+              content: [
+                ...(parte == null
+                  ? blocos
+                  : [
+                      {
+                        type: "text" as const,
+                        text: `DOCUMENTO (parte ${idx + 1} de ${partes.length}):\n\n${parte}`,
+                      },
+                    ]),
+                { type: "text", text: PROMPT },
+              ],
             },
           ],
-        },
-      ],
-    });
-    const texto = resposta.content
-      .filter((b) => b.type === "text")
-      .map((b) => (b.type === "text" ? b.text : ""))
-      .join("");
-    const itens = extrairItens(texto);
+        })
+      )
+    );
+
+    const itens: ReturnType<typeof extrairItens> = [];
+    let fonteTexto = "";
+    let parcial = partes.length > 16;
+    for (const resposta of respostas) {
+      const texto = resposta.content
+        .filter((b) => b.type === "text")
+        .map((b) => (b.type === "text" ? b.text : ""))
+        .join("");
+      itens.push(...extrairItens(texto));
+      if (resposta.stop_reason === "max_tokens") parcial = true;
+      if (!fonteTexto) {
+        const dados = extrairJson(texto);
+        fonteTexto =
+          String(dados?.fonte || "").trim() ||
+          /"fonte"\s*:\s*"([^"]+)"/.exec(texto)?.[1]?.trim() ||
+          "";
+        if (/não identificad|nao identificad|desconhecid|^null$/i.test(fonteTexto))
+          fonteTexto = "";
+      }
+    }
+
     if (itens.length === 0) {
-      console.error(
-        "[precos-mercado] IA não retornou itens.",
-        "stop_reason:", resposta.stop_reason,
-        "resposta:", texto.slice(0, 500)
-      );
+      console.error("[precos-mercado] IA não retornou itens em nenhuma parte.");
       return NextResponse.json(
         { error: "A IA não encontrou preços de equipamentos neste documento." },
         { status: 422 }
       );
     }
 
-    const dados = extrairJson(texto);
-    let fonteTexto =
-      String(dados?.fonte || "").trim() ||
-      /"fonte"\s*:\s*"([^"]+)"/.exec(texto)?.[1]?.trim() ||
-      "";
-    if (/não identificad|nao identificad|desconhecid|^null$/i.test(fonteTexto)) fonteTexto = "";
     const fonte =
       fonteInformada || fonteTexto || nomeDocumento.replace(/\.[a-z0-9]+$/i, "");
     const criados = await prisma.precoMercado.createMany({
       data: itens
         .filter((i) => i?.equipamento)
-        .slice(0, 100)
+        .slice(0, 2000)
         .map((i) => ({
           companyId,
           equipamento: String(i.equipamento).slice(0, 200),
@@ -176,14 +199,7 @@ Regras: valores UNITÁRIOS (divida pelo número de unidades e diárias se o docu
         })),
     });
 
-    return NextResponse.json(
-      {
-        fonte,
-        importados: criados.count,
-        parcial: resposta.stop_reason === "max_tokens",
-      },
-      { status: 201 }
-    );
+    return NextResponse.json({ fonte, importados: criados.count, parcial }, { status: 201 });
   } catch (e) {
     console.error("[precos-mercado] Erro na importação:", e);
     const msg = e instanceof Error ? e.message : "Erro na análise";
