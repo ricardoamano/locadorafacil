@@ -39,6 +39,7 @@ export const MODULOS: ModuloDef[] = [
   },
   { key: "contratos", label: "Contratos", href: "/contratos", apiPrefixes: ["/api/contratos"] },
   { key: "links", label: "Links", href: "/links", apiPrefixes: ["/api/links"] },
+  { key: "ajuda", label: "Ajuda", href: "/ajuda", apiPrefixes: [] },
   {
     key: "configuracoes",
     label: "Configurações",

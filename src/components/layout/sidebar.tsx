@@ -29,6 +29,7 @@ import {
   Share2,
   DatabaseBackup,
   Sparkles,
+  LifeBuoy,
 } from "lucide-react";
 import React from "react";
 
@@ -61,6 +62,7 @@ const navItems: NavEntry[] = [
       { href: "/ativos/itens", label: "Itens", icon: Package },
       { href: "/ativos/estoque", label: "Estoque em Tempo Real", icon: Package },
       { href: "/ativos/kits", label: "Kits / Pacotes", icon: Package },
+      { href: "/ativos/precos-mercado", label: "Banco de Preços", icon: Package },
       { href: "/ativos/categorias", label: "Categorias", icon: Package },
       { href: "/ativos/marcas", label: "Marcas", icon: Package },
     ],
@@ -83,6 +85,7 @@ const navItems: NavEntry[] = [
   { key: "postos-servico", href: "/postos-servico", label: "Postos de Serviço", icon: Wrench },
   { key: "contratos", href: "/contratos", label: "Contratos", icon: FileSignature },
   { key: "links", href: "/links", label: "Links", icon: Link2 },
+  { key: "ajuda", href: "/ajuda", label: "Ajuda", icon: LifeBuoy },
   {
     key: "configuracoes",
     label: "Configurações",

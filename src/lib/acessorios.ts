@@ -29,7 +29,7 @@ export async function vincularAcessorios(
           natureza: "EQUIPAMENTO",
           tipo: "PROPRIO",
           quantidade: 0,
-          emCatalogo: false,
+          emCatalogo: true,
           companyId,
         },
         select: { id: true },

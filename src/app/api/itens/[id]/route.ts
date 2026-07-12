@@ -122,11 +122,12 @@ export async function PUT(
   if (codigoFinal !== existing.codigo) await renomearCodigosUnidades(id, codigoFinal);
   await sincronizarUnidades(id);
 
+  let acessoriosInfo = null;
   if (Array.isArray(body.acessorios) && body.acessorios.length > 0) {
-    await vincularAcessorios(companyId, item.id, body.acessorios);
+    acessoriosInfo = await vincularAcessorios(companyId, item.id, body.acessorios);
   }
 
-  return NextResponse.json(item);
+  return NextResponse.json({ ...item, acessoriosInfo });
 }
 
 export async function DELETE(

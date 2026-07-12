@@ -741,6 +741,24 @@ model MetodoPagamento {
 }
 
 // Arquivos enviados (imagens de logo, fotos de itens etc.)
+// Banco de preços de mercado — alimentado por PDFs de orçamentos de
+// concorrentes/parceiros analisados pela IA. Base das sugestões de preço.
+model PrecoMercado {
+  id          String   @id @default(cuid())
+  companyId   String
+  equipamento String   // nome do equipamento como aparece no orçamento
+  marca       String?
+  modelo      String?
+  fonte       String?  // empresa que tem/oferece este equipamento (concorrente/parceiro)
+  diaria      Float?
+  semana      Float?
+  quinzena    Float?
+  mes         Float?
+  reposicao   Float?
+  documento   String?  // nome do PDF de origem
+  createdAt   DateTime @default(now())
+}
+
 // Snapshot de backup da empresa (JSON gzip de todas as tabelas, sem imagens)
 model BackupSnapshot {
   id         String   @id @default(cuid())

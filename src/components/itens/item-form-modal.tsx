@@ -110,6 +110,7 @@ export function ItemFormModal({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [precosMercado, setPrecosMercado] = useState<any | null>(null);
   const [pesquisandoPrecos, setPesquisandoPrecos] = useState(false);
+  const [vinculados, setVinculados] = useState<string[]>([]);
   const [politica, setPolitica] = useState<PoliticaPrecos>(POLITICA_PADRAO);
   const [permitirManual, setPermitirManual] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -153,12 +154,14 @@ export function ItemFormModal({
         setAcessorios([]);
         setNovoAcessorio("");
         setPrecosMercado(null);
+        setVinculados([]);
       } else {
         setForm(emptyForm());
         setFotos([]);
         setAcessorios([]);
         setNovoAcessorio("");
         setPrecosMercado(null);
+        setVinculados([]);
       }
       fetch("/api/marcas")
         .then((r) => r.json())
@@ -230,6 +233,15 @@ export function ItemFormModal({
         form.id ? "Item atualizado com sucesso!" : "Item criado com sucesso!",
         "success"
       );
+      if (data.acessoriosInfo?.vinculados > 0 || data.acessoriosInfo?.criados?.length > 0) {
+        toast(
+          `Acessórios vinculados: ${data.acessoriosInfo.vinculados}` +
+            (data.acessoriosInfo.criados.length > 0
+              ? ` (criados como itens: ${data.acessoriosInfo.criados.join(", ")})`
+              : ""),
+          "success"
+        );
+      }
       onSuccess(data);
       onClose();
     } catch {
@@ -396,6 +408,7 @@ export function ItemFormModal({
                         p.apelidos ||
                         [d.apelidoComercial, d.apelidos].filter(Boolean).join(", "),
                     }));
+                    if (d.fotosAviso) toast(d.fotosAviso, "error");
                     // Fotos do modelo encontradas na web (já salvas no banco)
                     if (Array.isArray(d.fotos) && d.fotos.length > 0) {
                       setFotos((prev) => [
@@ -615,8 +628,25 @@ export function ItemFormModal({
                       a {formatCurrency(Number(precosMercado.diariaMax))}
                     </p>
                   )}
+                  {precosMercado.aviso && (
+                    <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+                      ⚠ {precosMercado.aviso}
+                    </p>
+                  )}
+                  {Array.isArray(precosMercado.fontes) && precosMercado.fontes.length > 0 && (
+                    <p className="text-xs text-slate-500">
+                      Empresas com este equipamento: {precosMercado.fontes.join(", ")}
+                    </p>
+                  )}
                   {precosMercado.observacao && (
-                    <p className="text-xs text-slate-400 italic">{precosMercado.observacao}</p>
+                    <p className="text-xs text-slate-400 italic">
+                      {precosMercado.origem === "banco"
+                        ? "📚 "
+                        : precosMercado.origem === "web"
+                          ? "🌐 "
+                          : "🤖 "}
+                      {precosMercado.observacao}
+                    </p>
                   )}
                 </div>
               )}
@@ -723,6 +753,11 @@ export function ItemFormModal({
               Marque os que devem virar itens vinculados (ex.: cabo de energia, controle
               remoto). Os que não existirem serão criados automaticamente.
             </p>
+            {vinculados.length > 0 && (
+              <p className="text-xs text-emerald-700 bg-emerald-50 rounded-md px-2 py-1.5 mb-2">
+                ✓ Já vinculados: {vinculados.join(", ")}
+              </p>
+            )}
             {acessorios.length > 0 && (
               <div className="space-y-1 mb-2">
                 {acessorios.map((a, i) => (

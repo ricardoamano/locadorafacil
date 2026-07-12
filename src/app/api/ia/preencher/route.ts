@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { clienteIa, extrairJson, MODELO_AUTOFILL } from "@/lib/ia";
+import { clienteIa, extrairJson, MODELO_AUTOFILL, MODELO_PROPOSTA } from "@/lib/ia";
 
 // Autopreenchimento com IA: itens, locais e clientes
 
@@ -73,9 +73,9 @@ async function buscarFotosDoModelo(
   if (!consulta.trim()) return [];
 
   const resposta = await ia.messages.create({
-    model: MODELO_AUTOFILL,
+    model: MODELO_PROPOSTA,
     max_tokens: 1500,
-    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],
+    tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 3 }],
     messages: [
       {
         role: "user",
@@ -148,14 +148,71 @@ export async function POST(req: NextRequest) {
         { error: "IA não configurada — peça ao administrador para configurar em Configurações → Inteligência Artificial." },
         { status: 400 }
       );
+    // 1º: banco interno de preços de mercado (PDFs de parceiros/concorrentes)
+    const termos = [String(body.modelo || ""), String(body.marca || ""), String(body.texto || "")]
+      .join(" ")
+      .toLowerCase()
+      .split(/[^a-z0-9à-ú]+/)
+      .filter((t) => t.length >= 3);
+    if (termos.length > 0) {
+      const registros = await prisma.precoMercado.findMany({
+        where: {
+          companyId,
+          OR: termos.map((t) => ({
+            OR: [
+              { equipamento: { contains: t, mode: "insensitive" as const } },
+              { modelo: { contains: t, mode: "insensitive" as const } },
+            ],
+          })),
+        },
+        take: 60,
+        orderBy: { createdAt: "desc" },
+      });
+      // relevância: registros que batem com mais termos primeiro
+      const pontuados = registros
+        .map((r) => {
+          const alvo = `${r.equipamento} ${r.modelo || ""} ${r.marca || ""}`.toLowerCase();
+          const pontos = termos.filter((t) => alvo.includes(t)).length;
+          return { r, pontos };
+        })
+        .filter((x) => x.pontos >= Math.min(2, termos.length))
+        .sort((a, b) => b.pontos - a.pontos)
+        .slice(0, 15)
+        .map((x) => x.r);
+
+      if (pontuados.length > 0) {
+        const media = (vals: (number | null)[]) => {
+          const nums = vals.filter((v): v is number => v != null && v > 0);
+          return nums.length > 0
+            ? Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 100) / 100
+            : null;
+        };
+        const diarias = pontuados.map((r) => r.diaria).filter((v): v is number => v != null && v > 0);
+        return NextResponse.json({
+          dados: {
+            origem: "banco",
+            diaria: media(pontuados.map((r) => r.diaria)),
+            diariaMin: diarias.length > 0 ? Math.min(...diarias) : null,
+            diariaMax: diarias.length > 0 ? Math.max(...diarias) : null,
+            semana: media(pontuados.map((r) => r.semana)),
+            quinzena: media(pontuados.map((r) => r.quinzena)),
+            mes: media(pontuados.map((r) => r.mes)),
+            reposicao: media(pontuados.map((r) => r.reposicao)),
+            fontes: [...new Set(pontuados.map((r) => r.fonte).filter(Boolean))],
+            observacao: `Baseado em ${pontuados.length} registro(s) do seu Banco de Preços de Mercado.`,
+          },
+        });
+      }
+    }
+
     try {
       const consulta = [String(body.marca || ""), String(body.modelo || "") || String(body.texto || "")]
         .filter(Boolean)
         .join(" ");
       const resposta = await iaP.messages.create({
-        model: MODELO_AUTOFILL,
+        model: MODELO_PROPOSTA,
         max_tokens: 2000,
-        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }],
+        tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 5 }],
         messages: [
           {
             role: "user",
@@ -186,12 +243,42 @@ Responda APENAS com um JSON válido:
         .map((b: any) => b.text)
         .join("");
       const dadosP = extrairJson(textoR);
-      if (!dadosP)
-        return NextResponse.json(
-          { error: "A IA não encontrou preços — tente novamente." },
-          { status: 502 }
+      const vazio =
+        !dadosP ||
+        [dadosP.diaria, dadosP.semana, dadosP.quinzena, dadosP.mes, dadosP.reposicao].every(
+          (v) => v == null
         );
-      return NextResponse.json({ dados: dadosP });
+      if (!vazio) return NextResponse.json({ dados: { origem: "web", ...dadosP } });
+
+      // 3º: estimativa da IA (sem web) com aviso explícito
+      const est = await iaP.messages.create({
+        model: MODELO_PROPOSTA,
+        max_tokens: 800,
+        messages: [
+          {
+            role: "user",
+            content: `Estime valores TÍPICOS de mercado no Brasil para a locação do equipamento de eventos: "${consulta}" (${String(
+              body.texto || ""
+            )}). Use seu conhecimento geral (regra comum: diária ≈ 5% a 10% do valor do equipamento novo). Responda APENAS com JSON: {"diaria": n, "semana": n, "quinzena": n, "mes": n, "reposicao": n}`,
+          },
+        ],
+      });
+      const textoE = est.content
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .filter((b: any) => b.type === "text")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((b: any) => b.text)
+        .join("");
+      const dadosE = extrairJson(textoE) || {};
+      return NextResponse.json({
+        dados: {
+          origem: "estimativa",
+          ...dadosE,
+          aviso:
+            "Não tivemos informações suficientes para criar nossas sugestões — os valores abaixo são uma ESTIMATIVA da IA. Alimente o Banco de Preços de Mercado com orçamentos de parceiros e concorrentes para sugestões reais.",
+          observacao: "Estimativa sem fontes de mercado.",
+        },
+      });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Erro na IA";
       return NextResponse.json({ error: `Erro na pesquisa de preços: ${msg}` }, { status: 502 });
@@ -244,8 +331,13 @@ Responda APENAS com um JSON válido:
           marca: String(dados.marca || body.marca || ""),
           modelo: String(dados.modelo || body.modelo || ""),
         });
-      } catch {
+        if (!Array.isArray(dados.fotos) || dados.fotos.length === 0) {
+          dados.fotosAviso =
+            "Não encontrei fotos utilizáveis do modelo na web — adicione manualmente na galeria.";
+        }
+      } catch (e) {
         dados.fotos = [];
+        dados.fotosAviso = `Busca de fotos falhou (${e instanceof Error ? e.message.slice(0, 80) : "erro"}) — adicione manualmente.`;
       }
     }
 
