@@ -263,7 +263,9 @@ export default function ImprimirOrcamentoPage() {
                           )}
                         </td>
                         <td className="px-3 py-2 text-center">{i.quantidade}</td>
-                        <td className="px-3 py-2 text-center">{i.diarias || 1}</td>
+                        <td className="px-3 py-2 text-center">
+                          {i.item?.natureza === "SERVICO" ? "—" : i.diarias || 1}
+                        </td>
                         <td className="px-3 py-2 text-right">
                           {fmtValor(
                             (i.quantidade || 0) * (i.diarias || 1) * (i.valorUnitario || 0)

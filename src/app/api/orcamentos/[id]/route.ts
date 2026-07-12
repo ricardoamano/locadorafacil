@@ -76,6 +76,7 @@ export async function GET(
                   nome: true,
                   codigo: true,
                   descricaoComercial: true,
+                  natureza: true,
                   watts: true,
                   kva: true,
                   categoria: { select: { nome: true } },

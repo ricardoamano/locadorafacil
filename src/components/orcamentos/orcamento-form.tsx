@@ -674,6 +674,8 @@ export function OrcamentoForm({
                             setSalaItem(si, ii, {
                               itemId: e.target.value,
                               valorUnitario: sel ? sel.valorAluguel : it.valorUnitario,
+                              // Serviço não usa diárias
+                              diarias: sel?.natureza === "SERVICO" ? 1 : it.diarias,
                               descricaoComercial:
                                 it.descricaoComercial || sel?.descricaoComercial || "",
                             });
@@ -711,15 +713,31 @@ export function OrcamentoForm({
                       />
                     </div>
                     <div className="col-span-1">
-                      <Input
-                        label={ii === 0 ? "Diárias" : undefined}
-                        type="number"
-                        min={1}
-                        value={String(it.diarias)}
-                        onChange={(e) =>
-                          setSalaItem(si, ii, { diarias: parseInt(e.target.value) || 1 })
-                        }
-                      />
+                      {itens.find((x) => x.id === it.itemId)?.natureza === "SERVICO" ? (
+                        <div>
+                          {ii === 0 && (
+                            <label className="text-sm font-medium text-slate-700 block mb-1">
+                              Diárias
+                            </label>
+                          )}
+                          <p
+                            className="h-9 flex items-center justify-center rounded-md border border-dashed border-slate-200 text-sm text-slate-300"
+                            title="Serviço não usa diárias"
+                          >
+                            —
+                          </p>
+                        </div>
+                      ) : (
+                        <Input
+                          label={ii === 0 ? "Diárias" : undefined}
+                          type="number"
+                          min={1}
+                          value={String(it.diarias)}
+                          onChange={(e) =>
+                            setSalaItem(si, ii, { diarias: parseInt(e.target.value) || 1 })
+                          }
+                        />
+                      )}
                     </div>
                     <div className="col-span-1">
                       <Input
