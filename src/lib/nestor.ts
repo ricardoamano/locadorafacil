@@ -1,9 +1,12 @@
-// NESTOR — assistente de WhatsApp da empresa.
+// Assistente de WhatsApp da empresa (cada empresa dá o nome que quiser, ex.: NESTOR).
 // Envia OS aos técnicos escalados, avisos de alteração e lembretes de datas.
 // Envio automático via WhatsApp Business Cloud API (Meta) quando a empresa
 // configurou as credenciais; caso contrário a UI oferece links wa.me.
+// Os textos são templates editáveis pelo admin, com variáveis {assim}.
 
 const GRAPH_URL = "https://graph.facebook.com/v21.0";
+
+export const ASSISTENTE_PADRAO = "Assistente";
 
 export interface WhatsappConfig {
   whatsappPhoneId: string | null;
@@ -58,20 +61,168 @@ export async function enviarWhatsapp(
   }
 }
 
-// ── Modelos de mensagem (sem valores financeiros — mesma regra da OS) ─────────
+// ── Templates editáveis ───────────────────────────────────────────────────────
 
-function fmtData(d: Date | string | null | undefined): string {
-  if (!d) return "a definir";
+export type TipoTemplate = "ESCALA" | "ALTERACAO" | "LEMBRETE";
+
+export const VARIAVEIS_TEMPLATE: { chave: string; descricao: string }[] = [
+  { chave: "{assistente}", descricao: "Nome do assistente" },
+  { chave: "{empresa}", descricao: "Nome da empresa" },
+  { chave: "{nome}", descricao: "Nome do membro da equipe" },
+  { chave: "{os}", descricao: "Número da OS" },
+  { chave: "{evento}", descricao: "Nome do evento" },
+  { chave: "{periodo}", descricao: "Período do evento (início até fim)" },
+  { chave: "{montagem}", descricao: "Data/hora da montagem" },
+  { chave: "{desmontagem}", descricao: "Data/hora da desmontagem" },
+  { chave: "{entrada}", descricao: "Horário de entrada do membro" },
+  { chave: "{funcao}", descricao: "Função do membro na escala" },
+  { chave: "{local}", descricao: "Nome e endereço do local" },
+  { chave: "{link_maps}", descricao: "Link do local no Google Maps" },
+  { chave: "{link_waze}", descricao: "Link do local no Waze" },
+  { chave: "{link_os}", descricao: "Link público simplificado da OS" },
+  { chave: "{observacoes}", descricao: "Observações operacionais da OS" },
+];
+
+export const TEMPLATES_PADRAO: Record<TipoTemplate, string> = {
+  ESCALA: [
+    "🤖 *{assistente}* — {empresa}",
+    "",
+    "Olá, {nome}! Você está *escalado(a)* para o evento:",
+    "",
+    "📋 *OS #{os}* — {evento}",
+    "📅 Evento: {periodo}",
+    "🔧 Montagem: {montagem}",
+    "📦 Desmontagem: {desmontagem}",
+    "⏰ Sua entrada: {entrada}",
+    "🎯 Função: {funcao}",
+    "📍 Local: {local}",
+    "🗺️ Google Maps: {link_maps}",
+    "🚗 Waze: {link_waze}",
+    "📄 OS completa: {link_os}",
+    "",
+    "📝 Observações: {observacoes}",
+    "",
+    "Qualquer dúvida, fale com a produção. Bom trabalho! 💪",
+  ].join("\n"),
+  ALTERACAO: [
+    "🤖 *{assistente}* — {empresa}",
+    "",
+    "⚠️ *Atenção, {nome}!* Houve *alteração* na OS em que você está escalado(a):",
+    "",
+    "📋 *OS #{os}* — {evento}",
+    "📅 Evento: {periodo}",
+    "🔧 Montagem: {montagem}",
+    "📦 Desmontagem: {desmontagem}",
+    "⏰ Sua entrada: {entrada}",
+    "📍 Local: {local}",
+    "🗺️ Google Maps: {link_maps}",
+    "📄 OS completa: {link_os}",
+    "",
+    "📝 Observações: {observacoes}",
+    "",
+    "Confira os dados atualizados acima. ✅",
+  ].join("\n"),
+  LEMBRETE: [
+    "🤖 *{assistente}* — {empresa}",
+    "",
+    "🔔 *Lembrete, {nome}!* Amanhã tem evento e você está escalado(a):",
+    "",
+    "📋 *OS #{os}* — {evento}",
+    "📅 Evento: {periodo}",
+    "🔧 Montagem: {montagem}",
+    "⏰ Sua entrada: {entrada}",
+    "🎯 Função: {funcao}",
+    "📍 Local: {local}",
+    "🗺️ Google Maps: {link_maps}",
+    "🚗 Waze: {link_waze}",
+    "📄 OS completa: {link_os}",
+    "",
+    "Até amanhã! 💪",
+  ].join("\n"),
+};
+
+/** Templates da empresa mesclados com os padrões. */
+export function templatesDaEmpresa(json: unknown): Record<TipoTemplate, string> {
+  const t = (json || {}) as Partial<Record<TipoTemplate, string>>;
+  return {
+    ESCALA: t.ESCALA?.trim() || TEMPLATES_PADRAO.ESCALA,
+    ALTERACAO: t.ALTERACAO?.trim() || TEMPLATES_PADRAO.ALTERACAO,
+    LEMBRETE: t.LEMBRETE?.trim() || TEMPLATES_PADRAO.LEMBRETE,
+  };
+}
+
+/**
+ * Preenche o template. Linhas cujo(s) placeholder(s) ficaram todos vazios são
+ * removidas (ex.: sem desmontagem definida, a linha da desmontagem some).
+ */
+export function renderTemplate(template: string, vars: Record<string, string | null | undefined>): string {
+  const linhas = template.split("\n").map((linha) => {
+    const placeholders = linha.match(/\{[a-z_]+\}/g);
+    if (!placeholders) return linha;
+    let temValor = false;
+    let out = linha;
+    for (const ph of placeholders) {
+      const v = vars[ph.slice(1, -1)];
+      if (v) temValor = true;
+      out = out.split(ph).join(v || "");
+    }
+    return temValor ? out : null;
+  });
+  // remove linhas descartadas e evita 3+ quebras seguidas
+  return linhas
+    .filter((l) => l !== null)
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+// ── Montagem das variáveis a partir da OS ─────────────────────────────────────
+
+function fmtData(d: Date | string | null | undefined): string | null {
+  if (!d) return null;
   return new Date(d).toLocaleDateString("pt-BR");
 }
 
-function fmtDataHora(d: Date | string | null | undefined): string {
-  if (!d) return "a definir";
+function fmtDataHora(d: Date | string | null | undefined): string | null {
+  if (!d) return null;
   const x = new Date(d);
   return `${x.toLocaleDateString("pt-BR")} às ${x.toLocaleTimeString("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
   })}`;
+}
+
+export interface LocalOs {
+  nome?: string | null;
+  rua?: string | null;
+  numero?: string | null;
+  bairro?: string | null;
+  cidade?: string | null;
+  estado?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+}
+
+export function enderecoDoLocal(local: LocalOs | null | undefined): string | null {
+  if (!local) return null;
+  const e = [local.rua, local.numero, local.bairro, local.cidade].filter(Boolean).join(", ");
+  return e || null;
+}
+
+export function linkMaps(local: LocalOs | null | undefined): string | null {
+  if (!local) return null;
+  if (local.lat != null && local.lng != null)
+    return `https://www.google.com/maps/search/?api=1&query=${local.lat},${local.lng}`;
+  const q = [local.nome, enderecoDoLocal(local), local.estado].filter(Boolean).join(", ");
+  return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : null;
+}
+
+export function linkWaze(local: LocalOs | null | undefined): string | null {
+  if (!local) return null;
+  if (local.lat != null && local.lng != null)
+    return `https://waze.com/ul?ll=${local.lat},${local.lng}&navigate=yes`;
+  const q = [enderecoDoLocal(local), local.estado].filter(Boolean).join(", ");
+  return q ? `https://waze.com/ul?q=${encodeURIComponent(q)}&navigate=yes` : null;
 }
 
 export interface DadosOsMensagem {
@@ -81,10 +232,11 @@ export interface DadosOsMensagem {
   dataFim?: Date | string | null;
   horarioMontagem?: Date | string | null;
   horarioDesmontagem?: Date | string | null;
-  localNome?: string | null;
-  localEndereco?: string | null;
+  local?: LocalOs | null;
   observacoes?: string | null;
   empresaNome: string;
+  assistenteNome?: string | null;
+  linkOs?: string | null;
 }
 
 export interface DadosEscalado {
@@ -93,64 +245,39 @@ export interface DadosEscalado {
   horarioEntrada?: Date | string | null;
 }
 
-export function mensagemEscala(os: DadosOsMensagem, m: DadosEscalado): string {
-  const linhas = [
-    `🤖 *NESTOR* — ${os.empresaNome}`,
-    ``,
-    `Olá, ${m.nome}! Você está *escalado(a)* para o evento:`,
-    ``,
-    `📋 *OS #${os.numero}* — ${os.eventoNome || "Evento"}`,
-    `📅 Evento: ${fmtData(os.dataInicio)}${os.dataFim ? ` até ${fmtData(os.dataFim)}` : ""}`,
-  ];
-  if (os.horarioMontagem) linhas.push(`🔧 Montagem: ${fmtDataHora(os.horarioMontagem)}`);
-  if (os.horarioDesmontagem)
-    linhas.push(`📦 Desmontagem: ${fmtDataHora(os.horarioDesmontagem)}`);
-  if (m.horarioEntrada) linhas.push(`⏰ Sua entrada: ${fmtDataHora(m.horarioEntrada)}`);
-  if (m.funcao) linhas.push(`🎯 Função: ${m.funcao}`);
-  if (os.localNome) {
-    linhas.push(`📍 Local: ${os.localNome}${os.localEndereco ? ` — ${os.localEndereco}` : ""}`);
-  }
-  if (os.observacoes) linhas.push(``, `📝 Observações: ${os.observacoes}`);
-  linhas.push(``, `Qualquer dúvida, fale com a produção. Bom trabalho! 💪`);
-  return linhas.join("\n");
+export function variaveisMensagem(
+  os: DadosOsMensagem,
+  m: DadosEscalado
+): Record<string, string | null> {
+  const inicio = fmtData(os.dataInicio);
+  const fim = fmtData(os.dataFim);
+  const periodo = inicio ? (fim && fim !== inicio ? `${inicio} até ${fim}` : inicio) : null;
+  const endereco = enderecoDoLocal(os.local);
+  const localNome = os.local?.nome || null;
+  return {
+    assistente: os.assistenteNome?.trim() || ASSISTENTE_PADRAO,
+    empresa: os.empresaNome,
+    nome: m.nome,
+    os: String(os.numero ?? ""),
+    evento: os.eventoNome || null,
+    periodo,
+    montagem: fmtDataHora(os.horarioMontagem),
+    desmontagem: fmtDataHora(os.horarioDesmontagem),
+    entrada: fmtDataHora(m.horarioEntrada),
+    funcao: m.funcao || null,
+    local: localNome ? (endereco ? `${localNome} — ${endereco}` : localNome) : endereco,
+    link_maps: linkMaps(os.local),
+    link_waze: linkWaze(os.local),
+    link_os: os.linkOs || null,
+    observacoes: os.observacoes || null,
+  };
 }
 
-export function mensagemAlteracao(os: DadosOsMensagem, m: DadosEscalado): string {
-  const linhas = [
-    `🤖 *NESTOR* — ${os.empresaNome}`,
-    ``,
-    `⚠️ *Atenção, ${m.nome}!* Houve *alteração* na OS em que você está escalado(a):`,
-    ``,
-    `📋 *OS #${os.numero}* — ${os.eventoNome || "Evento"}`,
-    `📅 Evento: ${fmtData(os.dataInicio)}${os.dataFim ? ` até ${fmtData(os.dataFim)}` : ""}`,
-  ];
-  if (os.horarioMontagem) linhas.push(`🔧 Montagem: ${fmtDataHora(os.horarioMontagem)}`);
-  if (os.horarioDesmontagem)
-    linhas.push(`📦 Desmontagem: ${fmtDataHora(os.horarioDesmontagem)}`);
-  if (m.horarioEntrada) linhas.push(`⏰ Sua entrada: ${fmtDataHora(m.horarioEntrada)}`);
-  if (os.localNome) {
-    linhas.push(`📍 Local: ${os.localNome}${os.localEndereco ? ` — ${os.localEndereco}` : ""}`);
-  }
-  if (os.observacoes) linhas.push(``, `📝 Observações: ${os.observacoes}`);
-  linhas.push(``, `Confira os dados atualizados acima. ✅`);
-  return linhas.join("\n");
-}
-
-export function mensagemLembrete(os: DadosOsMensagem, m: DadosEscalado): string {
-  const linhas = [
-    `🤖 *NESTOR* — ${os.empresaNome}`,
-    ``,
-    `🔔 *Lembrete, ${m.nome}!* Amanhã tem evento e você está escalado(a):`,
-    ``,
-    `📋 *OS #${os.numero}* — ${os.eventoNome || "Evento"}`,
-    `📅 Evento: ${fmtData(os.dataInicio)}${os.dataFim ? ` até ${fmtData(os.dataFim)}` : ""}`,
-  ];
-  if (os.horarioMontagem) linhas.push(`🔧 Montagem: ${fmtDataHora(os.horarioMontagem)}`);
-  if (m.horarioEntrada) linhas.push(`⏰ Sua entrada: ${fmtDataHora(m.horarioEntrada)}`);
-  if (m.funcao) linhas.push(`🎯 Função: ${m.funcao}`);
-  if (os.localNome) {
-    linhas.push(`📍 Local: ${os.localNome}${os.localEndereco ? ` — ${os.localEndereco}` : ""}`);
-  }
-  linhas.push(``, `Até amanhã! 💪`);
-  return linhas.join("\n");
+export function montarMensagem(
+  tipo: TipoTemplate,
+  templates: Record<TipoTemplate, string>,
+  os: DadosOsMensagem,
+  m: DadosEscalado
+): string {
+  return renderTemplate(templates[tipo], variaveisMensagem(os, m));
 }

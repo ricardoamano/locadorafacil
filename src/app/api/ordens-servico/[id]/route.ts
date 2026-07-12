@@ -79,6 +79,17 @@ export async function PUT(
         ? new Date(body.horarioDesmontagem)
         : null,
       observacoes: body.observacoes || null,
+      produtores: Array.isArray(body.produtores)
+        ? body.produtores
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .filter((p: any) => p?.nome || p?.telefone)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map((p: any) => ({
+              nome: String(p.nome || "").trim(),
+              telefone: String(p.telefone || "").trim(),
+              funcao: String(p.funcao || "").trim(),
+            }))
+        : existing.produtores ?? undefined,
       escala: {
         create: escala.map((e) => ({
           membroId: e.membroId,

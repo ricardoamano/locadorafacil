@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import {
   nestorConfigurado,
   normalizarTelefone,
   enviarWhatsapp,
-  mensagemLembrete,
+  montarMensagem,
+  templatesDaEmpresa,
   type DadosOsMensagem,
 } from "@/lib/nestor";
 
-// NESTOR — lembretes automáticos (cron diário da Vercel).
+// Lembretes automáticos do assistente de WhatsApp (cron diário da Vercel).
 // Para cada empresa com WhatsApp configurado, avisa os escalados dos eventos
 // que começam (ou montam) amanhã. Nunca envia o mesmo lembrete duas vezes.
 
@@ -24,6 +26,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const origin = process.env.NEXTAUTH_URL?.replace(/\/$/, "") || "https://locadorafacil.app";
+
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
   const amanha = new Date(hoje);
@@ -33,7 +37,14 @@ export async function GET(req: NextRequest) {
 
   const empresas = await prisma.company.findMany({
     where: { whatsappPhoneId: { not: null }, whatsappToken: { not: null } },
-    select: { id: true, name: true, whatsappPhoneId: true, whatsappToken: true },
+    select: {
+      id: true,
+      name: true,
+      whatsappAssistente: true,
+      whatsappPhoneId: true,
+      whatsappToken: true,
+      whatsappTemplates: true,
+    },
   });
 
   let enviadas = 0;
@@ -41,6 +52,7 @@ export async function GET(req: NextRequest) {
 
   for (const company of empresas) {
     if (!nestorConfigurado(company)) continue;
+    const templates = templatesDaEmpresa(company.whatsappTemplates);
 
     // OS ativas cujo evento inicia amanhã ou cuja montagem é amanhã
     const ordens = await prisma.ordemServico.findMany({
@@ -59,18 +71,22 @@ export async function GET(req: NextRequest) {
     });
 
     for (const os of ordens) {
-      const local = os.orcamento?.local;
+      let publicToken = os.publicToken;
+      if (!publicToken) {
+        publicToken = randomUUID().replace(/-/g, "");
+        await prisma.ordemServico.update({ where: { id: os.id }, data: { publicToken } });
+      }
+
       const dados: DadosOsMensagem = {
         numero: os.orcamento?.numero ?? "—",
         eventoNome: os.orcamento?.eventoNome,
         dataInicio: os.orcamento?.dataInicio,
         dataFim: os.orcamento?.dataFim,
         horarioMontagem: os.horarioMontagem,
-        localNome: local?.nome,
-        localEndereco: local
-          ? [local.rua, local.numero, local.bairro, local.cidade].filter(Boolean).join(", ")
-          : null,
+        local: os.orcamento?.local || null,
         empresaNome: company.name,
+        assistenteNome: company.whatsappAssistente,
+        linkOs: `${origin}/os/${publicToken}`,
       };
 
       for (const e of os.escala) {
@@ -91,7 +107,7 @@ export async function GET(req: NextRequest) {
         });
         if (jaEnviado) continue;
 
-        const mensagem = mensagemLembrete(dados, {
+        const mensagem = montarMensagem("LEMBRETE", templates, dados, {
           nome: e.membro?.nome || "—",
           funcao: e.funcao,
           horarioEntrada: e.horarioEntrada,
@@ -107,7 +123,7 @@ export async function GET(req: NextRequest) {
             mensagem,
             status: erro ? "ERRO" : "ENVIADA",
             erro,
-            enviadoPor: "NESTOR (automático)",
+            enviadoPor: "Assistente (automático)",
           },
         });
         if (erro) erros++;

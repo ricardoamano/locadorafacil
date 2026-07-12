@@ -44,10 +44,12 @@ model Company {
   menuConfig         Json?
   tiposEvento        Json?
   icsToken           String?  @unique // token do link privado de agenda (Google Agenda etc.)
-  // NESTOR — assistente de WhatsApp da empresa (WhatsApp Business Cloud API)
+  // Assistente de WhatsApp da empresa (WhatsApp Business Cloud API)
+  whatsappAssistente String?  // nome do assistente escolhido pela empresa (ex.: NESTOR)
   whatsappNumero     String?  // número exibido (ex.: +55 11 99999-9999)
   whatsappPhoneId    String?  // Phone Number ID da Cloud API (Meta)
   whatsappToken      String?  // token de acesso permanente da Cloud API
+  whatsappTemplates  Json?    // textos das mensagens (ESCALA/ALTERACAO/LEMBRETE) editáveis pelo admin
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -381,6 +383,8 @@ model OrdemServico {
   id                 String   @id @default(cuid())
   orcamentoId        String   @unique
   orcamento          Orcamento @relation(fields: [orcamentoId], references: [id])
+  publicToken        String?  @unique // link público simplificado da OS (sem valores)
+  produtores         Json?    // contatos do evento [{nome, telefone, funcao}] — clicáveis p/ WhatsApp
   status             String   @default("ABERTA")
   horarioMontagem    DateTime?
   horarioDesmontagem DateTime?
@@ -394,6 +398,20 @@ model OrdemServico {
   unidadesNoEvento ItemUnidade[]
   itensExtras  OsItemExtra[]
   mensagensWhatsapp MensagemWhatsapp[]
+  anexos       OsAnexo[]
+}
+
+// Arquivos e links da OS (briefings, PDFs, PPTs, vídeos, drives...) para a equipe
+model OsAnexo {
+  id        String       @id @default(cuid())
+  osId      String
+  os        OrdemServico @relation(fields: [osId], references: [id], onDelete: Cascade)
+  tipo      String       // ARQUIVO | LINK
+  titulo    String
+  url       String       // /api/arquivos/{id} para arquivos, URL externa para links
+  arquivoId String?      // referência ao Arquivo quando tipo = ARQUIVO
+  criadoPor String?
+  createdAt DateTime     @default(now())
 }
 
 // NESTOR — log de mensagens de WhatsApp enviadas à equipe

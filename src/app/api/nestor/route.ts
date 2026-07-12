@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import {
@@ -6,13 +7,14 @@ import {
   normalizarTelefone,
   enviarWhatsapp,
   linkWaMe,
-  mensagemEscala,
-  mensagemAlteracao,
-  mensagemLembrete,
+  montarMensagem,
+  templatesDaEmpresa,
+  ASSISTENTE_PADRAO,
   type DadosOsMensagem,
+  type TipoTemplate,
 } from "@/lib/nestor";
 
-// NESTOR — envio de WhatsApp para a equipe escalada em uma OS
+// Assistente de WhatsApp — envio para a equipe escalada em uma OS
 
 type SessionUser = { companyId?: string; name?: string | null };
 
@@ -24,7 +26,7 @@ async function getSessao() {
 }
 
 async function carregarOs(osId: string, companyId: string) {
-  return prisma.ordemServico.findFirst({
+  const os = await prisma.ordemServico.findFirst({
     where: { id: osId, companyId },
     include: {
       orcamento: {
@@ -36,14 +38,18 @@ async function carregarOs(osId: string, companyId: string) {
       escala: { include: { membro: { select: { id: true, nome: true, telefone: true } } } },
     },
   });
+  if (!os) return null;
+  // Garante o link público simplificado da OS
+  if (!os.publicToken) {
+    const token = randomUUID().replace(/-/g, "");
+    await prisma.ordemServico.update({ where: { id: os.id }, data: { publicToken: token } });
+    os.publicToken = token;
+  }
+  return os;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function dadosOs(os: any, empresaNome: string): DadosOsMensagem {
-  const local = os.orcamento?.local;
-  const endereco = local
-    ? [local.rua, local.numero, local.bairro, local.cidade].filter(Boolean).join(", ")
-    : null;
+function dadosOs(os: any, empresaNome: string, assistenteNome: string | null, origin: string): DadosOsMensagem {
   return {
     numero: os.orcamento?.numero ?? "—",
     eventoNome: os.orcamento?.eventoNome,
@@ -51,10 +57,11 @@ function dadosOs(os: any, empresaNome: string): DadosOsMensagem {
     dataFim: os.orcamento?.dataFim,
     horarioMontagem: os.horarioMontagem,
     horarioDesmontagem: os.horarioDesmontagem,
-    localNome: local?.nome,
-    localEndereco: endereco || null,
+    local: os.orcamento?.local || null,
     observacoes: os.observacoes,
     empresaNome,
+    assistenteNome,
+    linkOs: os.publicToken ? `${origin}/os/${os.publicToken}` : null,
   };
 }
 
@@ -68,13 +75,21 @@ export async function GET(req: NextRequest) {
   const [company, os] = await Promise.all([
     prisma.company.findUnique({
       where: { id: sessao.companyId },
-      select: { name: true, whatsappNumero: true, whatsappPhoneId: true, whatsappToken: true },
+      select: {
+        name: true,
+        whatsappAssistente: true,
+        whatsappNumero: true,
+        whatsappPhoneId: true,
+        whatsappToken: true,
+        whatsappTemplates: true,
+      },
     }),
     carregarOs(osId, sessao.companyId),
   ]);
   if (!company || !os) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const dados = dadosOs(os, company.name);
+  const templates = templatesDaEmpresa(company.whatsappTemplates);
+  const dados = dadosOs(os, company.name, company.whatsappAssistente, req.nextUrl.origin);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const escalados = (os.escala as any[]).map((e) => {
     const telefone = normalizarTelefone(e.membro?.telefone);
@@ -87,9 +102,9 @@ export async function GET(req: NextRequest) {
       telefone,
       telefoneOriginal: e.membro?.telefone || null,
       mensagens: {
-        ESCALA: mensagemEscala(dados, info),
-        ALTERACAO: mensagemAlteracao(dados, info),
-        LEMBRETE: mensagemLembrete(dados, info),
+        ESCALA: montarMensagem("ESCALA", templates, dados, info),
+        ALTERACAO: montarMensagem("ALTERACAO", templates, dados, info),
+        LEMBRETE: montarMensagem("LEMBRETE", templates, dados, info),
       },
     };
   });
@@ -103,7 +118,9 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     configurado: nestorConfigurado(company),
+    assistente: company.whatsappAssistente?.trim() || ASSISTENTE_PADRAO,
     numero: company.whatsappNumero,
+    linkOs: dados.linkOs,
     escalados,
     historico,
   });
@@ -116,7 +133,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { osId, tipo, membroIds, mensagemPersonalizada } = body as {
     osId: string;
-    tipo: "ESCALA" | "ALTERACAO" | "LEMBRETE" | "AVULSA";
+    tipo: TipoTemplate | "AVULSA";
     membroIds?: string[];
     mensagemPersonalizada?: string;
   };
@@ -128,13 +145,21 @@ export async function POST(req: NextRequest) {
   const [company, os] = await Promise.all([
     prisma.company.findUnique({
       where: { id: sessao.companyId },
-      select: { name: true, whatsappPhoneId: true, whatsappToken: true },
+      select: {
+        name: true,
+        whatsappAssistente: true,
+        whatsappPhoneId: true,
+        whatsappToken: true,
+        whatsappTemplates: true,
+      },
     }),
     carregarOs(osId, sessao.companyId),
   ]);
   if (!company || !os) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const dados = dadosOs(os, company.name);
+  const templates = templatesDaEmpresa(company.whatsappTemplates);
+  const assistente = company.whatsappAssistente?.trim() || ASSISTENTE_PADRAO;
+  const dados = dadosOs(os, company.name, company.whatsappAssistente, req.nextUrl.origin);
   const viaApi = nestorConfigurado(company);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -155,12 +180,8 @@ export async function POST(req: NextRequest) {
     const info = { nome: e.membro?.nome || "—", funcao: e.funcao, horarioEntrada: e.horarioEntrada };
     const mensagem =
       tipo === "AVULSA"
-        ? `🤖 *NESTOR* — ${company.name}\n\n${mensagemPersonalizada!.trim()}`
-        : tipo === "ALTERACAO"
-          ? mensagemAlteracao(dados, info)
-          : tipo === "LEMBRETE"
-            ? mensagemLembrete(dados, info)
-            : mensagemEscala(dados, info);
+        ? `🤖 *${assistente}* — ${company.name}\n\n${mensagemPersonalizada!.trim()}`
+        : montarMensagem(tipo, templates, dados, info);
 
     if (!telefone) {
       resultados.push({

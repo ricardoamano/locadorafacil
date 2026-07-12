@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { Bot, Send, ExternalLink, Eye, EyeOff, CheckCircle2, AlertTriangle } from "lucide-react";
 
-// NESTOR — painel de comunicação com a equipe escalada via WhatsApp
+// Assistente de WhatsApp — painel de comunicação com a equipe escalada
+// (cada empresa dá o nome que quiser ao assistente, ex.: NESTOR)
 
 interface Escalado {
   membroId: string;
@@ -53,6 +54,8 @@ const TIPO_LABEL: Record<string, string> = {
 export function OsNestor({ osId }: { osId: string }) {
   const { toast } = useToast();
   const [configurado, setConfigurado] = useState(false);
+  const [assistente, setAssistente] = useState("Assistente");
+  const [linkOs, setLinkOs] = useState<string | null>(null);
   const [escalados, setEscalados] = useState<Escalado[]>([]);
   const [historico, setHistorico] = useState<HistoricoMsg[]>([]);
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
@@ -69,6 +72,8 @@ export function OsNestor({ osId }: { osId: string }) {
       .then((d) => {
         if (!d) return;
         setConfigurado(d.configurado);
+        setAssistente(d.assistente || "Assistente");
+        setLinkOs(d.linkOs || null);
         setEscalados(d.escalados || []);
         setHistorico(d.historico || []);
         setSelecionados(
@@ -125,7 +130,7 @@ export function OsNestor({ osId }: { osId: string }) {
       if (d.viaApi) {
         const ok = resultados.filter((r) => r.status === "ENVIADA").length;
         const falhas = resultados.filter((r) => r.status === "ERRO");
-        if (ok > 0) toast(`NESTOR enviou ${ok} mensagem(ns) no WhatsApp! ✅`, "success");
+        if (ok > 0) toast(`${assistente} enviou ${ok} mensagem(ns) no WhatsApp! ✅`, "success");
         if (falhas.length > 0)
           toast(
             `${falhas.length} falha(s): ${falhas.map((f) => `${f.nome} (${f.erro})`).join("; ")}`,
@@ -155,7 +160,7 @@ export function OsNestor({ osId }: { osId: string }) {
             <Bot className="h-4 w-4 text-emerald-700" />
           </span>
           <div>
-            <h3 className="text-sm font-semibold text-slate-900">NESTOR — WhatsApp da equipe</h3>
+            <h3 className="text-sm font-semibold text-slate-900">{assistente} — WhatsApp da equipe</h3>
             <p className="text-xs text-slate-400">
               {configurado ? (
                 <span className="inline-flex items-center gap-1 text-emerald-600">
@@ -172,11 +177,24 @@ export function OsNestor({ osId }: { osId: string }) {
             </p>
           </div>
         </div>
+        {linkOs && (
+          <button
+            onClick={async () => {
+              await navigator.clipboard.writeText(linkOs);
+              toast("Link público da OS copiado!", "success");
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:border-emerald-300 hover:text-emerald-700 transition-colors"
+            title="Link simplificado da OS (sem valores) — para compartilhar com a equipe"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Copiar link público da OS
+          </button>
+        )}
       </div>
 
       {escalados.length === 0 ? (
         <p className="text-sm text-slate-400">
-          Escale membros da equipe acima e salve a OS — depois o NESTOR avisa cada um pelo
+          Escale membros da equipe acima e salve a OS — depois o assistente avisa cada um pelo
           WhatsApp.
         </p>
       ) : (
@@ -254,7 +272,7 @@ export function OsNestor({ osId }: { osId: string }) {
           <div className="flex items-center gap-3 flex-wrap">
             <Button onClick={enviar} loading={enviando} size="sm">
               <Send className="h-4 w-4" />
-              {configurado ? "Enviar pelo NESTOR" : "Preparar mensagens"}
+              {configurado ? `Enviar pelo ${assistente}` : "Preparar mensagens"}
             </Button>
             <span className="text-xs text-slate-400">
               {selecionados.size} selecionado(s) · sem valores financeiros na mensagem

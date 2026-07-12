@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { OsConferencia } from "./os-conferencia";
 import { OsNestor } from "./os-nestor";
+import { OsAnexos } from "./os-anexos";
 import {
   User,
   CalendarDays,
@@ -17,6 +18,8 @@ import {
   Plus,
   Trash2,
   Users,
+  Phone,
+  MessageCircle,
 } from "lucide-react";
 
 const statusOptions = [
@@ -39,6 +42,19 @@ interface EscalaRow {
   horarioSaida: string;
   funcao: string;
   cache: string;
+}
+
+interface ProdutorRow {
+  nome: string;
+  telefone: string;
+  funcao: string;
+}
+
+function waMeLink(telefone: string): string | null {
+  let d = telefone.replace(/\D/g, "");
+  if (!d) return null;
+  if (!d.startsWith("55")) d = `55${d}`;
+  return `https://wa.me/${d}`;
 }
 
 function toLocalInput(dt?: string | null): string {
@@ -69,6 +85,14 @@ export function OsDetail({
       horarioSaida: toLocalInput(e.horarioSaida),
       funcao: e.funcao || "",
       cache: e.cache != null ? String(e.cache) : "",
+    }))
+  );
+  const [produtores, setProdutores] = useState<ProdutorRow[]>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (os.produtores || []).map((p: any) => ({
+      nome: p.nome || "",
+      telefone: p.telefone || "",
+      funcao: p.funcao || "",
     }))
   );
   const [membros, setMembros] = useState<MembroOpt[]>([]);
@@ -137,6 +161,7 @@ export function OsDetail({
           horarioDesmontagem: horarioDesmontagem || null,
           observacoes,
           escala,
+          produtores,
         }),
       });
       if (!res.ok) throw new Error();
@@ -353,7 +378,110 @@ export function OsDetail({
         </Button>
       </div>
 
-      {/* NESTOR — comunicação com a equipe via WhatsApp */}
+      {/* Produtores / contatos no evento — clicáveis para abrir o WhatsApp */}
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+        <div className="flex items-center gap-2 mb-1">
+          <Phone className="h-4 w-4 text-blue-600" />
+          <h3 className="text-sm font-semibold text-slate-900">
+            Produtores / Contatos no Evento
+          </h3>
+        </div>
+        <p className="text-xs text-slate-400 mb-3">
+          Quem a equipe procura no local. Os técnicos veem esses contatos no link público da
+          OS e abrem o WhatsApp com um toque.
+        </p>
+        <div className="space-y-3">
+          {produtores.map((p, i) => {
+            const wa = p.telefone ? waMeLink(p.telefone) : null;
+            return (
+              <div key={i} className="grid grid-cols-12 gap-2 items-end border-b border-slate-50 pb-3">
+                <div className="col-span-4">
+                  <Input
+                    label={i === 0 ? "Nome" : undefined}
+                    value={p.nome}
+                    onChange={(ev) =>
+                      setProdutores((prev) => {
+                        const arr = [...prev];
+                        arr[i] = { ...arr[i], nome: ev.target.value };
+                        return arr;
+                      })
+                    }
+                    placeholder="Ex: Maria (produtora)"
+                  />
+                </div>
+                <div className="col-span-3">
+                  <Input
+                    label={i === 0 ? "WhatsApp" : undefined}
+                    value={p.telefone}
+                    onChange={(ev) =>
+                      setProdutores((prev) => {
+                        const arr = [...prev];
+                        arr[i] = { ...arr[i], telefone: ev.target.value };
+                        return arr;
+                      })
+                    }
+                    placeholder="(11) 99999-9999"
+                  />
+                </div>
+                <div className="col-span-3">
+                  <Input
+                    label={i === 0 ? "Função" : undefined}
+                    value={p.funcao}
+                    onChange={(ev) =>
+                      setProdutores((prev) => {
+                        const arr = [...prev];
+                        arr[i] = { ...arr[i], funcao: ev.target.value };
+                        return arr;
+                      })
+                    }
+                    placeholder="Ex: Produção da agência"
+                  />
+                </div>
+                <div className="col-span-2 pb-1 flex items-center justify-end gap-2">
+                  {wa && (
+                    <a
+                      href={wa}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Abrir WhatsApp"
+                      className="text-emerald-600 hover:text-emerald-700"
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                    </a>
+                  )}
+                  <button
+                    onClick={() => setProdutores((prev) => prev.filter((_, idx) => idx !== i))}
+                    className="text-slate-400 hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            setProdutores((prev) => [...prev, { nome: "", telefone: "", funcao: "" }])
+          }
+          className="mt-3"
+        >
+          <Plus className="h-4 w-4" />
+          Adicionar Contato
+        </Button>
+        {produtores.length > 0 && (
+          <p className="text-xs text-slate-400 mt-2">
+            Lembre de clicar em &quot;Salvar OS&quot; para gravar os contatos.
+          </p>
+        )}
+      </div>
+
+      {/* Arquivos e links para a equipe */}
+      <OsAnexos osId={os.id} />
+
+      {/* Assistente — comunicação com a equipe via WhatsApp */}
       <OsNestor osId={os.id} />
 
       {/* Observações */}
