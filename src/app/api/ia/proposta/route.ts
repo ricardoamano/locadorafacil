@@ -5,6 +5,10 @@ import { clienteIa, INSTRUCOES_PROPOSTA_PADRAO, MODELO_PROPOSTA } from "@/lib/ia
 
 // Chat de geração de propostas (Projeto Especial) — usa a skill da empresa
 
+// Gerar uma proposta completa leva dezenas de segundos; sem isso a função
+// é encerrada pela Vercel antes de responder.
+export const maxDuration = 60;
+
 type SessionUser = { companyId?: string };
 
 async function getCompanyId() {

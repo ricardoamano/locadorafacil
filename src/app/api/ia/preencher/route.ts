@@ -5,6 +5,10 @@ import { clienteIa, extrairJson, MODELO_AUTOFILL, MODELO_PROPOSTA } from "@/lib/
 
 // Autopreenchimento com IA: itens, locais e clientes
 
+// A IA (com busca na web e download de fotos) leva dezenas de segundos;
+// sem isso a função é encerrada pela Vercel antes de terminar.
+export const maxDuration = 60;
+
 type SessionUser = { companyId?: string };
 
 async function getCompanyId() {

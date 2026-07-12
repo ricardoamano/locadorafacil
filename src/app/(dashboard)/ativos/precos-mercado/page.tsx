@@ -49,7 +49,12 @@ export default function PrecosMercadoPage() {
       const res = await fetch("/api/precos-mercado", { method: "POST", body: fd });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);
-      toast(`✅ ${d.importados} preço(s) importado(s) de "${d.fonte}"!`, "success");
+      toast(
+        d.parcial
+          ? `⚠️ ${d.importados} preço(s) importado(s) de "${d.fonte}" — o PDF era grande e a leitura foi parcial; revise se faltou algum item.`
+          : `✅ ${d.importados} preço(s) importado(s) de "${d.fonte}"!`,
+        "success"
+      );
       carregar();
     } catch (e) {
       toast(e instanceof Error && e.message ? e.message : "Erro na importação.", "error");

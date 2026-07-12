@@ -6,7 +6,43 @@ import { clienteIa, extrairJson, MODELO_PROPOSTA } from "@/lib/ia";
 // Banco de Preços de Mercado — alimentado por PDFs de orçamentos de
 // concorrentes/parceiros. A IA lê o PDF e extrai os preços por equipamento.
 
+// A análise do PDF pela IA leva dezenas de segundos; sem isso a função é
+// encerrada pela Vercel antes de gravar no banco (padrão pode ser 10-15s).
+export const maxDuration = 60;
+
 type SessionUser = { companyId?: string };
+
+type ItemExtraido = {
+  equipamento?: unknown;
+  marca?: unknown;
+  modelo?: unknown;
+  diaria?: unknown;
+  semana?: unknown;
+  quinzena?: unknown;
+  mes?: unknown;
+};
+
+// Recupera os itens mesmo quando a resposta da IA veio truncada (JSON
+// incompleto por estourar max_tokens): aproveita cada objeto completo.
+function extrairItens(texto: string): ItemExtraido[] {
+  const dados = extrairJson(texto);
+  if (Array.isArray(dados?.itens)) return dados.itens as ItemExtraido[];
+  const inicio = texto.indexOf('"itens"');
+  if (inicio === -1) return [];
+  const itens: ItemExtraido[] = [];
+  const re = /\{[^{}]*\}/g;
+  re.lastIndex = inicio;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(texto))) {
+    try {
+      const o = JSON.parse(m[0]) as ItemExtraido;
+      if (o?.equipamento) itens.push(o);
+    } catch {
+      // objeto cortado no meio — ignora
+    }
+  }
+  return itens;
+}
 
 async function getCompanyId() {
   const session = await auth();
@@ -103,16 +139,25 @@ Regras: valores UNITÁRIOS (divida pelo número de unidades e diárias se o docu
       .filter((b) => b.type === "text")
       .map((b) => (b.type === "text" ? b.text : ""))
       .join("");
-    const dados = extrairJson(texto);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const itens = (dados?.itens as any[]) || [];
-    if (itens.length === 0)
+    const itens = extrairItens(texto);
+    if (itens.length === 0) {
+      console.error(
+        "[precos-mercado] IA não retornou itens.",
+        "stop_reason:", resposta.stop_reason,
+        "resposta:", texto.slice(0, 500)
+      );
       return NextResponse.json(
         { error: "A IA não encontrou preços de equipamentos neste PDF." },
         { status: 422 }
       );
+    }
 
-    const fonte = String(dados?.fonte || "").trim() || file.name.replace(/\.pdf$/i, "");
+    const dados = extrairJson(texto);
+    const fonteTexto =
+      String(dados?.fonte || "").trim() ||
+      /"fonte"\s*:\s*"([^"]+)"/.exec(texto)?.[1]?.trim() ||
+      "";
+    const fonte = fonteTexto || file.name.replace(/\.pdf$/i, "");
     const criados = await prisma.precoMercado.createMany({
       data: itens
         .filter((i) => i?.equipamento)
@@ -131,8 +176,16 @@ Regras: valores UNITÁRIOS (divida pelo número de unidades e diárias se o docu
         })),
     });
 
-    return NextResponse.json({ fonte, importados: criados.count }, { status: 201 });
+    return NextResponse.json(
+      {
+        fonte,
+        importados: criados.count,
+        parcial: resposta.stop_reason === "max_tokens",
+      },
+      { status: 201 }
+    );
   } catch (e) {
+    console.error("[precos-mercado] Erro na importação:", e);
     const msg = e instanceof Error ? e.message : "Erro na análise";
     return NextResponse.json({ error: `Erro ao analisar o PDF: ${msg}` }, { status: 502 });
   }
