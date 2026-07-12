@@ -116,13 +116,24 @@ export async function PUT(
       : existing.valorProjeto || 0
     : null;
   const total = ehProjeto
-    ? Math.max(
-        0,
-        (valorProjeto || 0) -
-          ((body.descontoTipo || "valor") === "percentual"
-            ? ((valorProjeto || 0) * (Number(body.desconto) || 0)) / 100
-            : Number(body.desconto) || 0)
-      )
+    ? (() => {
+        const bruto =
+          (valorProjeto || 0) +
+          salas.reduce(
+            (acc, sl) =>
+              acc +
+              sl.itens.reduce(
+                (a, i) => a + (i.quantidade || 0) * (i.diarias || 1) * (i.valorUnitario || 0),
+                0
+              ),
+            0
+          );
+        const desc =
+          (body.descontoTipo || "valor") === "percentual"
+            ? (bruto * (Number(body.desconto) || 0)) / 100
+            : Number(body.desconto) || 0;
+        return Math.max(0, bruto - desc);
+      })()
     : computeTotal(salas, Number(body.desconto) || 0, body.descontoTipo || "valor");
 
   const novoStatus = body.status || existing.status;
@@ -226,6 +237,100 @@ export async function PUT(
             tipo: "RECEITA",
             orcamentoId: id,
             valor: total,
+            observacao: `Gerada automaticamente na aprovação do orçamento #${existing.numero} por ${usuario}`,
+            status: "PENDENTE",
+            companyId: existing.companyId,
+          },
+        });
+        receitaId = receita.id;
+        criouReceita = true;
+      }
+    }
+
+    return { orcamento, osId, receitaId, criouOs, criouReceita };
+  });
+
+  return NextResponse.json({
+    ...result.orcamento,
+    vinculos: {
+      osId: result.osId,
+      receitaId: result.receitaId,
+      criouOs: result.criouOs,
+      criouReceita: result.criouReceita,
+    },
+  });
+}
+
+// Mudança rápida de status (popup na lista) — não mexe em itens/valores.
+// Aprovar aqui dispara os mesmos efeitos: OS + receita (idempotente).
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const companyId = await getCompanyId();
+  if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+  const body = await req.json();
+  const novoStatus = String(body.status || "");
+  const VALIDOS = ["PENDENTE", "AGUARDANDO", "APROVADO", "REPROVADO", "CANCELADO"];
+  if (!VALIDOS.includes(novoStatus))
+    return NextResponse.json({ error: "Status inválido" }, { status: 400 });
+
+  const existing = await prisma.orcamento.findFirst({ where: { id, companyId } });
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const aprovandoAgora = novoStatus === "APROVADO" && existing.status !== "APROVADO";
+  const session = await auth();
+  const usuario = session?.user?.email || session?.user?.name || "desconhecido";
+
+  const result = await prisma.$transaction(async (tx) => {
+    const orcamento = await tx.orcamento.update({
+      where: { id },
+      data: {
+        status: novoStatus,
+        ...(aprovandoAgora ? { aprovadoEm: new Date(), aprovadoPor: usuario } : {}),
+      },
+    });
+
+    let osId: string | null = null;
+    let receitaId: string | null = null;
+    let criouOs = false;
+    let criouReceita = false;
+
+    if (novoStatus === "APROVADO") {
+      const osExistente = await tx.ordemServico.findUnique({ where: { orcamentoId: id } });
+      if (osExistente) {
+        osId = osExistente.id;
+      } else {
+        const os = await tx.ordemServico.create({
+          data: {
+            orcamentoId: id,
+            status: "ABERTA",
+            horarioMontagem: orcamento.dataMontagem,
+            observacoes: orcamento.observacoes,
+            companyId: existing.companyId,
+          },
+        });
+        osId = os.id;
+        criouOs = true;
+      }
+
+      const receitaExistente = await tx.transacao.findFirst({
+        where: { orcamentoId: id, tipo: "RECEITA" },
+      });
+      if (receitaExistente) {
+        receitaId = receitaExistente.id;
+      } else {
+        const receita = await tx.transacao.create({
+          data: {
+            nome: `Recebimento Orçamento #${existing.numero}${
+              orcamento.eventoNome ? ` — ${orcamento.eventoNome}` : ""
+            }`,
+            dataRecebimento: orcamento.dataFim || orcamento.dataInicio || new Date(),
+            tipo: "RECEITA",
+            orcamentoId: id,
+            valor: existing.total,
             observacao: `Gerada automaticamente na aprovação do orçamento #${existing.numero} por ${usuario}`,
             status: "PENDENTE",
             companyId: existing.companyId,

@@ -83,11 +83,22 @@ export async function POST(req: NextRequest) {
   const valorProjeto = ehProjeto ? Number(body.valorProjeto) || 0 : null;
   const { total } = ehProjeto
     ? (() => {
+        const bruto =
+          (valorProjeto || 0) +
+          salas.reduce(
+            (acc, sl) =>
+              acc +
+              sl.itens.reduce(
+                (a, i) => a + (i.quantidade || 0) * (i.diarias || 1) * (i.valorUnitario || 0),
+                0
+              ),
+            0
+          );
         const desc =
           (body.descontoTipo || "valor") === "percentual"
-            ? ((valorProjeto || 0) * (Number(body.desconto) || 0)) / 100
+            ? (bruto * (Number(body.desconto) || 0)) / 100
             : Number(body.desconto) || 0;
-        return { total: Math.max(0, (valorProjeto || 0) - desc) };
+        return { total: Math.max(0, bruto - desc) };
       })()
     : computeTotals(salas, Number(body.desconto) || 0, body.descontoTipo || "valor");
 

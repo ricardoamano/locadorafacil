@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,21 +8,28 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { mdParaHtml } from "@/lib/markdown";
-import { Sparkles, Eye, PencilLine, Printer } from "lucide-react";
+import { Sparkles, Eye, PencilLine, Printer, Plus, Trash2, AlertTriangle } from "lucide-react";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 // Orçamento de Projeto Especial: proposta em texto livre (Markdown) colada
-// do Claude/Word — mesma numeração dos orçamentos e mesmos fluxos de
-// aprovação (OS + receita no financeiro).
+// do Claude/Word + equipamentos/serviços do catálogo — mesma numeração dos
+// orçamentos e mesmos fluxos de aprovação (OS + receita no financeiro).
 
 const statusOptions = [
   { value: "PENDENTE", label: "Pendente" },
   { value: "AGUARDANDO", label: "Aguardando aprovação" },
   { value: "APROVADO", label: "Aprovado" },
-  { value: "RECUSADO", label: "Recusado" },
+  { value: "REPROVADO", label: "Reprovado" },
   { value: "CANCELADO", label: "Cancelado" },
 ];
+
+interface ItemRow {
+  itemId: string;
+  quantidade: string;
+  diarias: string;
+  valorUnitario: string;
+}
 
 function parseValor(v: string): number {
   if (!v) return 0;
@@ -30,13 +37,20 @@ function parseValor(v: string): number {
   return parseFloat(v) || 0;
 }
 
+const fmtBRL = (v: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+
 export function ProjetoForm({ orcamento }: { orcamento?: any }) {
   const router = useRouter();
   const { toast } = useToast();
   const editando = Boolean(orcamento?.id);
 
   const [clientes, setClientes] = useState<any[]>([]);
+  const [locais, setLocais] = useState<any[]>([]);
+  const [catalogo, setCatalogo] = useState<any[]>([]);
   const [clienteId, setClienteId] = useState(orcamento?.clienteId || "");
+  const [contatoId, setContatoId] = useState(orcamento?.contatoId || "");
+  const [localId, setLocalId] = useState(orcamento?.localId || "");
   const [status, setStatus] = useState(orcamento?.status || "PENDENTE");
   const [nome, setNome] = useState(orcamento?.eventoNome || "");
   const [dataInicio, setDataInicio] = useState(orcamento?.dataInicio?.slice(0, 10) || "");
@@ -51,6 +65,16 @@ export function ProjetoForm({ orcamento }: { orcamento?: any }) {
   const [formaPagamento, setFormaPagamento] = useState(orcamento?.formaPagamento || "");
   const [condicoes, setCondicoes] = useState(orcamento?.condicoes || "");
   const [conteudo, setConteudo] = useState(orcamento?.conteudoProjeto || "");
+  const [itens, setItens] = useState<ItemRow[]>(
+    (orcamento?.salas || []).flatMap((s: any) =>
+      (s.itens || []).map((i: any) => ({
+        itemId: i.itemId,
+        quantidade: String(i.quantidade ?? 1),
+        diarias: String(i.diarias ?? 1),
+        valorUnitario: i.valorUnitario != null ? String(i.valorUnitario).replace(".", ",") : "",
+      }))
+    )
+  );
   const [preview, setPreview] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -59,25 +83,81 @@ export function ProjetoForm({ orcamento }: { orcamento?: any }) {
       .then((r) => r.json())
       .then((d) => setClientes(d.contacts || []))
       .catch(() => {});
+    fetch("/api/locais?limit=200")
+      .then((r) => r.json())
+      .then((d) => setLocais(d.locais || []))
+      .catch(() => {});
+    fetch("/api/itens?limit=500")
+      .then((r) => r.json())
+      .then((d) => setCatalogo(d.itens || []))
+      .catch(() => {});
   }, []);
 
   const valorNum = parseValor(valor);
   const descNum = parseValor(desconto);
+  const itensTotal = itens.reduce((a, r) => {
+    const it = catalogo.find((c) => c.id === r.itemId);
+    const dias = it?.natureza === "SERVICO" ? 1 : Number(r.diarias) || 1;
+    return a + (Number(r.quantidade) || 0) * dias * parseValor(r.valorUnitario);
+  }, 0);
+  const bruto = valorNum + itensTotal;
   const total = Math.max(
     0,
-    valorNum - (descontoTipo === "percentual" ? (valorNum * descNum) / 100 : descNum)
+    bruto - (descontoTipo === "percentual" ? (bruto * descNum) / 100 : descNum)
   );
+
+  // ⚠ Duplicidade: itens lançados que também aparecem escritos no texto .md
+  const duplicados = useMemo(() => {
+    const texto = conteudo.toLowerCase();
+    return itens
+      .map((r) => catalogo.find((c) => c.id === r.itemId))
+      .filter((it) => it && it.nome && it.nome.length > 3 && texto.includes(it.nome.toLowerCase()))
+      .map((it) => it!.nome as string);
+  }, [itens, catalogo, conteudo]);
+
+  const clienteSel = clientes.find((c) => c.id === clienteId);
+  const contatos = clienteSel?.subContacts || [];
+
+  function setItem(i: number, patch: Partial<ItemRow>) {
+    setItens((p) => {
+      const arr = [...p];
+      arr[i] = { ...arr[i], ...patch };
+      return arr;
+    });
+  }
 
   async function salvar() {
     if (!clienteId) return toast("Selecione o cliente.", "error");
     if (!nome.trim()) return toast("Dê um nome ao projeto.", "error");
-    if (!conteudo.trim()) return toast("Cole ou escreva o conteúdo da proposta.", "error");
+    if (!conteudo.trim() && itens.filter((i) => i.itemId).length === 0)
+      return toast("Cole o conteúdo da proposta ou lance itens.", "error");
+    if (duplicados.length > 0) {
+      const ok = window.confirm(
+        `⚠ Possível duplicidade!\n\nEstes itens lançados também aparecem escritos no texto da proposta:\n• ${duplicados.join(
+          "\n• "
+        )}\n\nO PDF vai mostrar a tabela de equipamentos E o texto — o cliente pode ver duas vezes. Salvar mesmo assim?`
+      );
+      if (!ok) return;
+    }
 
     setSaving(true);
     try {
+      const linhasItens = itens
+        .filter((r) => r.itemId)
+        .map((r) => {
+          const it = catalogo.find((c) => c.id === r.itemId);
+          return {
+            itemId: r.itemId,
+            quantidade: Number(r.quantidade) || 1,
+            diarias: it?.natureza === "SERVICO" ? 1 : Number(r.diarias) || 1,
+            valorUnitario: parseValor(r.valorUnitario),
+          };
+        });
       const body = {
         projetoEspecial: true,
         clienteId,
+        contatoId: contatoId || null,
+        localId: localId || null,
         status,
         eventoNome: nome.trim(),
         dataInicio: dataInicio || null,
@@ -88,7 +168,7 @@ export function ProjetoForm({ orcamento }: { orcamento?: any }) {
         formaPagamento: formaPagamento || null,
         condicoes: condicoes || null,
         conteudoProjeto: conteudo,
-        salas: [],
+        salas: linhasItens.length > 0 ? [{ nome: "Equipamentos e Serviços", itens: linhasItens }] : [],
       };
       const res = await fetch(
         editando ? `/api/orcamentos/${orcamento.id}` : "/api/orcamentos",
@@ -114,6 +194,15 @@ export function ProjetoForm({ orcamento }: { orcamento?: any }) {
   }
 
   const clienteOptions = clientes.map((c) => ({ value: c.id, label: c.nomeFantasia }));
+  const localOptions = locais.map((l) => ({
+    value: l.id,
+    label: `${l.nome}${l.cidade ? ` — ${l.cidade}` : ""}`,
+  }));
+  const itemOptions = catalogo.map((it) => ({
+    value: it.id,
+    label: `${it.nome}${it.codigo ? ` (${it.codigo})` : ""}${it.natureza === "SERVICO" ? " · Serviço" : ""}`,
+    keywords: it.apelidos || undefined,
+  }));
 
   return (
     <div className="max-w-4xl space-y-4">
@@ -125,25 +214,47 @@ export function ProjetoForm({ orcamento }: { orcamento?: any }) {
           </h3>
         </div>
         <p className="text-xs text-slate-400 mb-4">
-          Proposta em texto livre (desenvolvimento de aplicativos, jogos, projetos sob
-          medida). Usa a mesma numeração dos orçamentos e, ao aprovar, gera OS e receita no
-          financeiro automaticamente.
+          Proposta em texto livre (apps, jogos, projetos sob medida), com ou sem equipamentos
+          do catálogo. Mesma numeração dos orçamentos; ao aprovar, gera OS e receita.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Select
             label="Cliente *"
             value={clienteId}
-            onChange={(e) => setClienteId(e.target.value)}
+            onChange={(e) => {
+              setClienteId(e.target.value);
+              setContatoId("");
+            }}
             options={clienteOptions}
             placeholder="Selecione o cliente"
             searchable
+          />
+          <Select
+            label="Contato do cliente"
+            value={contatoId}
+            onChange={(e) => setContatoId(e.target.value)}
+            options={contatos.map((ct: any) => ({
+              value: ct.id,
+              label: `${ct.nome}${ct.telefone ? ` · ${ct.telefone}` : ""}`,
+            }))}
+            placeholder={clienteId ? "Selecione o contato" : "Escolha o cliente primeiro"}
+            clearable
           />
           <Input
             label="Nome do projeto *"
             value={nome}
             onChange={(e) => setNome(e.target.value)}
             placeholder="Ex: Desenvolvimento de aplicativo de credenciamento"
+          />
+          <Select
+            label="Local do evento (opcional)"
+            value={localId}
+            onChange={(e) => setLocalId(e.target.value)}
+            options={localOptions}
+            placeholder="Sem local definido"
+            searchable
+            clearable
           />
           <Input
             label="Início (opcional)"
@@ -192,11 +303,117 @@ export function ProjetoForm({ orcamento }: { orcamento?: any }) {
           <Textarea
             value={conteudo}
             onChange={(e) => setConteudo(e.target.value)}
-            rows={18}
-            placeholder={"# Proposta — Aplicativo XYZ\n\n## Escopo\n- Levantamento de requisitos\n- Design das telas\n- Desenvolvimento iOS e Android\n\n## Cronograma\n| Etapa | Prazo |\n|---|---|\n| Design | 2 semanas |\n| Desenvolvimento | 6 semanas |\n\n## Investimento\nConforme resumo ao final da proposta."}
+            rows={16}
+            placeholder={"# Proposta — Aplicativo XYZ\n\n## Escopo\n- Levantamento de requisitos\n- Design das telas\n- Desenvolvimento iOS e Android\n\n## Cronograma\n| Etapa | Prazo |\n|---|---|\n| Design | 2 semanas |\n| Desenvolvimento | 6 semanas |"}
             className="font-mono text-xs"
           />
         )}
+      </div>
+
+      {/* Equipamentos e serviços do catálogo */}
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+        <h3 className="text-sm font-semibold text-slate-900 mb-1">
+          Equipamentos e Serviços (opcional)
+        </h3>
+        <p className="text-xs text-slate-400 mb-3">
+          Itens do catálogo entram como tabela no PDF e seguem para a OS, romaneio e
+          conferência de estoque — igual ao orçamento de locação.
+        </p>
+
+        {duplicados.length > 0 && (
+          <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <p>
+              <strong>Possível duplicidade:</strong> {duplicados.join(", ")}{" "}
+              {duplicados.length === 1 ? "aparece" : "aparecem"} também no texto da proposta.
+              O PDF mostraria duas vezes — remova do texto ou da lista.
+            </p>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          {itens.map((r, i) => {
+            const it = catalogo.find((c) => c.id === r.itemId);
+            const servico = it?.natureza === "SERVICO";
+            const dias = servico ? 1 : Number(r.diarias) || 1;
+            const sub = (Number(r.quantidade) || 0) * dias * parseValor(r.valorUnitario);
+            return (
+              <div key={i} className="grid grid-cols-12 gap-2 items-end border-b border-slate-50 pb-3">
+                <div className="col-span-5">
+                  <Select
+                    label={i === 0 ? "Item" : undefined}
+                    value={r.itemId}
+                    onChange={(ev) => {
+                      const novo = catalogo.find((c) => c.id === ev.target.value);
+                      setItem(i, {
+                        itemId: ev.target.value,
+                        valorUnitario:
+                          r.valorUnitario ||
+                          (novo?.valorAluguel != null
+                            ? String(novo.valorAluguel).replace(".", ",")
+                            : ""),
+                      });
+                    }}
+                    options={itemOptions}
+                    placeholder="Buscar item ou serviço"
+                    searchable
+                  />
+                </div>
+                <div className="col-span-1">
+                  <Input
+                    label={i === 0 ? "Qtd" : undefined}
+                    value={r.quantidade}
+                    onChange={(ev) => setItem(i, { quantidade: ev.target.value })}
+                  />
+                </div>
+                <div className="col-span-1">
+                  <Input
+                    label={i === 0 ? "Diárias" : undefined}
+                    value={servico ? "—" : r.diarias}
+                    disabled={servico}
+                    onChange={(ev) => setItem(i, { diarias: ev.target.value })}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Input
+                    label={i === 0 ? "Valor unit. (R$)" : undefined}
+                    value={r.valorUnitario}
+                    onChange={(ev) => setItem(i, { valorUnitario: ev.target.value })}
+                    placeholder="0,00"
+                  />
+                </div>
+                <div className="col-span-2 pb-2 text-right text-sm font-medium text-slate-700">
+                  {fmtBRL(sub)}
+                </div>
+                <div className="col-span-1 pb-1.5 text-right">
+                  <button
+                    onClick={() => setItens((p) => p.filter((_, idx) => idx !== i))}
+                    className="text-slate-400 hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex items-center justify-between mt-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setItens((p) => [...p, { itemId: "", quantidade: "1", diarias: "1", valorUnitario: "" }])
+            }
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar Item
+          </Button>
+          {itensTotal > 0 && (
+            <p className="text-sm text-slate-600">
+              Subtotal equipamentos/serviços: <strong>{fmtBRL(itensTotal)}</strong>
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Valores e condições */}
@@ -204,7 +421,7 @@ export function ProjetoForm({ orcamento }: { orcamento?: any }) {
         <h3 className="text-sm font-semibold text-slate-900 mb-3">Valores e condições</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Input
-            label="Valor do projeto (R$) *"
+            label="Valor do projeto (R$)"
             value={valor}
             onChange={(e) => setValor(e.target.value)}
             placeholder="25.000,00"
@@ -225,10 +442,10 @@ export function ProjetoForm({ orcamento }: { orcamento?: any }) {
             ]}
           />
           <div className="flex flex-col justify-end">
-            <p className="text-xs text-slate-400 mb-1">Total</p>
-            <p className="text-lg font-bold text-slate-900">
-              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(total)}
+            <p className="text-xs text-slate-400 mb-1">
+              Total{itensTotal > 0 ? " (projeto + itens)" : ""}
             </p>
+            <p className="text-lg font-bold text-slate-900">{fmtBRL(total)}</p>
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { formatCurrency } from "@/lib/utils";
 import {
@@ -59,6 +60,37 @@ export function OrcamentosList() {
 
   const limit = 20;
   const totalPages = Math.ceil(total / limit);
+
+  const [statusAlvo, setStatusAlvo] = useState<Orcamento | null>(null);
+  const [mudandoStatus, setMudandoStatus] = useState(false);
+
+  async function mudarStatus(novo: string) {
+    if (!statusAlvo) return;
+    setMudandoStatus(true);
+    try {
+      const res = await fetch(`/api/orcamentos/${statusAlvo.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: novo }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      if (d.vinculos?.criouOs) {
+        toast(
+          `Orçamento #${statusAlvo.numero} aprovado! OS e receita geradas automaticamente. 🎉`,
+          "success"
+        );
+      } else {
+        toast(`Status do orçamento #${statusAlvo.numero} atualizado!`, "success");
+      }
+      setStatusAlvo(null);
+      fetchOrcamentos();
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro ao mudar status.", "error");
+    } finally {
+      setMudandoStatus(false);
+    }
+  }
 
   const fetchOrcamentos = useCallback(async () => {
     setLoading(true);
@@ -288,7 +320,13 @@ export function OrcamentosList() {
                         : "—"}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge variant={cfg.variant}>{cfg.label}</Badge>
+                      <button
+                        onClick={() => setStatusAlvo(orc)}
+                        title="Clique para mudar o status"
+                        className="cursor-pointer hover:opacity-75 transition-opacity"
+                      >
+                        <Badge variant={cfg.variant}>{cfg.label}</Badge>
+                      </button>
                     </td>
                     <td className="px-4 py-3 text-right text-sm font-medium text-slate-900">
                       {formatCurrency(orc.total)}
@@ -392,6 +430,49 @@ export function OrcamentosList() {
           </div>
         </div>
       )}
+
+      <Modal
+        open={Boolean(statusAlvo)}
+        onClose={() => setStatusAlvo(null)}
+        title={statusAlvo ? `Mudar status — Orçamento #${statusAlvo.numero}` : ""}
+      >
+        <ModalBody>
+          <p className="text-sm text-slate-500 mb-3">
+            {statusAlvo?.cliente?.nomeFantasia}
+            {statusAlvo?.eventoNome ? ` · ${statusAlvo.eventoNome}` : ""}
+          </p>
+          <div className="grid grid-cols-1 gap-2">
+            {Object.entries(statusConfig).map(([value, cfg2]) => {
+              const atual = statusAlvo?.status === value;
+              return (
+                <button
+                  key={value}
+                  disabled={atual || mudandoStatus}
+                  onClick={() => mudarStatus(value)}
+                  className={`flex items-center justify-between rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+                    atual
+                      ? "border-slate-200 bg-slate-50 text-slate-400 cursor-default"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/40"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Badge variant={cfg2.variant}>{cfg2.label}</Badge>
+                    {value === "APROVADO" && !atual && (
+                      <span className="text-xs text-emerald-600">gera OS + receita</span>
+                    )}
+                  </span>
+                  {atual && <span className="text-xs">status atual</span>}
+                </button>
+              );
+            })}
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setStatusAlvo(null)} disabled={mudandoStatus}>
+            Fechar
+          </Button>
+        </ModalFooter>
+      </Modal>
 
       <ConfirmDialog
         open={!!deleteId}

@@ -93,10 +93,16 @@ export default function ImprimirProjetoPage() {
 
   const validade = new Date(orc.createdAt);
   validade.setDate(validade.getDate() + 10);
+  const itensSubtotal = (orc.salas || []).reduce(
+    (acc: number, sl: any) =>
+      acc + (sl.itens || []).reduce((a: number, i: any) => a + (i.subtotal || 0), 0),
+    0
+  );
+  const brutoTotal = (orc.valorProjeto || 0) + itensSubtotal;
   const descontoValor =
     orc.desconto != null
       ? orc.descontoTipo === "percentual"
-        ? ((orc.valorProjeto || 0) * orc.desconto) / 100
+        ? (brutoTotal * orc.desconto) / 100
         : orc.desconto
       : 0;
 
@@ -165,6 +171,16 @@ export default function ImprimirProjetoPage() {
                 {fmtData(orc.dataFim) ? ` · Entrega: ${fmtData(orc.dataFim)}` : ""}
               </p>
             )}
+            {orc.local?.nome && (
+              <p className="text-slate-500">
+                Local: {orc.local.nome}
+                {[orc.local.rua, orc.local.numero, orc.local.cidade].filter(Boolean).length > 0
+                  ? ` — ${[orc.local.rua, orc.local.numero, orc.local.cidade]
+                      .filter(Boolean)
+                      .join(", ")}`
+                  : ""}
+              </p>
+            )}
             {me?.name && <p className="text-slate-500">Responsável: {me.name}</p>}
           </div>
         </div>
@@ -174,6 +190,58 @@ export default function ImprimirProjetoPage() {
           className="proposta-md mt-5"
           dangerouslySetInnerHTML={{ __html: mdParaHtml(orc.conteudoProjeto || "") }}
         />
+
+        {/* Equipamentos e serviços do catálogo (lançados no sistema) */}
+        {(orc.salas || []).some((sl: any) => (sl.itens || []).length > 0) && (
+          <div className="mt-6" style={{ breakInside: "avoid" }}>
+            <p
+              className="text-white font-bold px-3 py-1.5 text-[11px] uppercase rounded-t"
+              style={{ background: "#4b2a66" }}
+            >
+              Equipamentos e Serviços
+            </p>
+            <table className="w-full border-collapse border border-t-0 border-slate-200">
+              <thead>
+                <tr className="bg-[#faf9fc] text-[9px] uppercase text-slate-500">
+                  <th className="border border-slate-200 px-2 py-1 text-left">Item</th>
+                  <th className="border border-slate-200 px-2 py-1 w-12 text-center">Qtd</th>
+                  <th className="border border-slate-200 px-2 py-1 w-14 text-center">Diárias</th>
+                  <th className="border border-slate-200 px-2 py-1 w-24 text-right">Valor unit.</th>
+                  <th className="border border-slate-200 px-2 py-1 w-24 text-right">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(orc.salas || []).flatMap((sl: any) =>
+                  (sl.itens || []).map((i: any) => (
+                    <tr key={i.id}>
+                      <td className="border border-slate-200 px-2 py-1.5">
+                        {i.item?.nome}
+                        {i.descricaoComercial || i.item?.descricaoComercial ? (
+                          <span className="text-slate-400 italic">
+                            {" — "}
+                            {i.descricaoComercial || i.item?.descricaoComercial}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="border border-slate-200 px-2 py-1.5 text-center">
+                        {i.quantidade}
+                      </td>
+                      <td className="border border-slate-200 px-2 py-1.5 text-center">
+                        {i.item?.natureza === "SERVICO" ? "—" : i.diarias}
+                      </td>
+                      <td className="border border-slate-200 px-2 py-1.5 text-right">
+                        {fmtValor(i.valorUnitario)}
+                      </td>
+                      <td className="border border-slate-200 px-2 py-1.5 text-right font-medium">
+                        {fmtValor(i.subtotal)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Investimento */}
         <div className="mt-6" style={{ breakInside: "avoid" }}>
@@ -186,10 +254,18 @@ export default function ImprimirProjetoPage() {
           <div className="border border-t-0 border-slate-200 rounded-b p-4">
             <div className="flex justify-end">
               <div className="w-64 space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Valor do projeto</span>
-                  <span className="font-medium">{fmtValor(orc.valorProjeto)}</span>
-                </div>
+                {(orc.valorProjeto || 0) > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Projeto / desenvolvimento</span>
+                    <span className="font-medium">{fmtValor(orc.valorProjeto)}</span>
+                  </div>
+                )}
+                {itensSubtotal > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Equipamentos e serviços</span>
+                    <span className="font-medium">{fmtValor(itensSubtotal)}</span>
+                  </div>
+                )}
                 {descontoValor > 0 && (
                   <div className="flex justify-between">
                     <span className="text-slate-500">
