@@ -77,6 +77,7 @@ export function OsDetail({
     toLocalInput(os.horarioDesmontagem)
   );
   const [observacoes, setObservacoes] = useState(os.observacoes || "");
+  const [infoEvento, setInfoEvento] = useState(os.infoEvento || "");
   const [escala, setEscala] = useState<EscalaRow[]>(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (os.escala || []).map((e: any) => ({
@@ -160,6 +161,7 @@ export function OsDetail({
           horarioMontagem: horarioMontagem || null,
           horarioDesmontagem: horarioDesmontagem || null,
           observacoes,
+          infoEvento,
           escala,
           produtores,
         }),
@@ -483,6 +485,36 @@ export function OsDetail({
 
       {/* Assistente — comunicação com a equipe via WhatsApp */}
       <OsNestor osId={os.id} />
+
+      {/* Informações do evento — texto livre visível na OS pública */}
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+        <h3 className="text-sm font-semibold text-slate-900 mb-1">
+          Informações do Evento
+        </h3>
+        <p className="text-xs text-slate-400 mb-3">
+          Campo livre do responsável — aparece na OS pública para toda a equipe. Cada
+          alteração fica carimbada com autor, data e hora.
+        </p>
+        <Textarea
+          value={infoEvento}
+          onChange={(e) => setInfoEvento(e.target.value)}
+          placeholder="Escreva aqui tudo que a equipe precisa saber sobre o evento: dress code, credenciamento, estacionamento, horários de acesso, refeições..."
+          rows={5}
+        />
+        {os.infoEventoEm && (
+          <p className="text-xs text-slate-400 mt-2">
+            🔄 Última atualização:{" "}
+            {new Date(os.infoEventoEm).toLocaleString("pt-BR", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+            {os.infoEventoPor ? ` por ${os.infoEventoPor}` : ""}
+          </p>
+        )}
+      </div>
 
       {/* Observações */}
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">

@@ -63,6 +63,9 @@ export async function POST(
     const anexo = await prisma.osAnexo.create({
       data: { osId: id, tipo: "LINK", titulo, url, criadoPor: sessao.nome },
     });
+    await prisma.osAlteracao.create({
+      data: { osId: id, descricao: `Link adicionado: ${titulo}`, autor: sessao.nome },
+    });
     return NextResponse.json(anexo, { status: 201 });
   }
 
@@ -100,6 +103,13 @@ export async function POST(
       criadoPor: sessao.nome,
     },
   });
+  await prisma.osAlteracao.create({
+    data: {
+      osId: id,
+      descricao: `Arquivo adicionado: ${file.name || "arquivo"}`,
+      autor: sessao.nome,
+    },
+  });
   return NextResponse.json(anexo, { status: 201 });
 }
 
@@ -120,6 +130,13 @@ export async function DELETE(
   if (!anexo) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   await prisma.osAnexo.delete({ where: { id: anexoId } });
+  await prisma.osAlteracao.create({
+    data: {
+      osId: id,
+      descricao: `${anexo.tipo === "ARQUIVO" ? "Arquivo" : "Link"} removido: ${anexo.titulo}`,
+      autor: sessao.nome,
+    },
+  });
   if (anexo.arquivoId) {
     await prisma.arquivo.deleteMany({
       where: { id: anexo.arquivoId, companyId: sessao.companyId },

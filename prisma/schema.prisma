@@ -385,6 +385,9 @@ model OrdemServico {
   orcamento          Orcamento @relation(fields: [orcamentoId], references: [id])
   publicToken        String?  @unique // link público simplificado da OS (sem valores)
   produtores         Json?    // contatos do evento [{nome, telefone, funcao}] — clicáveis p/ WhatsApp
+  infoEvento         String?  // texto livre do responsável sobre o evento (aparece na OS pública)
+  infoEventoEm       DateTime? // quando as informações do evento mudaram pela última vez
+  infoEventoPor      String?  // quem alterou por último
   status             String   @default("ABERTA")
   horarioMontagem    DateTime?
   horarioDesmontagem DateTime?
@@ -399,6 +402,17 @@ model OrdemServico {
   itensExtras  OsItemExtra[]
   mensagensWhatsapp MensagemWhatsapp[]
   anexos       OsAnexo[]
+  alteracoes   OsAlteracao[]
+}
+
+// Histórico de alterações da OS — visível também na OS pública, para toda a equipe
+model OsAlteracao {
+  id        String       @id @default(cuid())
+  osId      String
+  os        OrdemServico @relation(fields: [osId], references: [id], onDelete: Cascade)
+  descricao String
+  autor     String?
+  createdAt DateTime     @default(now())
 }
 
 // Arquivos e links da OS (briefings, PDFs, PPTs, vídeos, drives...) para a equipe

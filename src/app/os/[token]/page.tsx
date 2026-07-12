@@ -11,6 +11,8 @@ import {
   Paperclip,
   FileText,
   Link2,
+  Info,
+  History,
 } from "lucide-react";
 
 // Página pública SIMPLIFICADA da OS — link enviado à equipe pelo assistente de
@@ -57,6 +59,7 @@ export default async function OsPublicaPage({
       itensExtras: { include: { item: { select: { nome: true, codigo: true } } } },
       escala: { include: { membro: { select: { nome: true } } } },
       anexos: { orderBy: { createdAt: "desc" } },
+      alteracoes: { orderBy: { createdAt: "desc" }, take: 40 },
     },
   });
 
@@ -197,6 +200,37 @@ export default async function OsPublicaPage({
           </div>
         )}
 
+        {/* Informações do evento — texto livre do responsável */}
+        {os.infoEvento && (
+          <div className="bg-white rounded-2xl border-2 border-blue-200 shadow-sm p-5">
+            <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Info className="h-4 w-4 text-blue-600" />
+                <h2 className="text-sm font-semibold text-slate-900">Informações do evento</h2>
+              </div>
+              {os.infoEventoEm &&
+                Date.now() - new Date(os.infoEventoEm).getTime() < 48 * 60 * 60 * 1000 && (
+                  <span className="rounded-full bg-blue-600 text-white text-[11px] font-semibold px-2.5 py-0.5 animate-pulse">
+                    🔄 ATUALIZADO
+                  </span>
+                )}
+            </div>
+            <p className="text-sm text-slate-700 whitespace-pre-wrap">{os.infoEvento}</p>
+            {os.infoEventoEm && (
+              <p className="text-xs text-blue-600 font-medium mt-3 border-t border-blue-50 pt-2">
+                Última atualização:{" "}
+                {new Date(os.infoEventoEm).toLocaleString("pt-BR", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+                {os.infoEventoPor ? ` · por ${os.infoEventoPor}` : ""}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Produtores / contatos no evento */}
         {produtores.length > 0 && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
@@ -323,6 +357,38 @@ export default async function OsPublicaPage({
               <h2 className="text-sm font-semibold text-slate-900">Observações</h2>
             </div>
             <p className="text-sm text-slate-600 whitespace-pre-wrap">{os.observacoes}</p>
+          </div>
+        )}
+
+        {/* Histórico de alterações — toda a equipe acompanha */}
+        {os.alteracoes.length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <History className="h-4 w-4 text-blue-600" />
+              <h2 className="text-sm font-semibold text-slate-900">Histórico de alterações</h2>
+            </div>
+            <ul className="space-y-2">
+              {os.alteracoes.map((a) => (
+                <li key={a.id} className="flex gap-3 text-sm">
+                  <div className="flex flex-col items-center pt-1.5">
+                    <span className="h-2 w-2 rounded-full bg-blue-400 shrink-0" />
+                    <span className="w-px flex-1 bg-slate-100" />
+                  </div>
+                  <div className="pb-1 min-w-0">
+                    <p className="text-slate-700">{a.descricao}</p>
+                    <p className="text-xs text-slate-400">
+                      {new Date(a.createdAt).toLocaleString("pt-BR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                      {a.autor ? ` · ${a.autor}` : ""}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
