@@ -37,11 +37,42 @@ export async function GET(
   const orcamento = await prisma.orcamento.findFirst({
     where: { id, companyId },
     include: {
-      cliente: { select: { id: true, nomeFantasia: true, razaoSocial: true } },
-      local: { select: { id: true, nome: true } },
+      cliente: {
+        select: {
+          id: true,
+          nomeFantasia: true,
+          razaoSocial: true,
+          subContacts: { select: { nome: true, telefone: true, email: true }, take: 1 },
+        },
+      },
+      local: {
+        select: {
+          id: true,
+          nome: true,
+          rua: true,
+          numero: true,
+          bairro: true,
+          cidade: true,
+          estado: true,
+        },
+      },
       salas: {
         include: {
-          itens: { include: { item: { select: { id: true, nome: true, codigo: true, descricaoComercial: true, watts: true, kva: true } } } },
+          itens: {
+            include: {
+              item: {
+                select: {
+                  id: true,
+                  nome: true,
+                  codigo: true,
+                  descricaoComercial: true,
+                  watts: true,
+                  kva: true,
+                  categoria: { select: { nome: true } },
+                },
+              },
+            },
+          },
         },
       },
     },
