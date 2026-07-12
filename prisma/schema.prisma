@@ -163,6 +163,9 @@ model SubContact {
   contactId String
   contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+
+  orcamentosComoContato1 Orcamento[] @relation("OrcContato1")
+  orcamentosComoContato2 Orcamento[] @relation("OrcContato2")
 }
 
 // ── Locais ────────────────────────────────────────────────────────────────────
@@ -301,6 +304,10 @@ model Orcamento {
   cliente        Contact  @relation(fields: [clienteId], references: [id])
   cliente2Id     String?
   cliente2       Contact? @relation("OrcamentoCliente2", fields: [cliente2Id], references: [id])
+  contatoId      String?
+  contato        SubContact? @relation("OrcContato1", fields: [contatoId], references: [id])
+  contato2Id     String?
+  contato2       SubContact? @relation("OrcContato2", fields: [contato2Id], references: [id])
   status         String   @default("PENDENTE")
   eventoId       String?
   evento         Evento?  @relation(fields: [eventoId], references: [id])

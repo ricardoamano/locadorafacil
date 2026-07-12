@@ -93,6 +93,8 @@ export async function POST(req: NextRequest) {
       numero,
       clienteId: body.clienteId,
       cliente2Id: body.cliente2Id || null,
+      contatoId: body.contatoId || null,
+      contato2Id: body.contato2Id || null,
       status: body.status || "PENDENTE",
       eventoNome: body.eventoNome || null,
       tipoEvento: body.tipoEvento || null,

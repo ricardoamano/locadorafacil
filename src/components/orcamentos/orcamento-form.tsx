@@ -25,9 +25,17 @@ import {
   Lock,
 } from "lucide-react";
 
+interface SubContato {
+  id: string;
+  nome: string;
+  telefone?: string | null;
+  email?: string | null;
+  cargo?: string | null;
+}
 interface Cliente {
   id: string;
   nomeFantasia: string;
+  subContacts?: SubContato[];
 }
 interface LocalOpt {
   id: string;
@@ -59,7 +67,9 @@ export interface OrcamentoFormValue {
   id?: string;
   numero?: number;
   clienteId: string;
+  contatoId: string;
   cliente2Id: string;
+  contato2Id: string;
   status: string;
   eventoNome: string;
   tipoEvento: string;
@@ -95,7 +105,9 @@ const pagamentoFallback = [
 function emptyValue(): OrcamentoFormValue {
   return {
     clienteId: "",
+    contatoId: "",
     cliente2Id: "",
+    contato2Id: "",
     status: "PENDENTE",
     eventoNome: "",
     tipoEvento: "",
@@ -221,7 +233,9 @@ export function OrcamentoForm({
         id: initial.id,
         numero: initial.numero,
         clienteId: initial.clienteId || "",
+        contatoId: initial.contatoId || "",
         cliente2Id: initial.cliente2Id || "",
+        contato2Id: initial.contato2Id || "",
         status: initial.status || "PENDENTE",
         eventoNome: initial.eventoNome || "",
         tipoEvento: initial.tipoEvento || "",
@@ -343,6 +357,20 @@ export function OrcamentoForm({
       setOpen((p) => ({ ...p, cliente: true }));
       return;
     }
+    const c1 = clientes.find((c) => c.id === form.clienteId);
+    if ((c1?.subContacts?.length || 0) > 0 && !form.contatoId) {
+      toast("Escolha o contato do cliente.", "error");
+      setOpen((p) => ({ ...p, cliente: true }));
+      return;
+    }
+    if (form.cliente2Id) {
+      const c2 = clientes.find((c) => c.id === form.cliente2Id);
+      if ((c2?.subContacts?.length || 0) > 0 && !form.contato2Id) {
+        toast("Escolha o contato do cliente 2 / agência.", "error");
+        setOpen((p) => ({ ...p, cliente: true }));
+        return;
+      }
+    }
     setLoading(true);
     try {
       const url = form.id ? `/api/orcamentos/${form.id}` : "/api/orcamentos";
@@ -426,7 +454,9 @@ export function OrcamentoForm({
               label="Cliente *"
               searchable
               value={form.clienteId}
-              onChange={(e) => set("clienteId", e.target.value)}
+              onChange={(e) => {
+                setForm((p) => ({ ...p, clienteId: e.target.value, contatoId: "" }));
+              }}
               options={clienteOptions}
               placeholder="Digite para buscar o cliente"
             />
@@ -442,13 +472,41 @@ export function OrcamentoForm({
               Novo
             </Button>
           </div>
+          {(() => {
+            const c = clientes.find((x) => x.id === form.clienteId);
+            if (!form.clienteId) return null;
+            const contatos = c?.subContacts || [];
+            if (contatos.length === 0)
+              return (
+                <p className="text-xs text-amber-600">
+                  Este cliente não tem contatos cadastrados — edite o cliente e adicione
+                  um contato (nome/telefone/e-mail).
+                </p>
+              );
+            return (
+              <Select
+                label="Contato do cliente *"
+                searchable
+                value={form.contatoId}
+                onChange={(e) => set("contatoId", e.target.value)}
+                options={contatos.map((ct) => ({
+                  value: ct.id,
+                  label: `${ct.nome}${ct.cargo ? ` (${ct.cargo})` : ""}${ct.telefone ? ` — ${ct.telefone}` : ""}`,
+                }))}
+                placeholder="Escolha o contato deste orçamento"
+              />
+            );
+          })()}
+
           <div>
             <div className="flex items-end gap-2">
               <Select
                 label="Cliente 2 / Agência (opcional)"
                 searchable
                 value={form.cliente2Id}
-                onChange={(e) => set("cliente2Id", e.target.value)}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, cliente2Id: e.target.value, contato2Id: "" }))
+                }
                 options={clienteOptions.filter((c) => c.value !== form.clienteId)}
                 placeholder="Ex: agência responsável pelo evento"
               />
@@ -468,6 +526,33 @@ export function OrcamentoForm({
               Use quando houver cliente final + agência (ex.: Stone / MD Live). Na
               fatura você escolhe contra quem emitir.
             </p>
+            {(() => {
+              if (!form.cliente2Id) return null;
+              const c = clientes.find((x) => x.id === form.cliente2Id);
+              const contatos = c?.subContacts || [];
+              if (contatos.length === 0)
+                return (
+                  <p className="text-xs text-amber-600 mt-2">
+                    Este cliente não tem contatos cadastrados — edite-o e adicione um
+                    contato.
+                  </p>
+                );
+              return (
+                <div className="mt-2">
+                  <Select
+                    label="Contato do cliente 2 / agência *"
+                    searchable
+                    value={form.contato2Id}
+                    onChange={(e) => set("contato2Id", e.target.value)}
+                    options={contatos.map((ct) => ({
+                      value: ct.id,
+                      label: `${ct.nome}${ct.cargo ? ` (${ct.cargo})` : ""}${ct.telefone ? ` — ${ct.telefone}` : ""}`,
+                    }))}
+                    placeholder="Escolha o contato deste orçamento"
+                  />
+                </div>
+              );
+            })()}
           </div>
         </div>
       </Section>

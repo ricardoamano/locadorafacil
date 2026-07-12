@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         _count: { select: { orcamentos: true } },
+        subContacts: { select: { id: true, nome: true, telefone: true, email: true, cargo: true } },
       },
       orderBy: { nomeFantasia: "asc" },
       skip,
