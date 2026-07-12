@@ -50,6 +50,7 @@ model Company {
   whatsappPhoneId    String?  // Phone Number ID da Cloud API (Meta)
   whatsappToken      String?  // token de acesso permanente da Cloud API
   whatsappTemplates  Json?    // textos das mensagens (ESCALA/ALTERACAO/LEMBRETE) editáveis pelo admin
+  osPublicaConfig    Json?    // seções visíveis na OS pública (decisão do admin, por empresa)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

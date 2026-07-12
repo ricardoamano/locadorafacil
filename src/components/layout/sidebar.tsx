@@ -26,6 +26,7 @@ import {
   Settings,
   CalendarDays,
   Bot,
+  Share2,
 } from "lucide-react";
 import React from "react";
 
@@ -93,6 +94,7 @@ const navItems: NavEntry[] = [
       { href: "/configuracoes/precos", label: "Política de Preços", icon: Package },
       { href: "/configuracoes/tipos-evento", label: "Tipos de Evento", icon: CalendarDays },
       { href: "/configuracoes/whatsapp", label: "WhatsApp (Assistente)", icon: Bot },
+      { href: "/configuracoes/os-publica", label: "OS Pública", icon: Share2 },
       { href: "/configuracoes/menu", label: "Personalização do Menu", icon: Menu },
     ],
   },

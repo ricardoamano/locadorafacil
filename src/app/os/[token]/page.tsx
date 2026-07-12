@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { linkMaps, linkWaze, enderecoDoLocal } from "@/lib/nestor";
+import { configOsPublica } from "@/lib/os-publica";
 import {
   MapPin,
   CalendarDays,
@@ -79,8 +80,9 @@ export default async function OsPublicaPage({
   const local = orc?.local;
   const empresa = await prisma.company.findUnique({
     where: { id: os.companyId },
-    select: { name: true, logoUrl: true, telefone: true },
+    select: { name: true, logoUrl: true, telefone: true, osPublicaConfig: true },
   });
+  const cfg = configOsPublica(empresa?.osPublicaConfig);
 
   const maps = linkMaps(local);
   const waze = linkWaze(local);
@@ -132,6 +134,7 @@ export default async function OsPublicaPage({
         </div>
 
         {/* Datas e horários */}
+        {cfg.datas && (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
           <div className="flex items-center gap-2 mb-3">
             <CalendarDays className="h-4 w-4 text-blue-600" />
@@ -179,9 +182,10 @@ export default async function OsPublicaPage({
             )}
           </dl>
         </div>
+        )}
 
         {/* Local + navegação */}
-        {(local || endereco || os.obsLocal) && (
+        {cfg.local && (local || endereco || os.obsLocal) && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
             <div className="flex items-center gap-2 mb-2">
               <MapPin className="h-4 w-4 text-blue-600" />
@@ -224,7 +228,7 @@ export default async function OsPublicaPage({
         )}
 
         {/* Informações do evento — texto livre do responsável */}
-        {os.infoEvento && (
+        {cfg.infoEvento && os.infoEvento && (
           <div className="bg-white rounded-2xl border-2 border-blue-200 shadow-sm p-5">
             <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
               <div className="flex items-center gap-2">
@@ -255,7 +259,7 @@ export default async function OsPublicaPage({
         )}
 
         {/* Produtores / contatos no evento */}
-        {produtores.length > 0 && (
+        {cfg.produtores && produtores.length > 0 && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
             <div className="flex items-center gap-2 mb-3">
               <MessageCircle className="h-4 w-4 text-emerald-600" />
@@ -291,7 +295,7 @@ export default async function OsPublicaPage({
         )}
 
         {/* Arquivos e links */}
-        {os.anexos.length > 0 && (
+        {cfg.anexos && os.anexos.length > 0 && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
             <div className="flex items-center gap-2 mb-3">
               <Paperclip className="h-4 w-4 text-blue-600" />
@@ -320,7 +324,7 @@ export default async function OsPublicaPage({
         )}
 
         {/* Equipe escalada */}
-        {os.escala.length > 0 && (
+        {cfg.equipe && os.escala.length > 0 && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
             <div className="flex items-center gap-2 mb-3">
               <Users className="h-4 w-4 text-blue-600" />
@@ -343,7 +347,7 @@ export default async function OsPublicaPage({
                         : ""}
                     </span>
                   </div>
-                  {(e.membro?.telefone || e.membro?.email) && (
+                  {cfg.equipeContatos && (e.membro?.telefone || e.membro?.email) && (
                     <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs">
                       {e.membro?.telefone && (
                         <a href={waMe(e.membro.telefone)} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">
@@ -364,7 +368,7 @@ export default async function OsPublicaPage({
         )}
 
         {/* Equipamentos */}
-        {(equipamentos.length > 0 || os.itensExtras.length > 0) && (
+        {cfg.equipamentos && (equipamentos.length > 0 || os.itensExtras.length > 0) && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
             <div className="flex items-center gap-2 mb-3">
               <Package className="h-4 w-4 text-blue-600" />
@@ -394,7 +398,7 @@ export default async function OsPublicaPage({
         )}
 
         {/* Observações */}
-        {os.observacoes && (
+        {cfg.observacoes && os.observacoes && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
             <div className="flex items-center gap-2 mb-2">
               <ClipboardList className="h-4 w-4 text-blue-600" />
@@ -405,7 +409,7 @@ export default async function OsPublicaPage({
         )}
 
         {/* Histórico de alterações — toda a equipe acompanha */}
-        {os.alteracoes.length > 0 && (
+        {cfg.historico && os.alteracoes.length > 0 && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
             <div className="flex items-center gap-2 mb-3">
               <History className="h-4 w-4 text-blue-600" />
