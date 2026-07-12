@@ -24,15 +24,24 @@ function ddMes(d?: string | null) {
   return `${String(dt.getDate()).padStart(2, "0")}${MESES[dt.getMonth()]}`;
 }
 
-// Padrão: COD_NOME DO CLIENTE_DATA EMISSAO_INICIOaFIM_VERSAO
-// Ex.: 1817_GAEL_COMUNICACAO_030726_08Jula08Jul_v1
-function nomeArquivo(orc: any) {
-  const cliente = String(orc.cliente?.nomeFantasia || "CLIENTE")
+function slugNome(nome: string) {
+  return String(nome || "")
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
+}
+
+// Padrão: COD_CLIENTE1_CLIENTE2_DATA EMISSAO_INICIOaFIM_VERSAO
+// Ex.: 1817_GAEL_COMUNICACAO_030726_08Jula08Jul_v1
+function nomeArquivo(orc: any) {
+  const cliente = [
+    slugNome(orc.cliente?.nomeFantasia || "CLIENTE"),
+    orc.cliente2 ? slugNome(orc.cliente2.nomeFantasia) : "",
+  ]
+    .filter(Boolean)
+    .join("_");
   const emissao = orc.createdAt ? new Date(orc.createdAt) : new Date();
   const ddmmyy = `${String(emissao.getDate()).padStart(2, "0")}${String(
     emissao.getMonth() + 1
@@ -178,6 +187,14 @@ export default function ImprimirOrcamentoPage() {
               {contato?.nome && <Rotulo label="Contato">{contato.nome}</Rotulo>}
               {contato?.telefone && <Rotulo label="Telefone">{contato.telefone}</Rotulo>}
               {contato?.email && <Rotulo label="E-mail">{contato.email}</Rotulo>}
+              {orc.cliente2 && (
+                <div className="mt-1.5">
+                  <Rotulo label="Agência / Cliente 2">{orc.cliente2.nomeFantasia}</Rotulo>
+                  {orc.cliente2.subContacts?.[0]?.nome && (
+                    <Rotulo label="Contato">{orc.cliente2.subContacts[0].nome}</Rotulo>
+                  )}
+                </div>
+              )}
             </div>
             <div>
               <Rotulo label="Orçamento">{orc.numero}</Rotulo>

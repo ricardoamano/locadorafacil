@@ -45,6 +45,14 @@ export async function GET(
           subContacts: { select: { nome: true, telefone: true, email: true }, take: 1 },
         },
       },
+      cliente2: {
+        select: {
+          id: true,
+          nomeFantasia: true,
+          razaoSocial: true,
+          subContacts: { select: { nome: true, telefone: true, email: true }, take: 1 },
+        },
+      },
       local: {
         select: {
           id: true,
@@ -112,6 +120,7 @@ export async function PUT(
       where: { id },
       data: {
         clienteId: body.clienteId,
+        cliente2Id: body.cliente2Id || null,
         status: novoStatus,
         eventoNome: body.eventoNome || null,
         tipoEvento: body.tipoEvento || null,

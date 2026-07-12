@@ -58,6 +58,7 @@ export interface OrcamentoFormValue {
   id?: string;
   numero?: number;
   clienteId: string;
+  cliente2Id: string;
   status: string;
   eventoNome: string;
   tipoEvento: string;
@@ -93,6 +94,7 @@ const pagamentoFallback = [
 function emptyValue(): OrcamentoFormValue {
   return {
     clienteId: "",
+    cliente2Id: "",
     status: "PENDENTE",
     eventoNome: "",
     tipoEvento: "",
@@ -173,7 +175,7 @@ export function OrcamentoForm({
   const [pagamentoOptions, setPagamentoOptions] = useState(pagamentoFallback);
   const [tiposEvento, setTiposEvento] = useState<string[]>([]);
   const [novoLocalOpen, setNovoLocalOpen] = useState(false);
-  const [novoClienteOpen, setNovoClienteOpen] = useState(false);
+  const [novoClienteAlvo, setNovoClienteAlvo] = useState<"clienteId" | "cliente2Id" | null>(null);
   const [novoItemAlvo, setNovoItemAlvo] = useState<{ si: number; ii: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState<Record<string, boolean>>({
@@ -218,6 +220,7 @@ export function OrcamentoForm({
         id: initial.id,
         numero: initial.numero,
         clienteId: initial.clienteId || "",
+        cliente2Id: initial.cliente2Id || "",
         status: initial.status || "PENDENTE",
         eventoNome: initial.eventoNome || "",
         tipoEvento: initial.tipoEvento || "",
@@ -301,7 +304,7 @@ export function OrcamentoForm({
   function onClienteCriado(c?: any) {
     if (!c?.id) return;
     setClientes((prev) => [...prev, { id: c.id, nomeFantasia: c.nomeFantasia || c.razaoSocial }]);
-    set("clienteId", c.id);
+    set(novoClienteAlvo || "clienteId", c.id);
     toast("Cliente selecionado no orçamento.", "success");
   }
 
@@ -412,26 +415,55 @@ export function OrcamentoForm({
         open={open.cliente}
         onToggle={() => toggle("cliente")}
       >
-        <div className="flex items-end gap-2">
-          <Select
-            label="Cliente *"
-            searchable
-            value={form.clienteId}
-            onChange={(e) => set("clienteId", e.target.value)}
-            options={clienteOptions}
-            placeholder="Digite para buscar o cliente"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 shrink-0"
-            onClick={() => setNovoClienteOpen(true)}
-            title="Cadastrar novo cliente"
-          >
-            <Plus className="h-4 w-4" />
-            Novo
-          </Button>
+        <div className="space-y-3">
+          <div className="flex items-end gap-2">
+            <Select
+              label="Cliente *"
+              searchable
+              value={form.clienteId}
+              onChange={(e) => set("clienteId", e.target.value)}
+              options={clienteOptions}
+              placeholder="Digite para buscar o cliente"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 shrink-0"
+              onClick={() => setNovoClienteAlvo("clienteId")}
+              title="Cadastrar novo cliente"
+            >
+              <Plus className="h-4 w-4" />
+              Novo
+            </Button>
+          </div>
+          <div>
+            <div className="flex items-end gap-2">
+              <Select
+                label="Cliente 2 / Agência (opcional)"
+                searchable
+                value={form.cliente2Id}
+                onChange={(e) => set("cliente2Id", e.target.value)}
+                options={clienteOptions.filter((c) => c.value !== form.clienteId)}
+                placeholder="Ex: agência responsável pelo evento"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 shrink-0"
+                onClick={() => setNovoClienteAlvo("cliente2Id")}
+                title="Cadastrar novo cliente/agência"
+              >
+                <Plus className="h-4 w-4" />
+                Novo
+              </Button>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              Use quando houver cliente final + agência (ex.: Stone / MD Live). Na
+              fatura você escolhe contra quem emitir.
+            </p>
+          </div>
         </div>
       </Section>
 
@@ -738,8 +770,8 @@ export function OrcamentoForm({
         onSuccess={onLocalCriado}
       />
       <ContactFormModal
-        open={novoClienteOpen}
-        onClose={() => setNovoClienteOpen(false)}
+        open={novoClienteAlvo !== null}
+        onClose={() => setNovoClienteAlvo(null)}
         onSuccess={onClienteCriado}
         type="CLIENTE"
       />

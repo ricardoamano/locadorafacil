@@ -149,6 +149,7 @@ model Contact {
 
   subContacts SubContact[]
   orcamentos  Orcamento[]
+  orcamentosComoCliente2 Orcamento[] @relation("OrcamentoCliente2")
   faturas     Fatura[]
   contratos   Contrato[]
 }
@@ -296,6 +297,8 @@ model Orcamento {
   numero         Int
   clienteId      String
   cliente        Contact  @relation(fields: [clienteId], references: [id])
+  cliente2Id     String?
+  cliente2       Contact? @relation("OrcamentoCliente2", fields: [cliente2Id], references: [id])
   status         String   @default("PENDENTE")
   eventoId       String?
   evento         Evento?  @relation(fields: [eventoId], references: [id])

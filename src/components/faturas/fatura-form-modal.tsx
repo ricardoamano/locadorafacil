@@ -18,6 +18,7 @@ interface OrcamentoOpt {
   total: number;
   clienteId?: string;
   cliente?: { id: string; nomeFantasia: string };
+  cliente2?: { id: string; nomeFantasia: string } | null;
 }
 
 interface PostoOpt {
@@ -314,10 +315,47 @@ export function FaturaFormModal({
                   onChange={(e) => handleOrcamento(e.target.value)}
                   options={orcamentos.map((o) => ({
                     value: o.id,
-                    label: `#${o.numero}${o.cliente ? ` — ${o.cliente.nomeFantasia}` : ""}`,
+                    label: `#${o.numero}${o.cliente ? ` — ${o.cliente.nomeFantasia}` : ""}${o.cliente2 ? ` / ${o.cliente2.nomeFantasia}` : ""}`,
                   }))}
                   placeholder="Opcional (emissão direta sem orçamento)"
                 />
+                {(() => {
+                  const orcSel = orcamentos.find((o) => o.id === form.orcamentoId);
+                  if (!orcSel?.cliente2) return null;
+                  return (
+                    <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+                      <Select
+                        label="Emitir fatura contra"
+                        value={form.clienteId}
+                        onChange={(e) => {
+                          const escolhido =
+                            e.target.value === orcSel.cliente2!.id
+                              ? orcSel.cliente2!
+                              : orcSel.cliente!;
+                          setForm((prev) => ({
+                            ...prev,
+                            clienteId: escolhido.id,
+                            clienteNome: escolhido.nomeFantasia,
+                          }));
+                        }}
+                        options={[
+                          {
+                            value: orcSel.cliente!.id,
+                            label: `${orcSel.cliente!.nomeFantasia} (cliente final)`,
+                          },
+                          {
+                            value: orcSel.cliente2.id,
+                            label: `${orcSel.cliente2.nomeFantasia} (cliente 2 / agência)`,
+                          },
+                        ]}
+                      />
+                      <p className="text-xs text-slate-400 mt-1">
+                        Este orçamento tem dois clientes — escolha contra quem a fatura
+                        será emitida.
+                      </p>
+                    </div>
+                  );
+                })()}
                 <Input
                   label="Nome do Cliente *"
                   value={form.clienteNome}

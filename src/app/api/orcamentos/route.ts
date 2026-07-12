@@ -54,6 +54,7 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         cliente: { select: { id: true, nomeFantasia: true } },
+        cliente2: { select: { id: true, nomeFantasia: true } },
         local: { select: { id: true, nome: true } },
         _count: { select: { salas: true } },
       },
@@ -91,6 +92,7 @@ export async function POST(req: NextRequest) {
     data: {
       numero,
       clienteId: body.clienteId,
+      cliente2Id: body.cliente2Id || null,
       status: body.status || "PENDENTE",
       eventoNome: body.eventoNome || null,
       tipoEvento: body.tipoEvento || null,
