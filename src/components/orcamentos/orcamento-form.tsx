@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { LocalFormModal } from "@/components/locais/local-form-modal";
 import { ContactFormModal } from "@/components/contacts/contact-form-modal";
@@ -189,6 +190,9 @@ export function OrcamentoForm({
   const [tiposEvento, setTiposEvento] = useState<string[]>([]);
   const [novoLocalOpen, setNovoLocalOpen] = useState(false);
   const [novoClienteAlvo, setNovoClienteAlvo] = useState<"clienteId" | "cliente2Id" | null>(null);
+  const [novoContatoAlvo, setNovoContatoAlvo] = useState<"clienteId" | "cliente2Id" | null>(null);
+  const [novoContato, setNovoContato] = useState({ nome: "", cargo: "", telefone: "", email: "" });
+  const [salvandoContato, setSalvandoContato] = useState(false);
   const [novoItemAlvo, setNovoItemAlvo] = useState<{ si: number; ii: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState<Record<string, boolean>>({
@@ -337,6 +341,43 @@ export function OrcamentoForm({
     }
   }
 
+  async function salvarNovoContato() {
+    if (!novoContatoAlvo) return;
+    const clienteAlvoId = form[novoContatoAlvo];
+    if (!clienteAlvoId || !novoContato.nome.trim()) {
+      toast("Informe o nome do contato.", "error");
+      return;
+    }
+    setSalvandoContato(true);
+    try {
+      const res = await fetch(`/api/contacts/${clienteAlvoId}/sub-contatos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(novoContato),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || "Erro ao criar contato.", "error");
+        return;
+      }
+      setClientes((prev) =>
+        prev.map((c) =>
+          c.id === clienteAlvoId
+            ? { ...c, subContacts: [...(c.subContacts || []), data] }
+            : c
+        )
+      );
+      set(novoContatoAlvo === "clienteId" ? "contatoId" : "contato2Id", data.id);
+      setNovoContatoAlvo(null);
+      setNovoContato({ nome: "", cargo: "", telefone: "", email: "" });
+      toast("Contato criado e selecionado!", "success");
+    } catch {
+      toast("Erro ao criar contato.", "error");
+    } finally {
+      setSalvandoContato(false);
+    }
+  }
+
   const bruto = useMemo(
     () =>
       form.salas.reduce(
@@ -359,14 +400,14 @@ export function OrcamentoForm({
     }
     const c1 = clientes.find((c) => c.id === form.clienteId);
     if ((c1?.subContacts?.length || 0) > 0 && !form.contatoId) {
-      toast("Escolha o contato do cliente.", "error");
+      toast("Escolha o contato do cliente 1.", "error");
       setOpen((p) => ({ ...p, cliente: true }));
       return;
     }
     if (form.cliente2Id) {
       const c2 = clientes.find((c) => c.id === form.cliente2Id);
       if ((c2?.subContacts?.length || 0) > 0 && !form.contato2Id) {
-        toast("Escolha o contato do cliente 2 / agência.", "error");
+        toast("Escolha o contato do cliente 2.", "error");
         setOpen((p) => ({ ...p, cliente: true }));
         return;
       }
@@ -451,7 +492,7 @@ export function OrcamentoForm({
         <div className="space-y-3">
           <div className="flex items-end gap-2">
             <Select
-              label="Cliente *"
+              label="Cliente 1 *"
               searchable
               value={form.clienteId}
               onChange={(e) => {
@@ -478,37 +519,61 @@ export function OrcamentoForm({
             const contatos = c?.subContacts || [];
             if (contatos.length === 0)
               return (
-                <p className="text-xs text-amber-600">
-                  Este cliente não tem contatos cadastrados — edite o cliente e adicione
-                  um contato (nome/telefone/e-mail).
-                </p>
+                <div className="flex items-center gap-3">
+                  <p className="text-xs text-amber-600">
+                    Este cliente não tem contatos cadastrados.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setNovoContatoAlvo("clienteId")}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Novo contato
+                  </Button>
+                </div>
               );
             return (
-              <Select
-                label="Contato do cliente *"
-                searchable
-                value={form.contatoId}
-                onChange={(e) => set("contatoId", e.target.value)}
-                options={contatos.map((ct) => ({
-                  value: ct.id,
-                  label: `${ct.nome}${ct.cargo ? ` (${ct.cargo})` : ""}${ct.telefone ? ` — ${ct.telefone}` : ""}`,
-                }))}
-                placeholder="Escolha o contato deste orçamento"
-              />
+              <div className="flex items-end gap-2">
+                <Select
+                  label="Contato do cliente 1 *"
+                  searchable
+                  value={form.contatoId}
+                  onChange={(e) => set("contatoId", e.target.value)}
+                  options={contatos.map((ct) => ({
+                    value: ct.id,
+                    label: `${ct.nome}${ct.cargo ? ` (${ct.cargo})` : ""}${ct.telefone ? ` — ${ct.telefone}` : ""}`,
+                  }))}
+                  placeholder="Escolha o contato deste orçamento"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 shrink-0"
+                  onClick={() => setNovoContatoAlvo("clienteId")}
+                  title="Cadastrar novo contato neste cliente"
+                >
+                  <Plus className="h-4 w-4" />
+                  Novo
+                </Button>
+              </div>
             );
           })()}
 
           <div>
             <div className="flex items-end gap-2">
               <Select
-                label="Cliente 2 / Agência (opcional)"
+                label="Cliente 2 (opcional)"
                 searchable
+                clearable
                 value={form.cliente2Id}
                 onChange={(e) =>
                   setForm((p) => ({ ...p, cliente2Id: e.target.value, contato2Id: "" }))
                 }
                 options={clienteOptions.filter((c) => c.value !== form.clienteId)}
-                placeholder="Ex: agência responsável pelo evento"
+                placeholder="Ex: cliente final, quando o Cliente 1 for a agência"
               />
               <Button
                 type="button"
@@ -523,8 +588,9 @@ export function OrcamentoForm({
               </Button>
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              Use quando houver cliente final + agência (ex.: Stone / MD Live). Na
-              fatura você escolhe contra quem emitir.
+              Com dois clientes (ex.: agência no Cliente 1 e cliente final no
+              Cliente 2), o PDF sai "Cliente 1, Cliente 2" e na fatura você escolhe
+              contra quem emitir.
             </p>
             {(() => {
               if (!form.cliente2Id) return null;
@@ -532,15 +598,25 @@ export function OrcamentoForm({
               const contatos = c?.subContacts || [];
               if (contatos.length === 0)
                 return (
-                  <p className="text-xs text-amber-600 mt-2">
-                    Este cliente não tem contatos cadastrados — edite-o e adicione um
-                    contato.
-                  </p>
+                  <div className="flex items-center gap-3 mt-2">
+                    <p className="text-xs text-amber-600">
+                      Este cliente não tem contatos cadastrados.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setNovoContatoAlvo("cliente2Id")}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Novo contato
+                    </Button>
+                  </div>
                 );
               return (
-                <div className="mt-2">
+                <div className="mt-2 flex items-end gap-2">
                   <Select
-                    label="Contato do cliente 2 / agência *"
+                    label="Contato do cliente 2 *"
                     searchable
                     value={form.contato2Id}
                     onChange={(e) => set("contato2Id", e.target.value)}
@@ -550,6 +626,17 @@ export function OrcamentoForm({
                     }))}
                     placeholder="Escolha o contato deste orçamento"
                   />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 shrink-0"
+                    onClick={() => setNovoContatoAlvo("cliente2Id")}
+                    title="Cadastrar novo contato neste cliente"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Novo
+                  </Button>
                 </div>
               );
             })()}
@@ -888,6 +975,58 @@ export function OrcamentoForm({
         onClose={() => setNovoItemAlvo(null)}
         onSuccess={onItemCriado}
       />
+
+      {/* Modal de novo contato do cliente */}
+      <Modal
+        open={novoContatoAlvo !== null}
+        onClose={() => setNovoContatoAlvo(null)}
+        title={`Novo Contato — ${
+          clientes.find((c) => c.id === (novoContatoAlvo ? form[novoContatoAlvo] : ""))
+            ?.nomeFantasia || "cliente"
+        }`}
+      >
+        <ModalBody>
+          <div className="space-y-3">
+            <Input
+              label="Nome do Contato *"
+              value={novoContato.nome}
+              onChange={(e) => setNovoContato((p) => ({ ...p, nome: e.target.value }))}
+              placeholder="Ex: Juliana Mucciolo"
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Cargo"
+                value={novoContato.cargo}
+                onChange={(e) => setNovoContato((p) => ({ ...p, cargo: e.target.value }))}
+                placeholder="Ex: Produtora"
+              />
+              <Input
+                label="Telefone"
+                value={novoContato.telefone}
+                onChange={(e) => setNovoContato((p) => ({ ...p, telefone: e.target.value }))}
+                placeholder="(11) 99999-9999"
+              />
+            </div>
+            <Input
+              label="E-mail"
+              type="email"
+              value={novoContato.email}
+              onChange={(e) => setNovoContato((p) => ({ ...p, email: e.target.value }))}
+            />
+            <p className="text-xs text-slate-400">
+              O contato será criado no cadastro do cliente e selecionado neste orçamento.
+            </p>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setNovoContatoAlvo(null)} disabled={salvandoContato}>
+            Cancelar
+          </Button>
+          <Button onClick={salvarNovoContato} loading={salvandoContato}>
+            Criar e selecionar
+          </Button>
+        </ModalFooter>
+      </Modal>
 
       {/* Actions */}
       <div className="flex items-center justify-end gap-3 pt-2">

@@ -36,10 +36,10 @@ function slugNome(nome: string) {
 // Padrão: COD_CLIENTE1_CLIENTE2_DATA EMISSAO_INICIOaFIM_VERSAO
 // Ex.: 1817_GAEL_COMUNICACAO_030726_08Jula08Jul_v1
 function nomeArquivo(orc: any) {
-  // Agência (cliente 2) primeiro, depois o cliente final — como na exibição
+  // Cliente 1 primeiro, depois Cliente 2 — mesma ordem da exibição
   const cliente = [
-    orc.cliente2 ? slugNome(orc.cliente2.nomeFantasia) : "",
     slugNome(orc.cliente?.nomeFantasia || "CLIENTE"),
+    orc.cliente2 ? slugNome(orc.cliente2.nomeFantasia) : "",
   ]
     .filter(Boolean)
     .join("_");
@@ -132,9 +132,9 @@ export default function ImprimirOrcamentoPage() {
 
   const contato = orc.contato || orc.cliente?.subContacts?.[0] || null;
   const contato2 = orc.contato2 || orc.cliente2?.subContacts?.[0] || null;
-  // Com dois clientes, exibe em linha única: AGÊNCIA, CLIENTE
+  // Com dois clientes, exibe em linha única na ordem cadastrada: Cliente 1, Cliente 2
   const nomeClientes = orc.cliente2
-    ? `${orc.cliente2.nomeFantasia}, ${orc.cliente?.nomeFantasia}`
+    ? `${orc.cliente?.nomeFantasia}, ${orc.cliente2.nomeFantasia}`
     : orc.cliente?.nomeFantasia;
   const dataOrc = orc.createdAt ? new Date(orc.createdAt) : new Date();
   const validade = new Date(dataOrc);
@@ -194,7 +194,7 @@ export default function ImprimirOrcamentoPage() {
               {contato?.telefone && <Rotulo label="Telefone">{contato.telefone}</Rotulo>}
               {contato?.email && <Rotulo label="E-mail">{contato.email}</Rotulo>}
               {orc.cliente2 && contato2?.nome && (
-                <Rotulo label="Contato (agência)">
+                <Rotulo label="Contato (cliente 2)">
                   {contato2.nome}
                   {contato2.telefone ? ` — ${contato2.telefone}` : ""}
                 </Rotulo>

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { ChevronDown, Search, Check } from "lucide-react";
+import { ChevronDown, Search, Check, X } from "lucide-react";
 
 export interface SelectProps
   extends React.SelectHTMLAttributes<HTMLSelectElement> {
@@ -12,6 +12,8 @@ export interface SelectProps
   placeholder?: string;
   /** Força modo busca mesmo com poucas opções */
   searchable?: boolean;
+  /** Exibe um X para limpar a seleção (campos opcionais) */
+  clearable?: boolean;
 }
 
 /** Acima deste nº de opções o Select vira combobox pesquisável automaticamente */
@@ -26,7 +28,7 @@ function normalize(s: string) {
 
 const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
   (
-    { className, label, error, options, placeholder, id, searchable, ...props },
+    { className, label, error, options, placeholder, id, searchable, clearable, ...props },
     ref
   ) => {
     const selectId = id || label?.toLowerCase().replace(/\s/g, "-");
@@ -143,6 +145,20 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
               >
                 {selected?.label || placeholder || "Selecione"}
               </span>
+              {clearable && value && !props.disabled && (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    emit("");
+                  }}
+                  className="ml-2 shrink-0 rounded p-0.5 text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                  title="Limpar seleção"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </span>
+              )}
               <ChevronDown className="h-4 w-4 text-slate-400 shrink-0 ml-2" />
             </button>
 

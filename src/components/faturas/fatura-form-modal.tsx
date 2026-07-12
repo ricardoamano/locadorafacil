@@ -341,11 +341,11 @@ export function FaturaFormModal({
                         options={[
                           {
                             value: orcSel.cliente!.id,
-                            label: `${orcSel.cliente!.nomeFantasia} (cliente final)`,
+                            label: `${orcSel.cliente!.nomeFantasia} (cliente 1)`,
                           },
                           {
                             value: orcSel.cliente2.id,
-                            label: `${orcSel.cliente2.nomeFantasia} (cliente 2 / agência)`,
+                            label: `${orcSel.cliente2.nomeFantasia} (cliente 2)`,
                           },
                         ]}
                       />
