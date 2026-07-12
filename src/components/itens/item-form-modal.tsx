@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { PreencherIa } from "@/components/ui/preencher-ia";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -251,6 +252,23 @@ export function ItemFormModal({
                 error={errors.nome}
                 placeholder="Ex: Caixa de Som Line Array"
               />
+              <div className="mt-2">
+                <PreencherIa
+                  tipo="item"
+                  texto={form.nome}
+                  onDados={(d) => {
+                    setForm((p) => ({
+                      ...p,
+                      especificacoes: p.especificacoes || d.especificacoes || "",
+                      descricaoComercial: p.descricaoComercial || d.descricaoComercial || "",
+                      especificacoesPublicas:
+                        p.especificacoesPublicas || d.especificacoesPublicas || "",
+                      watts: p.watts || (d.watts != null ? String(d.watts) : ""),
+                      apelidos: p.apelidos || d.apelidos || "",
+                    }));
+                  }}
+                />
+              </div>
             </div>
             <Input
               label="Código"

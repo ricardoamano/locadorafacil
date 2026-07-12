@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { PreencherIa } from "@/components/ui/preencher-ia";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -164,6 +165,23 @@ export function LocalFormModal({
             onChange={(e) => setField("nome", e.target.value)}
             error={errors.nome}
             placeholder="Ex: Expo Center Norte"
+          />
+          <PreencherIa
+            tipo="local"
+            texto={form.nome}
+            onDados={(d) => {
+              setForm((p) => ({
+                ...p,
+                nome: p.nome || d.nome || "",
+                cep: p.cep || d.cep || "",
+                rua: p.rua || d.rua || "",
+                numero: p.numero || d.numero || "",
+                bairro: p.bairro || d.bairro || "",
+                cidade: p.cidade || d.cidade || "",
+                estado: p.estado || d.estado || "",
+                observacoes: p.observacoes || d.observacoes || "",
+              }));
+            }}
           />
 
           <div className="border-t border-slate-100 pt-4">

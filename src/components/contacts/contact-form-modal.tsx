@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { PreencherIa } from "@/components/ui/preencher-ia";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -240,6 +241,20 @@ export function ContactFormModal({
                 placeholder="Ex: XYZ Eventos"
               />
             </div>
+            <PreencherIa
+              tipo="cliente"
+              texto={form.nomeFantasia || form.razaoSocial}
+              onDados={(d) => {
+                setForm((p) => ({
+                  ...p,
+                  nomeFantasia: p.nomeFantasia || d.nomeFantasia || "",
+                  razaoSocial: p.razaoSocial || d.razaoSocial || "",
+                  cidade: p.cidade || d.cidade || "",
+                  estado: p.estado || d.estado || "",
+                  perfil: p.perfil || d.perfil || "",
+                }));
+              }}
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Input

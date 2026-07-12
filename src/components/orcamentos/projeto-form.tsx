@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { mdParaHtml } from "@/lib/markdown";
+import { PropostaIa } from "./proposta-ia";
 import { Sparkles, Eye, PencilLine, Printer, Plus, Trash2, AlertTriangle } from "lucide-react";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -281,6 +282,13 @@ export function ProjetoForm({ orcamento }: { orcamento?: any }) {
               títulos, **negrito**, listas com -, tabelas com | e linhas com ---.
             </p>
           </div>
+          <div className="flex items-center gap-2">
+          <PropostaIa
+            onUsar={(md) => {
+              setConteudo(md);
+              setPreview(true);
+            }}
+          />
           <button
             onClick={() => setPreview((p) => !p)}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
@@ -292,6 +300,7 @@ export function ProjetoForm({ orcamento }: { orcamento?: any }) {
             {preview ? <PencilLine className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
             {preview ? "Voltar a editar" : "Ver como vai ficar"}
           </button>
+          </div>
         </div>
 
         {preview ? (
