@@ -165,6 +165,12 @@ Sistema multiempresa de gestão de locação de equipamentos e serviços para ev
   (1-5), evento, autor. Modal ⭐ na tela de membros, média e histórico. API `/api/membros/[id]/avaliacoes`.
 - ✅ **Escala por horário na OS**: campos Entrada e Saída (dia+hora) por técnico; cálculo automático de
   horas trabalhadas com alerta de extras acima de 12h (const `HORAS_CACHE` em os-detail.tsx).
+- ✅ **Kanban de tarefas**: toggle Lista/Kanban em /tarefas; arrastar muda status via PATCH
+  (concluir recorrente gera próxima). Filtro por especialidade na lista de membros.
+- ✅ **Contratos com IA + versões**: skill tipo CONTRATO; `/api/contratos/gerar-ia` escolhe orçamento
+  e redige contrato (v1) com dados de cliente/equipamentos/serviços/valores. `ContratoVersao`: cada
+  salvamento de conteúdo cria versão nova (nunca sobrescreve). PDF em `/contratos/[id]/imprimir?v=N`
+  com nome CONTRATO_ORC{n}_{CLIENTE}_v{versão}. Botões: Gerar com IA, histórico vN, impressora.
 
 ### Outras pendências antigas
 - Ricardo ainda precisa colar a chave da Claude API (sem ela os botões ✨ retornam aviso).
