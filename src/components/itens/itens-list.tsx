@@ -61,7 +61,7 @@ export function ItensList() {
   const [search, setSearch] = useState(buscaInicial);
   const [searchInput, setSearchInput] = useState(buscaInicial);
   const [etiquetaItem, setEtiquetaItem] = useState<Item | null>(null);
-  const [soCatalogo, setSoCatalogo] = useState(false);
+  const [soCatalogo, setSoCatalogo] = useState(true);
   const [naturezaFilter, setNaturezaFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -230,19 +230,30 @@ export function ItensList() {
             <option value="EQUIPAMENTO">Só Equipamentos</option>
             <option value="SERVICO">Só Serviços</option>
           </select>
-          <button
-            type="button"
-            onClick={() => setSoCatalogo((v) => !v)}
-            title="Mostrar só os itens que aparecem na vitrine pública"
-            className={`h-9 inline-flex items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors ${
-              soCatalogo
-                ? "border-blue-200 bg-blue-50 text-blue-700"
-                : "border-slate-200 bg-white text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            <Globe className="h-4 w-4" />
-            Só catálogo
-          </button>
+          <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden h-9">
+            <button
+              type="button"
+              onClick={() => setSoCatalogo(true)}
+              title="Itens que aparecem na vitrine pública"
+              className={`inline-flex items-center gap-1.5 px-3 text-sm font-medium transition-colors ${
+                soCatalogo ? "bg-blue-600 text-white" : "bg-white text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              <Globe className="h-4 w-4" />
+              Catálogo
+            </button>
+            <button
+              type="button"
+              onClick={() => setSoCatalogo(false)}
+              title="Todos os itens em estoque (inclusive fora do catálogo)"
+              className={`inline-flex items-center gap-1.5 px-3 text-sm font-medium border-l border-slate-200 transition-colors ${
+                !soCatalogo ? "bg-blue-600 text-white" : "bg-white text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              <Package className="h-4 w-4" />
+              Estoque
+            </button>
+          </div>
           <ExportarCsv tipo="itens" />
           <Button onClick={openCreate}>
             <Plus className="h-4 w-4" />

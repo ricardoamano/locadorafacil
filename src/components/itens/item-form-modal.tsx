@@ -107,6 +107,7 @@ export function ItemFormModal({
   const [form, setForm] = useState<ItemFormData>(emptyForm());
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [marcas, setMarcas] = useState<Categoria[]>([]);
+  const [confirmarQtd, setConfirmarQtd] = useState(false);
   const [fotos, setFotos] = useState<string[]>([]);
   const [acessorios, setAcessorios] = useState<{ nome: string; incluir: boolean }[]>([]);
   const [novoAcessorio, setNovoAcessorio] = useState("");
@@ -234,8 +235,19 @@ export function ItemFormModal({
     return Object.keys(errs).length === 0;
   }
 
-  async function handleSubmit() {
+  // Antes de finalizar, confirma a quantidade (evita cadastrar com 0 sem querer).
+  // Serviços não têm estoque, então vão direto.
+  function handleSubmit() {
     if (!validate()) return;
+    if (form.natureza === "SERVICO") {
+      salvar();
+      return;
+    }
+    setConfirmarQtd(true);
+  }
+
+  async function salvar() {
+    setConfirmarQtd(false);
     setLoading(true);
     try {
       const url = form.id ? `/api/itens/${form.id}` : "/api/itens";
@@ -351,6 +363,7 @@ export function ItemFormModal({
   }
 
   return (
+    <>
     <Modal
       open={open}
       onClose={onClose}
@@ -1159,5 +1172,43 @@ export function ItemFormModal({
         </Button>
       </ModalFooter>
     </Modal>
+
+    {/* Confirmação da quantidade — evita cadastrar item com estoque 0 sem querer */}
+    <Modal
+      open={confirmarQtd}
+      onClose={() => setConfirmarQtd(false)}
+      title="Confirmar quantidade em estoque"
+      size="sm"
+    >
+      <ModalBody>
+        <p className="text-sm text-slate-600 mb-3">
+          Quantas unidades de <strong>{form.nome || "este item"}</strong> você tem em estoque?
+          Confira antes de finalizar.
+        </p>
+        <Input
+          label="Quantidade em estoque"
+          type="number"
+          min="0"
+          autoFocus
+          value={form.quantidade}
+          onChange={(e) => setField("quantidade", e.target.value)}
+        />
+        {(parseInt(form.quantidade) || 0) === 0 && (
+          <p className="text-xs text-amber-700 bg-amber-50 rounded-md px-2 py-1.5 mt-2">
+            ⚠️ Quantidade <strong>0</strong>: o item ficará sem estoque e não poderá ser
+            separado/alugado até você ajustar. Confirme só se for intencional.
+          </p>
+        )}
+      </ModalBody>
+      <ModalFooter>
+        <Button variant="outline" onClick={() => setConfirmarQtd(false)} disabled={loading}>
+          Voltar e ajustar
+        </Button>
+        <Button onClick={salvar} loading={loading}>
+          Confirmar e {form.id ? "salvar" : "criar"}
+        </Button>
+      </ModalFooter>
+    </Modal>
+    </>
   );
 }
