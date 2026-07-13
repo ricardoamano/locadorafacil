@@ -66,6 +66,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = u.role;
         token.isOwner = u.isOwner;
         token.modulos = u.modulos ?? null;
+        token.permCheck = Date.now();
+      } else if (token.sub) {
+        // Revalida role/permissões/ativo no banco a cada 30s, para que mudanças
+        // de acesso (ex.: remover um módulo de um usuário) tenham efeito sem
+        // exigir novo login. Sem isto, o token guarda as permissões do login.
+        const ultima = (token.permCheck as number) || 0;
+        if (Date.now() - ultima > 30_000) {
+          try {
+            const atual = await prisma.user.findUnique({
+              where: { id: token.sub as string },
+              select: { role: true, permissions: true, ativo: true },
+            });
+            if (!atual || !atual.ativo) {
+              // Usuário desativado/removido: invalida o token (força logout).
+              return null;
+            }
+            const perms = atual.permissions as { modulos?: string[] } | null;
+            token.role = atual.role;
+            token.modulos = perms?.modulos ?? null;
+            token.permCheck = Date.now();
+          } catch {
+            // Erro transitório de banco: mantém o token atual e tenta de novo depois.
+          }
+        }
       }
       return token;
     },
