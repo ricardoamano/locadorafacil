@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { ClipboardList, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
@@ -130,8 +131,11 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-xs text-slate-400 mt-6">
-          Credenciais de demo: admin@demo.com / 123456
+        <p className="text-center text-sm text-slate-500 mt-6">
+          Não tem conta?{" "}
+          <Link href="/register" className="text-blue-600 font-medium hover:underline">
+            Criar minha empresa
+          </Link>
         </p>
       </div>
     </div>
