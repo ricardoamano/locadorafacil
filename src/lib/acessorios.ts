@@ -29,7 +29,9 @@ export async function vincularAcessorios(
           natureza: "EQUIPAMENTO",
           tipo: "PROPRIO",
           quantidade: 0,
-          emCatalogo: true,
+          // Acessório não é alugado sozinho — fora do catálogo público por padrão
+          emCatalogo: false,
+          publicado: false,
           companyId,
         },
         select: { id: true },
@@ -46,6 +48,11 @@ export async function vincularAcessorios(
     if (!jaVinculado) {
       await prisma.itemAcessorio.create({
         data: { itemBaseId, acessorioId: acessorio.id },
+      });
+      // Item que virou acessório sai do catálogo público (não se aluga avulso)
+      await prisma.item.update({
+        where: { id: acessorio.id },
+        data: { emCatalogo: false, publicado: false },
       });
       vinculados++;
     }
