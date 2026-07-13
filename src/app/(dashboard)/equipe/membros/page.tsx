@@ -7,11 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, Pencil, Trash2, UserCheck, Copy } from "lucide-react";
+import { Plus, Pencil, Trash2, UserCheck, Copy, Star, X } from "lucide-react";
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 const tipoLabels: Record<string, string> = {
   FUNCIONARIO: "Funcionário",
@@ -29,6 +32,10 @@ interface Membro {
   tipo: string;
   pix: string | null;
   cache: number | null;
+  user: { id: string; name: string | null; email: string } | null;
+  especialidades: { especialidade: { id: string; nome: string } }[];
+  avaliacaoMedia: number | null;
+  avaliacoesTotal: number;
 }
 
 interface FormData {
@@ -41,15 +48,61 @@ interface FormData {
   tipo: string;
   pix: string;
   cache: string;
+  userId: string;
+  especialidades: string[];
 }
 
 const empty = (): FormData => ({
   nome: "", telefone: "", email: "", rg: "", cpf: "", tipo: "FREELANCER", pix: "", cache: "",
+  userId: "", especialidades: [],
 });
+
+// ── Estrelas ──────────────────────────────────────────────────────────────────
+
+function Estrelas({
+  valor,
+  onChange,
+  tamanho = "h-5 w-5",
+}: {
+  valor: number;
+  onChange?: (v: number) => void;
+  tamanho?: string;
+}) {
+  return (
+    <div className="flex gap-0.5">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          disabled={!onChange}
+          onClick={() => onChange?.(n)}
+          className={onChange ? "cursor-pointer" : "cursor-default"}
+        >
+          <Star
+            className={`${tamanho} ${
+              n <= valor ? "fill-amber-400 text-amber-400" : "text-slate-200"
+            }`}
+          />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const CRITERIOS: { key: "postura" | "tecnica" | "pontualidade" | "proatividade"; label: string }[] = [
+  { key: "postura", label: "Postura / comportamento" },
+  { key: "tecnica", label: "Conhecimento técnico" },
+  { key: "pontualidade", label: "Pontualidade" },
+  { key: "proatividade", label: "Proatividade" },
+];
 
 export default function MembrosPage() {
   const { toast } = useToast();
   const [membros, setMembros] = useState<Membro[]>([]);
+  const [usuarios, setUsuarios] = useState<{ id: string; name: string | null; email: string }[]>([]);
+  const [especialidades, setEspecialidades] = useState<{ id: string; nome: string }[]>([]);
+  const [novaEsp, setNovaEsp] = useState("");
+  const [criandoEsp, setCriandoEsp] = useState(false);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<FormData>(empty());
@@ -57,6 +110,15 @@ export default function MembrosPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+
+  // Avaliações
+  const [avaliando, setAvaliando] = useState<Membro | null>(null);
+  const [avaliacoes, setAvaliacoes] = useState<any[]>([]);
+  const [avForm, setAvForm] = useState({
+    nota: 0, postura: 0, tecnica: 0, pontualidade: 0, proatividade: 0,
+    comentario: "", evento: "",
+  });
+  const [avSalvando, setAvSalvando] = useState(false);
 
   function toggleSelecionado(id: string) {
     setSelecionados((prev) => {
@@ -105,9 +167,21 @@ export default function MembrosPage() {
     }
   }, [toast]);
 
+  const fetchEspecialidades = useCallback(() => {
+    fetch("/api/especialidades")
+      .then((r) => r.json())
+      .then((d) => setEspecialidades(d.especialidades || []))
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     fetchMembros();
-  }, [fetchMembros]);
+    fetchEspecialidades();
+    fetch("/api/usuarios/lista")
+      .then((r) => r.json())
+      .then((d) => setUsuarios(d.usuarios || []))
+      .catch(() => {});
+  }, [fetchMembros, fetchEspecialidades]);
 
   function openCreate() {
     setForm(empty());
@@ -124,8 +198,46 @@ export default function MembrosPage() {
       tipo: m.tipo,
       pix: m.pix || "",
       cache: m.cache != null ? String(m.cache) : "",
+      userId: m.user?.id || "",
+      especialidades: (m.especialidades || []).map((e) => e.especialidade.id),
     });
     setModalOpen(true);
+  }
+
+  function toggleEspecialidade(id: string) {
+    setForm((p) => ({
+      ...p,
+      especialidades: p.especialidades.includes(id)
+        ? p.especialidades.filter((x) => x !== id)
+        : [...p.especialidades, id],
+    }));
+  }
+
+  async function criarEspecialidade() {
+    const nome = novaEsp.trim();
+    if (!nome) return;
+    setCriandoEsp(true);
+    try {
+      const res = await fetch("/api/especialidades", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setNovaEsp("");
+      fetchEspecialidades();
+      setForm((p) =>
+        p.especialidades.includes(d.id)
+          ? p
+          : { ...p, especialidades: [...p.especialidades, d.id] }
+      );
+      toast(`Especialidade "${d.nome}" criada e selecionada.`, "success");
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro ao criar.", "error");
+    } finally {
+      setCriandoEsp(false);
+    }
   }
 
   async function handleSave() {
@@ -141,12 +253,13 @@ export default function MembrosPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      if (!res.ok) throw new Error();
+      const d = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(d?.error);
       toast(form.id ? "Membro atualizado!" : "Membro criado!", "success");
       setModalOpen(false);
       fetchMembros();
-    } catch {
-      toast("Erro ao salvar.", "error");
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro ao salvar.", "error");
     } finally {
       setSaving(false);
     }
@@ -165,6 +278,68 @@ export default function MembrosPage() {
       toast("Erro ao excluir. Verifique se não está escalado em uma OS.", "error");
     } finally {
       setDeleteLoading(false);
+    }
+  }
+
+  // ── Avaliações ──────────────────────────────────────────────────────────────
+
+  async function abrirAvaliacao(m: Membro) {
+    setAvaliando(m);
+    setAvForm({ nota: 0, postura: 0, tecnica: 0, pontualidade: 0, proatividade: 0, comentario: "", evento: "" });
+    try {
+      const res = await fetch(`/api/membros/${m.id}/avaliacoes`);
+      const d = await res.json();
+      setAvaliacoes(d.avaliacoes || []);
+    } catch {
+      setAvaliacoes([]);
+    }
+  }
+
+  async function salvarAvaliacao() {
+    if (!avaliando) return;
+    if (!avForm.nota) {
+      toast("Dê a nota geral (estrelas).", "error");
+      return;
+    }
+    setAvSalvando(true);
+    try {
+      const res = await fetch(`/api/membros/${avaliando.id}/avaliacoes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...avForm,
+          postura: avForm.postura || undefined,
+          tecnica: avForm.tecnica || undefined,
+          pontualidade: avForm.pontualidade || undefined,
+          proatividade: avForm.proatividade || undefined,
+        }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      toast("Avaliação registrada! ⭐", "success");
+      setAvForm({ nota: 0, postura: 0, tecnica: 0, pontualidade: 0, proatividade: 0, comentario: "", evento: "" });
+      const at = await fetch(`/api/membros/${avaliando.id}/avaliacoes`).then((r) => r.json());
+      setAvaliacoes(at.avaliacoes || []);
+      fetchMembros();
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro ao salvar.", "error");
+    } finally {
+      setAvSalvando(false);
+    }
+  }
+
+  async function excluirAvaliacao(avaliacaoId: string) {
+    if (!avaliando) return;
+    try {
+      const res = await fetch(
+        `/api/membros/${avaliando.id}/avaliacoes?avaliacaoId=${avaliacaoId}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) throw new Error();
+      setAvaliacoes((p) => p.filter((a) => a.id !== avaliacaoId));
+      fetchMembros();
+    } catch {
+      toast("Erro ao excluir avaliação.", "error");
     }
   }
 
@@ -209,7 +384,7 @@ export default function MembrosPage() {
               </Button>
             </div>
           ) : (
-            <table className="w-full min-w-[640px]">
+            <table className="w-full min-w-[760px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
                   <th className="px-4 py-3 w-10">
@@ -221,11 +396,11 @@ export default function MembrosPage() {
                       className="h-4 w-4 rounded cursor-pointer"
                     />
                   </th>
-                  {["Nome", "Tipo", "Telefone", "PIX", "Cachê", "Ações"].map((h, i) => (
+                  {["Nome", "Tipo", "Especialidades", "Avaliação", "Telefone", "Cachê", "Ações"].map((h, i) => (
                     <th
                       key={h}
                       className={`px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider ${
-                        i >= 4 ? "text-right" : "text-left"
+                        i >= 5 ? "text-right" : "text-left"
                       }`}
                     >
                       {h}
@@ -249,19 +424,72 @@ export default function MembrosPage() {
                         <div className="h-9 w-9 rounded-full bg-blue-50 flex items-center justify-center shrink-0 text-blue-700 text-sm font-bold">
                           {m.nome.charAt(0).toUpperCase()}
                         </div>
-                        <p className="text-sm font-medium text-slate-900">{m.nome}</p>
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">{m.nome}</p>
+                          {m.user && (
+                            <p className="text-[11px] text-emerald-600">
+                              usuário: {m.user.name || m.user.email}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant="neutral">{tipoLabels[m.tipo] || m.tipo}</Badge>
                     </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1 max-w-52">
+                        {(m.especialidades || []).slice(0, 3).map((e) => (
+                          <span
+                            key={e.especialidade.id}
+                            className="inline-flex rounded-full bg-blue-50 border border-blue-100 px-2 py-0.5 text-[11px] text-blue-700"
+                          >
+                            {e.especialidade.nome}
+                          </span>
+                        ))}
+                        {(m.especialidades || []).length > 3 && (
+                          <span className="text-[11px] text-slate-400">
+                            +{m.especialidades.length - 3}
+                          </span>
+                        )}
+                        {(m.especialidades || []).length === 0 && (
+                          <span className="text-xs text-slate-300">—</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {m.avaliacaoMedia != null ? (
+                        <button
+                          onClick={() => abrirAvaliacao(m)}
+                          className="flex items-center gap-1 text-sm text-slate-700 hover:text-amber-600"
+                          title={`${m.avaliacoesTotal} avaliação(ões)`}
+                        >
+                          <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                          {m.avaliacaoMedia.toFixed(1)}
+                          <span className="text-xs text-slate-400">({m.avaliacoesTotal})</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => abrirAvaliacao(m)}
+                          className="text-xs text-slate-400 hover:text-amber-600"
+                        >
+                          Avaliar
+                        </button>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm text-slate-500">{m.telefone || "—"}</td>
-                    <td className="px-4 py-3 text-sm text-slate-500">{m.pix || "—"}</td>
                     <td className="px-4 py-3 text-right text-sm font-medium text-slate-900">
                       {m.cache != null ? formatCurrency(m.cache) : "—"}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => abrirAvaliacao(m)}
+                          className="p-1.5 rounded-md text-slate-400 hover:text-amber-500 hover:bg-amber-50 transition-colors"
+                          title="Avaliar / feedback"
+                        >
+                          <Star className="h-4 w-4" />
+                        </button>
                         <button
                           onClick={() => openEdit(m)}
                           className="p-1.5 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
@@ -283,6 +511,7 @@ export default function MembrosPage() {
           )}
         </div>
 
+        {/* Modal de cadastro/edição */}
         <Modal
           open={modalOpen}
           onClose={() => setModalOpen(false)}
@@ -348,6 +577,70 @@ export default function MembrosPage() {
                   onChange={(e) => setForm((p) => ({ ...p, cache: e.target.value }))}
                   placeholder="0,00"
                 />
+                <Select
+                  label="Usuário do sistema (vínculo)"
+                  value={form.userId}
+                  onChange={(e) => setForm((p) => ({ ...p, userId: e.target.value }))}
+                  options={usuarios.map((u) => ({
+                    value: u.id,
+                    label: u.name || u.email,
+                  }))}
+                  placeholder="Sem vínculo"
+                  clearable
+                />
+              </div>
+
+              {/* Especialidades */}
+              <div>
+                <label className="text-sm font-medium text-slate-700 block mb-2">
+                  Especialidades
+                </label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {especialidades.map((e) => {
+                    const on = form.especialidades.includes(e.id);
+                    return (
+                      <button
+                        key={e.id}
+                        type="button"
+                        onClick={() => toggleEspecialidade(e.id)}
+                        className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                          on
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-white text-slate-600 border-slate-200 hover:border-blue-300"
+                        }`}
+                      >
+                        {e.nome}
+                      </button>
+                    );
+                  })}
+                  {especialidades.length === 0 && (
+                    <span className="text-xs text-slate-400">
+                      Nenhuma especialidade ainda — crie a primeira abaixo.
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    value={novaEsp}
+                    onChange={(e) => setNovaEsp(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        criarEspecialidade();
+                      }
+                    }}
+                    placeholder='Nova especialidade (ex.: "Técnico de som básico")'
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={criarEspecialidade}
+                    loading={criandoEsp}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Criar
+                  </Button>
+                </div>
               </div>
             </div>
           </ModalBody>
@@ -357,6 +650,108 @@ export default function MembrosPage() {
             </Button>
             <Button onClick={handleSave} loading={saving}>
               {form.id ? "Salvar" : "Criar"}
+            </Button>
+          </ModalFooter>
+        </Modal>
+
+        {/* Modal de avaliação / feedback */}
+        <Modal
+          open={!!avaliando}
+          onClose={() => setAvaliando(null)}
+          title={avaliando ? `⭐ Avaliar ${avaliando.nome}` : ""}
+          size="lg"
+        >
+          <ModalBody>
+            <div className="space-y-4">
+              <div className="rounded-lg border border-slate-100 bg-slate-50 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-slate-800">Nota geral *</span>
+                  <Estrelas valor={avForm.nota} onChange={(v) => setAvForm((p) => ({ ...p, nota: v }))} />
+                </div>
+                {CRITERIOS.map((c) => (
+                  <div key={c.key} className="flex items-center justify-between">
+                    <span className="text-sm text-slate-600">{c.label}</span>
+                    <Estrelas
+                      valor={avForm[c.key]}
+                      onChange={(v) => setAvForm((p) => ({ ...p, [c.key]: v }))}
+                      tamanho="h-4 w-4"
+                    />
+                  </div>
+                ))}
+                <Input
+                  label="Evento de referência (opcional)"
+                  value={avForm.evento}
+                  onChange={(e) => setAvForm((p) => ({ ...p, evento: e.target.value }))}
+                  placeholder="Ex.: Convenção IBIS julho/2026"
+                />
+                <Textarea
+                  label="Comentários"
+                  value={avForm.comentario}
+                  onChange={(e) => setAvForm((p) => ({ ...p, comentario: e.target.value }))}
+                  placeholder="Postura, comportamento com o cliente, pontos fortes e a melhorar..."
+                  rows={3}
+                />
+                <div className="flex justify-end">
+                  <Button size="sm" onClick={salvarAvaliacao} loading={avSalvando}>
+                    Salvar avaliação
+                  </Button>
+                </div>
+              </div>
+
+              {/* Histórico */}
+              <div>
+                <h4 className="text-sm font-semibold text-slate-800 mb-2">
+                  Histórico ({avaliacoes.length})
+                </h4>
+                {avaliacoes.length === 0 ? (
+                  <p className="text-xs text-slate-400">Nenhuma avaliação ainda.</p>
+                ) : (
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    {avaliacoes.map((a) => (
+                      <div
+                        key={a.id}
+                        className="rounded-lg border border-slate-100 p-3 text-sm"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Estrelas valor={a.nota} tamanho="h-3.5 w-3.5" />
+                            <span className="text-xs text-slate-400">
+                              {new Date(a.createdAt).toLocaleDateString("pt-BR")}
+                              {a.autor ? ` · ${a.autor}` : ""}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => excluirAvaliacao(a.id)}
+                            className="text-slate-300 hover:text-red-500"
+                            title="Excluir"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        {a.evento && (
+                          <p className="text-xs text-slate-500 mt-1">Evento: {a.evento}</p>
+                        )}
+                        <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-[11px] text-slate-500">
+                          {a.postura && <span>Postura: {a.postura}/5</span>}
+                          {a.tecnica && <span>Técnica: {a.tecnica}/5</span>}
+                          {a.pontualidade && <span>Pontualidade: {a.pontualidade}/5</span>}
+                          {a.proatividade && <span>Proatividade: {a.proatividade}/5</span>}
+                        </div>
+                        {a.comentario && (
+                          <p className="text-xs text-slate-600 mt-1.5 whitespace-pre-wrap">
+                            {a.comentario}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="outline" onClick={() => setAvaliando(null)}>
+              Fechar
             </Button>
           </ModalFooter>
         </Modal>

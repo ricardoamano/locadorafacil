@@ -99,6 +99,7 @@ model User {
   sessions       Session[]
   tarefasCriadas Tarefa[]  @relation("TarefaCriador")
   tarefasAtribuidas TarefaUsuario[]
+  membro         Membro?   // perfil de equipe vinculado (usuário que também é membro)
 }
 
 model Account {
@@ -571,7 +572,8 @@ model EscalaMembro {
 
 model Especialidade {
   id        String   @id @default(cuid())
-  nome      String
+  nome      String   // ex.: "Técnico de som básico", "Técnico de informática avançado"
+  companyId String?  // multiempresa (null apenas em registros antigos)
   createdAt DateTime @default(now())
 
   membros MembroEspecialidade[]
@@ -588,6 +590,8 @@ model Membro {
   pix       String?
   cache     Float?
   fotoUrl   String?
+  userId    String?  @unique // usuário do sistema vinculado (ex.: Well é usuário E membro)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   companyId String
   company   Company  @relation(fields: [companyId], references: [id])
   createdAt DateTime @default(now())
@@ -610,13 +614,20 @@ model MembroEspecialidade {
   @@unique([membroId, especialidadeId])
 }
 
+// Feedback de freelancers/membros: nota geral + critérios (1 a 5) e comentário
 model Avaliacao {
-  id         String   @id @default(cuid())
-  membroId   String
-  membro     Membro   @relation(fields: [membroId], references: [id], onDelete: Cascade)
-  nota       Int
-  comentario String?
-  createdAt  DateTime @default(now())
+  id           String   @id @default(cuid())
+  membroId     String
+  membro       Membro   @relation(fields: [membroId], references: [id], onDelete: Cascade)
+  nota         Int      // nota geral 1-5 (usada na classificação)
+  postura      Int?     // 1-5
+  tecnica      Int?     // conhecimento técnico 1-5
+  pontualidade Int?     // 1-5
+  proatividade Int?     // 1-5
+  comentario   String?
+  evento       String?  // evento/OS de referência (texto livre)
+  autor        String?  // quem avaliou
+  createdAt    DateTime @default(now())
 }
 
 model Veiculo {
