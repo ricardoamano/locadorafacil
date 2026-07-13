@@ -76,6 +76,22 @@ function toLocalInput(dt?: string | null): string {
   return dt.slice(0, 16);
 }
 
+// Cachê da equipe cobre 12 horas de trabalho; além disso são horas extras.
+const HORAS_CACHE = 12;
+
+function horasTrabalhadas(entrada: string, saida: string): number | null {
+  if (!entrada || !saida) return null;
+  const ms = new Date(saida).getTime() - new Date(entrada).getTime();
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  return ms / 3_600_000;
+}
+
+function fmtHoras(h: number): string {
+  const horas = Math.floor(h);
+  const min = Math.round((h - horas) * 60);
+  return min > 0 ? `${horas}h${String(min).padStart(2, "0")}` : `${horas}h`;
+}
+
 export function OsDetail({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   os,
@@ -405,59 +421,98 @@ export function OsDetail({
         )}
 
         <div className="space-y-3">
-          {escala.map((e, i) => (
-            <div key={i} className="grid grid-cols-12 gap-2 items-end border-b border-slate-50 pb-3">
-              <div className="col-span-4">
-                <Select
-                  label={i === 0 ? "Membro" : undefined}
-                  value={e.membroId}
-                  onChange={(ev) => {
-                    const m = membros.find((x) => x.id === ev.target.value);
-                    setEscalaField(i, {
-                      membroId: ev.target.value,
-                      cache: e.cache || (m?.cache != null ? String(m.cache) : ""),
-                    });
-                  }}
-                  options={membroOptions}
-                  placeholder="Selecione"
-                />
+          {escala.map((e, i) => {
+            const horas = horasTrabalhadas(e.horarioEntrada, e.horarioSaida);
+            return (
+              <div key={i} className="border-b border-slate-50 pb-3">
+                <div className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-3">
+                    <Select
+                      label={i === 0 ? "Membro" : undefined}
+                      value={e.membroId}
+                      onChange={(ev) => {
+                        const m = membros.find((x) => x.id === ev.target.value);
+                        setEscalaField(i, {
+                          membroId: ev.target.value,
+                          cache: e.cache || (m?.cache != null ? String(m.cache) : ""),
+                        });
+                      }}
+                      options={membroOptions}
+                      placeholder="Selecione"
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <Input
+                      label={i === 0 ? "Entrada (dia e hora)" : undefined}
+                      type="datetime-local"
+                      value={e.horarioEntrada}
+                      onChange={(ev) => setEscalaField(i, { horarioEntrada: ev.target.value })}
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <Input
+                      label={i === 0 ? "Saída (dia e hora)" : undefined}
+                      type="datetime-local"
+                      value={e.horarioSaida}
+                      onChange={(ev) => setEscalaField(i, { horarioSaida: ev.target.value })}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Input
+                      label={i === 0 ? "Cachê (R$)" : undefined}
+                      type="number"
+                      step="0.01"
+                      value={e.cache}
+                      onChange={(ev) => setEscalaField(i, { cache: ev.target.value })}
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div className="col-span-1 pb-1.5 text-right">
+                    <button
+                      onClick={() => removeEscala(i)}
+                      className="text-slate-400 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-12 gap-2 mt-2 items-center">
+                  <div className="col-span-3">
+                    <Input
+                      value={e.funcao}
+                      onChange={(ev) => setEscalaField(i, { funcao: ev.target.value })}
+                      placeholder="Função (ex.: Técnico som)"
+                    />
+                  </div>
+                  <div className="col-span-9">
+                    {horas !== null && (
+                      <p
+                        className={`text-xs ${
+                          horas > HORAS_CACHE ? "text-red-600 font-medium" : "text-slate-500"
+                        }`}
+                      >
+                        ⏱ {fmtHoras(horas)} trabalhadas
+                        {horas > HORAS_CACHE ? (
+                          <>
+                            {" "}
+                            — <strong>{fmtHoras(horas - HORAS_CACHE)} extras</strong> além das{" "}
+                            {HORAS_CACHE}h do cachê
+                          </>
+                        ) : (
+                          <> (dentro das {HORAS_CACHE}h do cachê)</>
+                        )}
+                      </p>
+                    )}
+                    {horas === null && e.horarioEntrada && !e.horarioSaida && (
+                      <p className="text-xs text-slate-400">
+                        Preencha a saída ao final do evento para calcular as horas.
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="col-span-3">
-                <Input
-                  label={i === 0 ? "Entrada" : undefined}
-                  type="datetime-local"
-                  value={e.horarioEntrada}
-                  onChange={(ev) => setEscalaField(i, { horarioEntrada: ev.target.value })}
-                />
-              </div>
-              <div className="col-span-2">
-                <Input
-                  label={i === 0 ? "Função" : undefined}
-                  value={e.funcao}
-                  onChange={(ev) => setEscalaField(i, { funcao: ev.target.value })}
-                  placeholder="Ex: Técnico som"
-                />
-              </div>
-              <div className="col-span-2">
-                <Input
-                  label={i === 0 ? "Cachê (R$)" : undefined}
-                  type="number"
-                  step="0.01"
-                  value={e.cache}
-                  onChange={(ev) => setEscalaField(i, { cache: ev.target.value })}
-                  placeholder="0,00"
-                />
-              </div>
-              <div className="col-span-1 pb-1.5 text-right">
-                <button
-                  onClick={() => removeEscala(i)}
-                  className="text-slate-400 hover:text-red-500 transition-colors"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <Button variant="outline" size="sm" onClick={addEscala} className="mt-3">
