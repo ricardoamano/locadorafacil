@@ -18,6 +18,7 @@ export interface ClienteImport {
   inscricaoEstadual: string | null;
   inscricaoMunicipal: string | null;
   isPostoServico: boolean;
+  bubbleId: string | null; // id do cliente no Bubble (reconstruído pelos contatos)
   subcontatos: SubContatoImport[];
 }
 
@@ -189,6 +190,7 @@ export function montarImportacaoClientes(
       inscricaoEstadual: (r[kIe] || "").trim() || null,
       inscricaoMunicipal: (r[kIm] || "").trim() || null,
       isPostoServico: norm(r[kPosto] || "") === "sim",
+      bubbleId: best || null,
       subcontatos: subs,
     });
   }

@@ -175,6 +175,7 @@ model Contact {
   estado             String?
   perfil             String?
   isPostoServico     Boolean       @default(false)
+  bubbleId           String?       // id de origem (Bubble) — para cruzar importações
   companyId          String
   company            Company       @relation(fields: [companyId], references: [id])
   createdAt          DateTime      @default(now())
@@ -217,6 +218,7 @@ model Local {
   lat         Float?
   lng         Float?
   observacoes String?
+  bubbleId    String?  // id de origem (Bubble) — para cruzar importações
   companyId   String
   company     Company  @relation(fields: [companyId], references: [id])
   createdAt   DateTime @default(now())

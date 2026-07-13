@@ -75,6 +75,7 @@ export async function POST(req: NextRequest) {
         inscricaoEstadual: c.inscricaoEstadual,
         inscricaoMunicipal: c.inscricaoMunicipal,
         isPostoServico: c.isPostoServico,
+        bubbleId: c.bubbleId,
         companyId,
         subContacts: {
           create: c.subcontatos.map((s) => ({
