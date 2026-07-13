@@ -451,6 +451,13 @@ model OrdemServico {
   obsDesmontagem     String?  // texto livre (ex.: "previsto para terminar às 22h")
   obsLocal           String?  // texto livre do local (ex.: "entrada pelo portão 5")
   observacoes        String?
+  // Pós-evento: fechamento com sucessos, problemas e feedback do cliente
+  posSucessos        String?
+  posProblemas       String?
+  posFeedback        String?
+  posComentarios     String?
+  posEventoEm        DateTime?
+  posEventoPor       String?
   companyId          String
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt

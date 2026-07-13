@@ -224,6 +224,15 @@ export async function PUT(
     (body.infoEvento?.trim() || "") !== (existing.infoEvento || "");
   if (infoMudou) alteracoes.push("Informações do evento atualizadas");
 
+  // Pós-evento (sucessos, problemas, feedback, comentários) — carimbado
+  const camposPos = ["posSucessos", "posProblemas", "posFeedback", "posComentarios"] as const;
+  const posMudou = camposPos.some(
+    (c) =>
+      body[c] !== undefined &&
+      (String(body[c] || "").trim() || "") !== ((existing[c] as string | null) || "")
+  );
+  if (posMudou) alteracoes.push("Pós-evento atualizado");
+
   await prisma.escalaMembro.deleteMany({ where: { osId: id } });
   if (veiculosInput) {
     await prisma.osVeiculo.deleteMany({ where: { osId: id } });
@@ -247,6 +256,13 @@ export async function PUT(
             infoEventoPor: autor,
           }
         : {}),
+      ...(body.posSucessos !== undefined ? { posSucessos: body.posSucessos?.trim() || null } : {}),
+      ...(body.posProblemas !== undefined ? { posProblemas: body.posProblemas?.trim() || null } : {}),
+      ...(body.posFeedback !== undefined ? { posFeedback: body.posFeedback?.trim() || null } : {}),
+      ...(body.posComentarios !== undefined
+        ? { posComentarios: body.posComentarios?.trim() || null }
+        : {}),
+      ...(posMudou ? { posEventoEm: new Date(), posEventoPor: autor } : {}),
       escala: {
         create: escala.map((e) => ({
           membroId: e.membroId,

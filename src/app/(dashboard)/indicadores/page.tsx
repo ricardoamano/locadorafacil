@@ -113,6 +113,8 @@ export default function IndicadoresPage() {
   const [loading, setLoading] = useState(true);
   const [analise, setAnalise] = useState("");
   const [analisando, setAnalisando] = useState(false);
+  const [resumoEventos, setResumoEventos] = useState("");
+  const [resumindo, setResumindo] = useState(false);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -158,6 +160,25 @@ export default function IndicadoresPage() {
       toast(e instanceof Error && e.message ? e.message : "Erro na análise.", "error");
     } finally {
       setAnalisando(false);
+    }
+  }
+
+  async function resumirEventosIa() {
+    if (!data?.periodo?.inicio || !data?.periodo?.fim) return;
+    setResumindo(true);
+    try {
+      const res = await fetch("/api/ia/resumo-eventos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inicio: data.periodo.inicio, fim: data.periodo.fim }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setResumoEventos(d.resumo);
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro no resumo.", "error");
+    } finally {
+      setResumindo(false);
     }
   }
 
@@ -575,6 +596,30 @@ export default function IndicadoresPage() {
             </section>
 
             {/* Análises estratégicas — últimos 12 meses */}
+            {/* Resumo por IA dos eventos do período (pós-evento + avaliações) */}
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-900">
+                    📋 Resumo dos eventos do período (IA)
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Lê o pós-evento de cada OS (sucessos, problemas, feedback) e as
+                    avaliações da equipe e gera um resumo executivo.
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" onClick={resumirEventosIa} loading={resumindo}>
+                  {resumoEventos ? "Gerar novamente" : "Gerar resumo por IA"}
+                </Button>
+              </div>
+              {resumoEventos && (
+                <div
+                  className="proposta-md mt-3 text-sm border-t border-slate-100 pt-3"
+                  dangerouslySetInnerHTML={{ __html: mdParaHtml(resumoEventos) }}
+                />
+              )}
+            </div>
+
             {data.estrategico && (
               <section>
                 <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-2">

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { OsConferencia } from "./os-conferencia";
 import { OsNestor } from "./os-nestor";
@@ -23,6 +24,7 @@ import {
   MessageCircle,
   Truck,
   AlertTriangle,
+  Star,
 } from "lucide-react";
 
 const statusOptions = [
@@ -111,6 +113,15 @@ export function OsDetail({
   const [obsMontagem, setObsMontagem] = useState(os.obsMontagem || "");
   const [obsDesmontagem, setObsDesmontagem] = useState(os.obsDesmontagem || "");
   const [obsLocal, setObsLocal] = useState(os.obsLocal || "");
+  // Pós-evento
+  const [posSucessos, setPosSucessos] = useState(os.posSucessos || "");
+  const [posProblemas, setPosProblemas] = useState(os.posProblemas || "");
+  const [posFeedback, setPosFeedback] = useState(os.posFeedback || "");
+  const [posComentarios, setPosComentarios] = useState(os.posComentarios || "");
+  // Avaliação rápida de técnico escalado
+  const [avaliandoMembro, setAvaliandoMembro] = useState<{ id: string; nome: string } | null>(null);
+  const [avOs, setAvOs] = useState({ nota: 0, postura: 0, tecnica: 0, pontualidade: 0, proatividade: 0, comentario: "" });
+  const [avOsSalvando, setAvOsSalvando] = useState(false);
   const [escala, setEscala] = useState<EscalaRow[]>(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (os.escala || []).map((e: any) => ({
@@ -232,6 +243,10 @@ export function OsDetail({
           horarioDesmontagem: horarioDesmontagem || null,
           observacoes,
           infoEvento,
+          posSucessos,
+          posProblemas,
+          posFeedback,
+          posComentarios,
           obsMontagem,
           obsDesmontagem,
           obsLocal,
@@ -247,6 +262,37 @@ export function OsDetail({
       toast("Erro ao salvar. Tente novamente.", "error");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function salvarAvaliacaoOs() {
+    if (!avaliandoMembro) return;
+    if (!avOs.nota) {
+      toast("Dê a nota geral (estrelas).", "error");
+      return;
+    }
+    setAvOsSalvando(true);
+    try {
+      const res = await fetch(`/api/membros/${avaliandoMembro.id}/avaliacoes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...avOs,
+          postura: avOs.postura || undefined,
+          tecnica: avOs.tecnica || undefined,
+          pontualidade: avOs.pontualidade || undefined,
+          proatividade: avOs.proatividade || undefined,
+          evento: os.orcamento?.eventoNome || `OS #${os.orcamento?.numero || ""}`,
+        }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      toast(`Avaliação de ${avaliandoMembro.nome} registrada! ⭐`, "success");
+      setAvaliandoMembro(null);
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro ao salvar.", "error");
+    } finally {
+      setAvOsSalvando(false);
     }
   }
 
@@ -467,7 +513,22 @@ export function OsDetail({
                       placeholder="0,00"
                     />
                   </div>
-                  <div className="col-span-1 pb-1.5 text-right">
+                  <div className="col-span-1 pb-1.5 flex items-center justify-end gap-1">
+                    <button
+                      onClick={() => {
+                        const m = membros.find((x) => x.id === e.membroId);
+                        if (!m) {
+                          toast("Selecione o membro antes de avaliar.", "error");
+                          return;
+                        }
+                        setAvOs({ nota: 0, postura: 0, tecnica: 0, pontualidade: 0, proatividade: 0, comentario: "" });
+                        setAvaliandoMembro({ id: m.id, nome: m.nome });
+                      }}
+                      title="Avaliar este técnico neste evento"
+                      className="text-slate-400 hover:text-amber-500 transition-colors"
+                    >
+                      <Star className="h-4 w-4" />
+                    </button>
                     <button
                       onClick={() => removeEscala(i)}
                       className="text-slate-400 hover:text-red-500 transition-colors"
@@ -784,6 +845,58 @@ export function OsDetail({
         />
       </div>
 
+      {/* Pós-evento — fechamento com sucessos, problemas e feedback */}
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+        <h3 className="text-sm font-semibold text-slate-900 mb-1">Pós-evento</h3>
+        <p className="text-xs text-slate-400 mb-3">
+          Fechamento do evento: o que deu certo, o que deu errado e o que o cliente
+          disse. Alimenta o resumo por IA nos Indicadores.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Textarea
+            label="✅ Sucessos"
+            value={posSucessos}
+            onChange={(e) => setPosSucessos(e.target.value)}
+            placeholder="O que funcionou bem..."
+            rows={3}
+          />
+          <Textarea
+            label="⚠️ Problemas"
+            value={posProblemas}
+            onChange={(e) => setPosProblemas(e.target.value)}
+            placeholder="Falhas, atrasos, equipamentos com defeito..."
+            rows={3}
+          />
+          <Textarea
+            label="💬 Feedback do cliente"
+            value={posFeedback}
+            onChange={(e) => setPosFeedback(e.target.value)}
+            placeholder="O que o cliente/produtor comentou..."
+            rows={3}
+          />
+          <Textarea
+            label="📝 Comentários finais"
+            value={posComentarios}
+            onChange={(e) => setPosComentarios(e.target.value)}
+            placeholder="Aprendizados, pendências, ideias para o próximo..."
+            rows={3}
+          />
+        </div>
+        {os.posEventoEm && (
+          <p className="text-xs text-slate-400 mt-2">
+            🔄 Última atualização:{" "}
+            {new Date(os.posEventoEm).toLocaleString("pt-BR", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+            {os.posEventoPor ? ` por ${os.posEventoPor}` : ""}
+          </p>
+        )}
+      </div>
+
       {/* Actions */}
       <div className="flex items-center justify-end gap-3">
         <Button variant="outline" onClick={() => router.push("/ordens-servico")} disabled={saving}>
@@ -793,6 +906,77 @@ export function OsDetail({
           Salvar OS
         </Button>
       </div>
+
+      {/* Avaliação rápida de técnico escalado (vai para o perfil do membro) */}
+      <Modal
+        open={!!avaliandoMembro}
+        onClose={() => !avOsSalvando && setAvaliandoMembro(null)}
+        title={avaliandoMembro ? `⭐ Avaliar ${avaliandoMembro.nome} neste evento` : ""}
+        size="md"
+      >
+        <ModalBody>
+          <div className="space-y-3">
+            {(
+              [
+                ["nota", "Nota geral *"],
+                ["postura", "Postura / comportamento"],
+                ["tecnica", "Conhecimento técnico"],
+                ["pontualidade", "Pontualidade"],
+                ["proatividade", "Proatividade"],
+              ] as const
+            ).map(([campo, rotulo]) => (
+              <div key={campo} className="flex items-center justify-between">
+                <span
+                  className={`text-sm ${campo === "nota" ? "font-semibold text-slate-800" : "text-slate-600"}`}
+                >
+                  {rotulo}
+                </span>
+                <div className="flex gap-0.5">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setAvOs((p) => ({ ...p, [campo]: n }))}
+                      className="cursor-pointer"
+                    >
+                      <Star
+                        className={`${campo === "nota" ? "h-5 w-5" : "h-4 w-4"} ${
+                          n <= avOs[campo]
+                            ? "fill-amber-400 text-amber-400"
+                            : "text-slate-200"
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <Textarea
+              label="Comentários"
+              value={avOs.comentario}
+              onChange={(e) => setAvOs((p) => ({ ...p, comentario: e.target.value }))}
+              placeholder="Como foi o desempenho neste evento..."
+              rows={3}
+            />
+            <p className="text-xs text-slate-400">
+              A avaliação fica registrada no perfil do membro (Equipe → Membros), com
+              este evento como referência.
+            </p>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button
+            variant="outline"
+            onClick={() => setAvaliandoMembro(null)}
+            disabled={avOsSalvando}
+          >
+            Cancelar
+          </Button>
+          <Button onClick={salvarAvaliacaoOs} loading={avOsSalvando}>
+            Salvar avaliação
+          </Button>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 }
