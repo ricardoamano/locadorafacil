@@ -46,6 +46,12 @@ export async function GET(req: NextRequest) {
         subCategoria: { select: { id: true, nome: true } },
         marca: { select: { id: true, nome: true } },
         acessoriosAvulsos: { select: { id: true, nome: true, quantidade: true } },
+        // Itens em que ESTE item é acessório (ex.: cabo USB é acessório da impressora)
+        acessoriosVinc: {
+          select: { itemBase: { select: { id: true, nome: true, codigo: true } } },
+        },
+        // Acessórios (itens reais) que pertencem a ESTE item — só para o contador
+        acessoriosBase: { select: { acessorioId: true } },
         // Disponibilidade em tempo real calculada pelas unidades serializadas
         unidades: { select: { status: true } },
       },

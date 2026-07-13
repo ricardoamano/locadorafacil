@@ -19,6 +19,7 @@ import {
   Package,
   Globe,
   QrCode,
+  Link2,
 } from "lucide-react";
 
 const tipoLabels: Record<string, string> = {
@@ -42,6 +43,8 @@ interface Item {
   slug?: string | null;
   categoria: { id: string; nome: string } | null;
   subCategoria?: { id: string; nome: string } | null;
+  acessoriosVinc?: { itemBase: { id: string; nome: string; codigo: string } }[];
+  acessoriosBase?: { acessorioId: string }[];
 }
 
 export function ItensList() {
@@ -142,8 +145,45 @@ export function ItensList() {
     setModalOpen(true);
   }
 
-  const visibleItens =
+  const filtrados =
     view === "catalogo" ? itens.filter((i) => i.emCatalogo) : itens;
+
+  // Coloca cada acessório (item que é acessório de outro) logo abaixo do seu
+  // item-base, recuado. Acessórios cujo base não está nesta página aparecem na
+  // posição normal, mas ainda marcados como acessório de X.
+  const visibleItens = React.useMemo(() => {
+    const porId = new Map(filtrados.map((i) => [i.id, i]));
+    const baseDe = (i: Item) =>
+      i.acessoriosVinc && i.acessoriosVinc.length > 0 ? i.acessoriosVinc[0].itemBase : null;
+
+    const filhosPorBase = new Map<string, Item[]>();
+    for (const i of filtrados) {
+      const b = baseDe(i);
+      if (b && porId.has(b.id) && b.id !== i.id) {
+        const arr = filhosPorBase.get(b.id) || [];
+        arr.push(i);
+        filhosPorBase.set(b.id, arr);
+      }
+    }
+
+    const colocados = new Set<string>();
+    const resultado: Item[] = [];
+    for (const i of filtrados) {
+      if (colocados.has(i.id)) continue;
+      const b = baseDe(i);
+      // Acessório cujo base está nesta página: entra sob o base, não aqui.
+      if (b && porId.has(b.id) && b.id !== i.id) continue;
+      resultado.push(i);
+      colocados.add(i.id);
+      for (const f of filhosPorBase.get(i.id) || []) {
+        if (!colocados.has(f.id)) {
+          resultado.push(f);
+          colocados.add(f.id);
+        }
+      }
+    }
+    return resultado;
+  }, [filtrados]);
 
   return (
     <div>
@@ -268,27 +308,65 @@ export function ItensList() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {visibleItens.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+              {visibleItens.map((item) => {
+                const base =
+                  item.acessoriosVinc && item.acessoriosVinc.length > 0
+                    ? item.acessoriosVinc[0].itemBase
+                    : null;
+                const qtdAcessorios = item.acessoriosBase?.length || 0;
+                return (
+                <tr
+                  key={item.id}
+                  className={`transition-colors ${
+                    base
+                      ? "bg-amber-50/50 hover:bg-amber-50 border-l-2 border-amber-300"
+                      : "hover:bg-slate-50"
+                  }`}
+                >
                   <td className="px-4 py-3">
-                    <span className="text-sm font-mono text-slate-500">
-                      {item.codigo || "—"}
-                    </span>
+                    {base ? (
+                      <span className="text-sm font-mono text-amber-700">
+                        <span className="text-amber-400">{base.codigo} ›</span> {item.codigo || "—"}
+                      </span>
+                    ) : (
+                      <span className="text-sm font-mono text-slate-500">
+                        {item.codigo || "—"}
+                      </span>
+                    )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className={`px-4 py-3 ${base ? "pl-8" : ""}`}>
                     <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                        <Package className="h-4 w-4 text-blue-600" />
+                      <div
+                        className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${
+                          base ? "bg-amber-100" : "bg-blue-50"
+                        }`}
+                      >
+                        {base ? (
+                          <Link2 className="h-4 w-4 text-amber-600" />
+                        ) : (
+                          <Package className="h-4 w-4 text-blue-600" />
+                        )}
                       </div>
                       <div>
                         <p className="text-sm font-medium text-slate-900">
+                          {base && <span className="text-amber-500 mr-1">↳</span>}
                           {item.nome}
                           {item.natureza === "SERVICO" && (
                             <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-full align-middle">
                               serviço
                             </span>
                           )}
+                          {qtdAcessorios > 0 && (
+                            <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full align-middle">
+                              {qtdAcessorios} acessório{qtdAcessorios > 1 ? "s" : ""}
+                            </span>
+                          )}
                         </p>
+                        {base && (
+                          <p className="text-xs text-amber-700">
+                            Acessório de {base.nome} ({base.codigo})
+                          </p>
+                        )}
                         {item.apelidos && (
                           <p className="text-xs text-slate-400 italic">
                             {item.apelidos}
@@ -398,7 +476,8 @@ export function ItensList() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}
