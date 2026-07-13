@@ -36,13 +36,13 @@ export async function PUT(
         nome: body.nome?.trim() || existing.nome,
         descricao: body.descricao?.trim() || null,
         itens: {
-          create: itens.map((i: { itemId: string; quantidade?: number }) => ({
+          create: itens.map((i: { itemId: string; quantidade?: number; valorUnitario?: number | null }) => ({
             itemId: i.itemId,
             quantidade: Math.max(1, parseInt(String(i.quantidade)) || 1),
           })),
         },
       },
-      include: { itens: { include: { item: { select: { nome: true } } } } },
+      include: { itens: { include: { item: { select: { nome: true, valorAluguel: true } } } } },
     });
   });
   return NextResponse.json(kit);

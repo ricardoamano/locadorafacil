@@ -428,11 +428,11 @@ export function OrcamentoForm({
     if (!kit) return;
     const salas = [...form.salas];
     const novas = (kit.itens || []).map(
-      (ki: { itemId: string; quantidade: number; item?: { valorAluguel?: number; descricaoComercial?: string | null; natureza?: string } }) => ({
+      (ki: { itemId: string; quantidade: number; valorUnitario?: number | null; item?: { valorAluguel?: number; descricaoComercial?: string | null; natureza?: string } }) => ({
         itemId: ki.itemId,
         quantidade: ki.quantidade,
         diarias: 1,
-        valorUnitario: ki.item?.valorAluguel || 0,
+        valorUnitario: ki.valorUnitario != null ? ki.valorUnitario : (ki.item?.valorAluguel || 0),
         descricaoComercial: ki.item?.descricaoComercial || "",
       })
     );

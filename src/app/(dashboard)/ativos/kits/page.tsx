@@ -17,6 +17,7 @@ import { Plus, Pencil, Trash2, Boxes } from "lucide-react";
 interface LinhaKit {
   itemId: string;
   quantidade: number;
+  valorUnitario: string;
 }
 
 export default function KitsPage() {
@@ -56,7 +57,7 @@ export default function KitsPage() {
     setEditId(null);
     setNome("");
     setDescricao("");
-    setLinhas([{ itemId: "", quantidade: 1 }]);
+    setLinhas([{ itemId: "", quantidade: 1, valorUnitario: "" }]);
     setModalOpen(true);
   }
 
@@ -65,7 +66,7 @@ export default function KitsPage() {
     setNome(kit.nome);
     setDescricao(kit.descricao || "");
     setLinhas(
-      (kit.itens || []).map((i: any) => ({ itemId: i.itemId, quantidade: i.quantidade }))
+      (kit.itens || []).map((i: any) => ({ itemId: i.itemId, quantidade: i.quantidade, valorUnitario: i.valorUnitario != null ? String(i.valorUnitario) : "" }))
     );
     setModalOpen(true);
   }
@@ -81,7 +82,17 @@ export default function KitsPage() {
       const res = await fetch(editId ? `/api/kits/${editId}` : "/api/kits", {
         method: editId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nome, descricao, itens: validas }),
+        body: JSON.stringify({
+          nome,
+          descricao,
+          itens: validas.map((l) => ({
+            itemId: l.itemId,
+            quantidade: l.quantidade,
+            valorUnitario: l.valorUnitario.trim()
+              ? parseFloat(l.valorUnitario.replace(/\./g, "").replace(",", "."))
+              : null,
+          })),
+        }),
       });
       const d = await res.json();
       if (!res.ok) {
@@ -122,7 +133,7 @@ export default function KitsPage() {
 
   function valorKit(kit: any) {
     return (kit.itens || []).reduce(
-      (a: number, i: any) => a + (i.item?.valorAluguel || 0) * i.quantidade,
+      (a: number, i: any) => a + ((i.valorUnitario ?? i.item?.valorAluguel) || 0) * i.quantidade,
       0
     );
   }
@@ -226,24 +237,33 @@ export default function KitsPage() {
                 placeholder="Ex: Estrutura básica para eventos até 100 pessoas"
               />
               <div>
-                <p className="text-sm font-medium text-slate-700 mb-2">Itens do kit *</p>
+                <p className="text-sm font-medium text-slate-700 mb-1">Itens do kit *</p>
+                <p className="text-xs text-slate-400 mb-2">Item · quantidade · preço manual (vazio = usa a diária do item)</p>
                 <div className="space-y-2">
                   {linhas.map((l, i) => (
                     <div key={i} className="grid grid-cols-12 gap-2 items-end">
-                      <div className="col-span-8">
+                      <div className="col-span-6">
                         <Select
                           searchable
                           value={l.itemId}
                           onChange={(e) => {
                             const arr = [...linhas];
-                            arr[i] = { ...arr[i], itemId: e.target.value };
+                            const it = itens.find((x: any) => x.id === e.target.value);
+                            arr[i] = {
+                              ...arr[i],
+                              itemId: e.target.value,
+                              // sugere a diária do item como ponto de partida (editável)
+                              valorUnitario:
+                                arr[i].valorUnitario ||
+                                (it?.valorAluguel != null ? String(it.valorAluguel).replace(".", ",") : ""),
+                            };
                             setLinhas(arr);
                           }}
                           options={itemOptions}
                           placeholder="Digite para buscar o item"
                         />
                       </div>
-                      <div className="col-span-3">
+                      <div className="col-span-2">
                         <input
                           type="number"
                           min={1}
@@ -257,6 +277,20 @@ export default function KitsPage() {
                             setLinhas(arr);
                           }}
                           className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          title="Quantidade"
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <input
+                          value={l.valorUnitario}
+                          onChange={(e) => {
+                            const arr = [...linhas];
+                            arr[i] = { ...arr[i], valorUnitario: e.target.value };
+                            setLinhas(arr);
+                          }}
+                          placeholder="Preço manual"
+                          className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          title="Valor unitário no kit (deixe vazio para usar a diária do item)"
                         />
                       </div>
                       <div className="col-span-1 pb-1.5 text-right">
@@ -274,7 +308,7 @@ export default function KitsPage() {
                   variant="outline"
                   size="sm"
                   className="mt-2"
-                  onClick={() => setLinhas([...linhas, { itemId: "", quantidade: 1 }])}
+                  onClick={() => setLinhas([...linhas, { itemId: "", quantidade: 1, valorUnitario: "" }])}
                 >
                   <Plus className="h-4 w-4" />
                   Adicionar item

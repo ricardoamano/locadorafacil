@@ -491,12 +491,13 @@ model Kit {
 }
 
 model KitItem {
-  id         String @id @default(cuid())
-  kitId      String
-  kit        Kit    @relation(fields: [kitId], references: [id], onDelete: Cascade)
-  itemId     String
-  item       Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  quantidade Int    @default(1)
+  id            String @id @default(cuid())
+  kitId         String
+  kit           Kit    @relation(fields: [kitId], references: [id], onDelete: Cascade)
+  itemId        String
+  item          Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  quantidade    Int    @default(1)
+  valorUnitario Float? // preço manual do item no kit (null = usa a diária do item)
 }
 
 // Registro de entrada/saída de equipamentos do estoque na OS (auditável)
