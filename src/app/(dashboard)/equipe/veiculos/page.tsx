@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
-import { Plus, Pencil, Trash2, Truck, Copy } from "lucide-react";
+import { Plus, Pencil, Trash2, Truck, Copy, Wrench } from "lucide-react";
+import { VeiculoManutencaoModal } from "@/components/veiculos/veiculo-manutencao";
 
 interface Veiculo {
   id: string;
@@ -66,6 +67,7 @@ export default function VeiculosPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+  const [manutencaoDe, setManutencaoDe] = useState<Veiculo | null>(null);
 
   function toggleSelecionado(id: string) {
     setSelecionados((prev) => {
@@ -266,6 +268,13 @@ export default function VeiculosPage() {
                           <Pencil className="h-4 w-4" />
                         </button>
                         <button
+                          onClick={() => setManutencaoDe(v)}
+                          title="Documentos e manutenções"
+                          className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                        >
+                          <Wrench className="h-4 w-4" />
+                        </button>
+                        <button
                           onClick={() => setDeleteId(v.id)}
                           className="p-1.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
                         >
@@ -363,6 +372,8 @@ export default function VeiculosPage() {
             </Button>
           </ModalFooter>
         </Modal>
+
+        <VeiculoManutencaoModal veiculo={manutencaoDe} onClose={() => setManutencaoDe(null)} />
 
         <ConfirmDialog
           open={!!deleteId}

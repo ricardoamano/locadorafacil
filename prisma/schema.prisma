@@ -674,7 +674,41 @@ model Veiculo {
   company         Company  @relation(fields: [companyId], references: [id])
   createdAt       DateTime @default(now())
 
-  osVeiculos OsVeiculo[]
+  osVeiculos  OsVeiculo[]
+  arquivos    VeiculoArquivo[]
+  manutencoes VeiculoManutencao[]
+}
+
+// Documentos do veículo (CRLV em PDF, seguro...) e comprovantes de manutenção
+model VeiculoArquivo {
+  id           String   @id @default(cuid())
+  veiculoId    String
+  veiculo      Veiculo  @relation(fields: [veiculoId], references: [id], onDelete: Cascade)
+  manutencaoId String?  // quando é comprovante/foto de uma manutenção específica
+  tipo         String   // ARQUIVO | LINK
+  titulo       String
+  url          String
+  arquivoId    String?
+  criadoPor    String?
+  createdAt    DateTime @default(now())
+}
+
+// Manutenções do veículo — cadastro genérico (troca de óleo, pneus, revisão,
+// freios, funilaria...), com km, custo, próxima prevista e comprovantes.
+model VeiculoManutencao {
+  id          String    @id @default(cuid())
+  veiculoId   String
+  veiculo     Veiculo   @relation(fields: [veiculoId], references: [id], onDelete: Cascade)
+  tipo        String    // texto livre: "Troca de óleo", "Pneus", "Revisão 30.000 km"...
+  data        DateTime
+  km          Int?      // quilometragem no momento
+  custo       Float?
+  descricao   String?   // o que foi feito
+  proximaData DateTime? // próxima manutenção prevista (por data)
+  proximaKm   Int?      // ou por quilometragem
+  observacoes String?   // ex.: "próxima troca em 10.000 km ou 6 meses"
+  criadoPor   String?
+  createdAt   DateTime  @default(now())
 }
 
 // Escala de veículos da OS (com alerta de rodízio no dia do evento/montagem)
