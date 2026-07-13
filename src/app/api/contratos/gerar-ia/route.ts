@@ -13,7 +13,7 @@ import {
 // dos equipamentos/serviços e da empresa e usa a skill de tipo CONTRATO.
 // O contrato nasce como v1; cada salvamento posterior cria uma nova versão.
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 type SessionUser = { companyId?: string; name?: string | null };
 

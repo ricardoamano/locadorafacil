@@ -6,7 +6,7 @@ import { clienteIa, MODELO_PROPOSTA } from "@/lib/ia";
 // Resumo por IA de todos os eventos do período: usa o pós-evento das OS
 // (sucessos, problemas, feedback), as avaliações da equipe e os valores.
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 type SessionUser = { companyId?: string };
 

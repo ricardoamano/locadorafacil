@@ -7,7 +7,7 @@ import { clienteIa, MODELO_PROPOSTA } from "@/lib/ia";
 // Banco de Preços de Mercado (quem tem o quê e por quanto) + estoque próprio.
 
 // A consulta à IA pode passar do limite padrão de execução da Vercel.
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 type SessionUser = { id?: string; companyId?: string };
 

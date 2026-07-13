@@ -12,7 +12,7 @@ import { proximoCodigoItem } from "@/lib/unidades";
 // próximas) e vira um orçamento de posto de serviço.
 
 // A análise do documento pela IA leva dezenas de segundos.
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 type SessionUser = { companyId?: string };
 

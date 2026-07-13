@@ -7,7 +7,7 @@ import { clienteIa, extrairJson, MODELO_AUTOFILL, MODELO_PROPOSTA } from "@/lib/
 
 // A IA (com busca na web e download de fotos) leva dezenas de segundos;
 // sem isso a função é encerrada pela Vercel antes de terminar.
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 type SessionUser = { companyId?: string };
 
@@ -79,7 +79,7 @@ async function buscarFotosDoModelo(
   const resposta = await ia.messages.create({
     model: MODELO_PROPOSTA,
     max_tokens: 1500,
-    tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 3 }],
+    tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 2 }],
     messages: [
       {
         role: "user",
@@ -216,7 +216,7 @@ export async function POST(req: NextRequest) {
       const resposta = await iaP.messages.create({
         model: MODELO_PROPOSTA,
         max_tokens: 2000,
-        tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 5 }],
+        tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 3 }],
         messages: [
           {
             role: "user",

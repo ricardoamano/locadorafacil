@@ -13,7 +13,7 @@ import {
 
 // Gerar uma proposta completa leva dezenas de segundos; sem isso a função
 // é encerrada pela Vercel antes de responder.
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 type SessionUser = { companyId?: string };
 

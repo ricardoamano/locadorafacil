@@ -9,7 +9,7 @@ import { clienteIa, extrairJson, MODELO_PROPOSTA } from "@/lib/ia";
 // estruturadas, a tela mostra o plano com o total de registros afetados e a
 // execução só acontece depois da confirmação do usuário.
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 type SessionUser = { companyId?: string };
 

@@ -10,7 +10,7 @@ import { dividirTexto, lerDocumentoDaRequisicao } from "@/lib/documentos";
 
 // A análise do documento pela IA leva dezenas de segundos; sem isso a função
 // é encerrada pela Vercel antes de gravar no banco (padrão pode ser 10-15s).
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 type SessionUser = { companyId?: string };
 

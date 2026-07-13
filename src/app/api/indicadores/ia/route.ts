@@ -6,7 +6,7 @@ import { clienteIa, MODELO_PROPOSTA } from "@/lib/ia";
 // período e devolve uma leitura de consultor — alertas, causas prováveis e
 // ações — usando os benchmarks do setor de locação.
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 type SessionUser = { companyId?: string };
 

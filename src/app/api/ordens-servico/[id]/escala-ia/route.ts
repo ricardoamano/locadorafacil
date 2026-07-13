@@ -13,7 +13,7 @@ import {
 // com o contexto da própria ordem de serviço (equipamentos, datas, local,
 // equipe já escalada e veículos).
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 type SessionUser = { companyId?: string };
 
