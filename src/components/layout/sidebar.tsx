@@ -32,6 +32,7 @@ import {
   LifeBuoy,
   LogOut,
   BarChart3,
+  PhoneCall,
 } from "lucide-react";
 import React from "react";
 import { signOut } from "next-auth/react";
@@ -72,6 +73,7 @@ const navItems: NavEntry[] = [
     ],
   },
   { key: "orcamentos", href: "/orcamentos", label: "Orçamentos", icon: FileText },
+  { key: "crm", href: "/crm", label: "CRM / Follow-up", icon: PhoneCall },
   { key: "ordens-servico", href: "/ordens-servico", label: "Ordens de Serviço", icon: ClipboardList },
   { key: "financeiro", href: "/financeiro", label: "Financeiro", icon: DollarSign },
   { key: "calendario", href: "/calendario", label: "Calendário", icon: Calendar },

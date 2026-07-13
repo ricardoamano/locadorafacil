@@ -365,6 +365,23 @@ model Orcamento {
   faturas    Fatura[]
   contratos  Contrato[]
   os         OrdemServico?
+  followUps  CrmFollowUp[]
+}
+
+// CRM: registro de contatos para cobrar feedback de orçamentos não aprovados
+model CrmFollowUp {
+  id          String    @id @default(cuid())
+  companyId   String
+  orcamentoId String
+  orcamento   Orcamento @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
+  canal       String?   // WHATSAPP | EMAIL | TELEFONE | OUTRO
+  observacao  String?
+  resultado   String?   // SEM_RESPOSTA | NEGOCIANDO | VAI_PENSAR | GANHOU | PERDEU
+  proximaData DateTime? // próximo follow-up agendado manualmente (sobrepõe a cadência)
+  autor       String?
+  createdAt   DateTime  @default(now())
+
+  @@index([companyId, orcamentoId])
 }
 
 model Sala {
@@ -711,6 +728,7 @@ model Tarefa {
   recorrencia    String?   // DIARIA | SEMANAL | MENSAL | ANUAL (null = tarefa única)
   recorrenciaAte DateTime? // limite opcional; sem isto repete indefinidamente
   recorrenteDe   String?   // id da tarefa que originou esta ocorrência
+  crmOrcamentoId String?   // tarefa de follow-up gerada automaticamente pela rotina de CRM
   companyId   String
   company     Company  @relation(fields: [companyId], references: [id])
   createdAt   DateTime @default(now())
