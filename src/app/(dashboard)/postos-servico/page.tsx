@@ -1,5 +1,6 @@
 "use client";
 
+import { FechamentoMensal } from "@/components/postos/fechamento-mensal";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -210,6 +211,7 @@ export default function PostosServicoPage() {
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
+            <FechamentoMensal onFaturado={fetchData} />
             <Button variant="outline" onClick={() => setImportAberto(true)}>
               <Sparkles className="h-4 w-4 text-violet-600" />
               Importar OS do posto

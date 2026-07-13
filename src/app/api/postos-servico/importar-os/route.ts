@@ -388,7 +388,11 @@ async function criarOrcamento(req: NextRequest, companyId: string) {
     data: {
       numero: (last?.numero || 0) + 1,
       clienteId,
-      status: "PENDENTE",
+      // Posto de serviço: já entra APROVADO (gera a OS abaixo); o financeiro
+      // é consolidado mensalmente numa única fatura, não por evento.
+      status: "APROVADO",
+      aprovadoEm: new Date(),
+      aprovadoPor: "Importação de OS do posto",
       eventoNome: String(dados.eventoNome || "").slice(0, 200) || null,
       tipoEvento: String(dados.tipoEvento || "").slice(0, 100) || null,
       localId: String(body.localId || "") || null,
@@ -416,6 +420,18 @@ async function criarOrcamento(req: NextRequest, companyId: string) {
       },
     },
     select: { id: true, numero: true },
+  });
+
+  // Como o posto entra APROVADO, gera a OS automaticamente (sem receita — o
+  // financeiro é consolidado na fatura mensal do posto).
+  await prisma.ordemServico.create({
+    data: {
+      orcamentoId: orcamento.id,
+      status: "ABERTA",
+      horarioMontagem: dataOuNull(dados.dataMontagem),
+      observacoes: obsPartes.join("\n\n") || null,
+      companyId,
+    },
   });
 
   // Guarda a extração: histórico da OS recebida e exemplo de padrão do posto.

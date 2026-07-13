@@ -345,6 +345,8 @@ model Orcamento {
   projetoEspecial Boolean @default(false)
   conteudoProjeto String? // Markdown/texto colado pelo usuário
   valorProjeto    Float?  // valor total do projeto (antes do desconto)
+  // Posto de serviço: consolidação mensal — qual fatura mensal já absorveu este orçamento
+  postoFaturaId   String?
   aprovadoEm     DateTime?
   aprovadoPor    String?
   aprovacaoToken String?  @unique

@@ -221,29 +221,37 @@ export async function PUT(
         criouOs = true;
       }
 
-      const receitaExistente = await tx.transacao.findFirst({
-        where: { orcamentoId: id, tipo: "RECEITA" },
+      // Postos de serviço NÃO geram receita individual: os eventos do mês são
+      // consolidados numa única fatura mensal (fechamento em Postos de Serviço).
+      const cli = await tx.contact.findUnique({
+        where: { id: orcamento.clienteId },
+        select: { isPostoServico: true },
       });
-      if (receitaExistente) {
-        receitaId = receitaExistente.id;
-      } else {
-        const receita = await tx.transacao.create({
-          data: {
-            nome: `Recebimento Orçamento #${existing.numero}${
-              orcamento.eventoNome ? ` — ${orcamento.eventoNome}` : ""
-            }`,
-            dataRecebimento:
-              orcamento.dataFim || orcamento.dataInicio || new Date(),
-            tipo: "RECEITA",
-            orcamentoId: id,
-            valor: total,
-            observacao: `Gerada automaticamente na aprovação do orçamento #${existing.numero} por ${usuario}`,
-            status: "PENDENTE",
-            companyId: existing.companyId,
-          },
+      if (!cli?.isPostoServico) {
+        const receitaExistente = await tx.transacao.findFirst({
+          where: { orcamentoId: id, tipo: "RECEITA" },
         });
-        receitaId = receita.id;
-        criouReceita = true;
+        if (receitaExistente) {
+          receitaId = receitaExistente.id;
+        } else {
+          const receita = await tx.transacao.create({
+            data: {
+              nome: `Recebimento Orçamento #${existing.numero}${
+                orcamento.eventoNome ? ` — ${orcamento.eventoNome}` : ""
+              }`,
+              dataRecebimento:
+                orcamento.dataFim || orcamento.dataInicio || new Date(),
+              tipo: "RECEITA",
+              orcamentoId: id,
+              valor: total,
+              observacao: `Gerada automaticamente na aprovação do orçamento #${existing.numero} por ${usuario}`,
+              status: "PENDENTE",
+              companyId: existing.companyId,
+            },
+          });
+          receitaId = receita.id;
+          criouReceita = true;
+        }
       }
     }
 
@@ -316,10 +324,18 @@ export async function PATCH(
         criouOs = true;
       }
 
-      const receitaExistente = await tx.transacao.findFirst({
-        where: { orcamentoId: id, tipo: "RECEITA" },
+      const cli = await tx.contact.findUnique({
+        where: { id: orcamento.clienteId },
+        select: { isPostoServico: true },
       });
-      if (receitaExistente) {
+      const receitaExistente = cli?.isPostoServico
+        ? { id: null }
+        : await tx.transacao.findFirst({
+            where: { orcamentoId: id, tipo: "RECEITA" },
+          });
+      if (cli?.isPostoServico) {
+        // Posto: sem receita individual (consolidação mensal).
+      } else if (receitaExistente) {
         receitaId = receitaExistente.id;
       } else {
         const receita = await tx.transacao.create({
