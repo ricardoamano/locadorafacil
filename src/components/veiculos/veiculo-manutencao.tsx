@@ -15,7 +15,7 @@ import { Wrench, Plus, Trash2, FileText, Paperclip } from "lucide-react";
 // Manutenção genérica: qualquer tipo (óleo, pneus, revisão, freios...),
 // com km, custo, próxima prevista (data/km) e comprovantes/fotos anexados.
 
-const SUGESTOES_TIPO = ["Troca de óleo", "Pneus", "Revisão", "Freios", "Bateria", "Funilaria", "Alinhamento"];
+const TIPOS_FALLBACK = ["Troca de óleo", "Pneus", "Revisão", "Freios", "Bateria", "Funilaria", "Alinhamento"];
 
 function dataCurta(d?: string | null) {
   return d ? new Date(d).toLocaleDateString("pt-BR") : null;
@@ -36,6 +36,11 @@ export function VeiculoManutencaoModal({
   const [salvando, setSalvando] = useState(false);
   const [enviando, setEnviando] = useState<string | null>(null); // manutencaoId ou "DOC"
   const [linkDoc, setLinkDoc] = useState("");
+  // Classificações de manutenção: padrão + as criadas pela empresa
+  const [tiposPadrao, setTiposPadrao] = useState<string[]>(TIPOS_FALLBACK);
+  const [tiposCustom, setTiposCustom] = useState<string[]>([]);
+  const [novoTipo, setNovoTipo] = useState("");
+  const [criandoTipo, setCriandoTipo] = useState(false);
   const [form, setForm] = useState({
     tipo: "", data: new Date().toISOString().slice(0, 10), km: "", custo: "",
     descricao: "", proximaData: "", proximaKm: "", observacoes: "",
@@ -54,6 +59,17 @@ export function VeiculoManutencaoModal({
       .catch(() => {})
       .finally(() => setCarregando(false));
   }, [veiculo]);
+
+  useEffect(() => {
+    fetch("/api/veiculos/tipos-manutencao")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d) return;
+        setTiposPadrao(d.padrao || TIPOS_FALLBACK);
+        setTiposCustom(d.custom || []);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (veiculo) {
@@ -160,6 +176,43 @@ export function VeiculoManutencaoModal({
     }
   }
 
+  async function criarTipo() {
+    const nome = novoTipo.trim();
+    if (!nome) return;
+    setCriandoTipo(true);
+    try {
+      const res = await fetch("/api/veiculos/tipos-manutencao", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setTiposCustom(d.custom || []);
+      setForm((p) => ({ ...p, tipo: nome }));
+      setNovoTipo("");
+      toast(`Classificação "${nome}" criada.`, "success");
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro ao criar.", "error");
+    } finally {
+      setCriandoTipo(false);
+    }
+  }
+
+  async function removerTipo(nome: string) {
+    try {
+      const res = await fetch(
+        `/api/veiculos/tipos-manutencao?nome=${encodeURIComponent(nome)}`,
+        { method: "DELETE" }
+      );
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setTiposCustom(d.custom || []);
+    } catch {
+      toast("Erro ao remover classificação.", "error");
+    }
+  }
+
   const documentos = arquivos.filter((a) => !a.manutencaoId);
   const anexosDe = (manutencaoId: string) => arquivos.filter((a) => a.manutencaoId === manutencaoId);
 
@@ -251,8 +304,8 @@ export function VeiculoManutencaoModal({
 
               {formAberto && (
                 <div className="rounded-lg border border-blue-100 bg-blue-50/40 p-4 mb-3 space-y-3">
-                  <div className="flex flex-wrap gap-1.5">
-                    {SUGESTOES_TIPO.map((t) => (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {tiposPadrao.map((t) => (
                       <button
                         key={t}
                         type="button"
@@ -266,6 +319,41 @@ export function VeiculoManutencaoModal({
                         {t}
                       </button>
                     ))}
+                    {tiposCustom.map((t) => (
+                      <span
+                        key={t}
+                        className={`group inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs border transition-colors ${
+                          form.tipo === t
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-violet-50 text-violet-700 border-violet-200 hover:border-violet-300"
+                        }`}
+                      >
+                        <button type="button" onClick={() => setForm((p) => ({ ...p, tipo: t }))}>
+                          {t}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removerTipo(t)}
+                          title="Excluir esta classificação"
+                          className={form.tipo === t ? "text-blue-200 hover:text-white" : "text-violet-300 hover:text-red-500"}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    <input
+                      value={novoTipo}
+                      onChange={(e) => setNovoTipo(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          criarTipo();
+                        }
+                      }}
+                      placeholder={criandoTipo ? "Criando..." : "+ nova classificação (Enter)"}
+                      disabled={criandoTipo}
+                      className="h-6 w-48 rounded-full border border-dashed border-slate-300 bg-white px-2.5 text-xs text-slate-600 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    />
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div className="col-span-2">
