@@ -151,10 +151,20 @@ Sistema multiempresa de gestão de locação de equipamentos e serviços para ev
 4. ✅ **Skills múltiplas + chat de escala na OS**: `Company.iaSkills` (tipos PROPOSTA/ESCALA/GERAL),
    Configurações → IA gerencia a lista; chat `OsEscalaIa` na OS (`/api/ordens-servico/[id]/escala-ia`)
    usa a skill ESCALA + contexto da OS (equipamentos, datas, local, equipe, veículos).
-5. ⏳ **Features de ERP/CRM de mercado com IA** (pedido amplo — próximo): cadência CRM (item 2) já foi um.
-   Menu proposto p/ priorizar: funil/pipeline visual (Kanban de orçamentos), visão 360 do cliente
-   (histórico + LTV + rentabilidade), previsão de demanda de equipamentos por data, NPS/pós-evento
-   automático, lead scoring por IA, automações (regras "quando X → faça Y").
+5. 🔄 **Features de ERP/CRM de mercado com IA** (pedido amplo — em andamento):
+   ✅ Funil visual (Kanban) em `/orcamentos/funil` — arrastar entre colunas muda o status via PATCH.
+   Próximos do menu (confirmar prioridade com Ricardo): visão 360 do cliente (LTV + rentabilidade),
+   previsão de demanda de equipamentos por data, NPS/pós-evento automático, lead scoring, automações.
+
+### Pedidos extras atendidos (13/07/2026, mesma sessão)
+- ✅ **Vínculo usuário↔membro** (`Membro.userId` @unique): Well e Ricardo podem ser usuário E membro.
+  Select "Usuário do sistema" no cadastro do membro; validação em `src/lib/membros.ts`.
+- ✅ **Especialidades por empresa** (`Especialidade.companyId`, `/api/especialidades`): chips no cadastro
+  do membro + criação inline (ex.: "Técnico de som básico").
+- ✅ **Avaliação/feedback de freelancers**: `Avaliacao` ganhou postura/tecnica/pontualidade/proatividade
+  (1-5), evento, autor. Modal ⭐ na tela de membros, média e histórico. API `/api/membros/[id]/avaliacoes`.
+- ✅ **Escala por horário na OS**: campos Entrada e Saída (dia+hora) por técnico; cálculo automático de
+  horas trabalhadas com alerta de extras acima de 12h (const `HORAS_CACHE` em os-detail.tsx).
 
 ### Outras pendências antigas
 - Ricardo ainda precisa colar a chave da Claude API (sem ela os botões ✨ retornam aviso).
