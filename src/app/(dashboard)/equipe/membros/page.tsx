@@ -120,6 +120,7 @@ export default function MembrosPage() {
     comentario: "", evento: "",
   });
   const [avSalvando, setAvSalvando] = useState(false);
+  const [eventos, setEventos] = useState<{ id: string; label: string }[]>([]);
 
   function toggleSelecionado(id: string) {
     setSelecionados((prev) => {
@@ -181,6 +182,20 @@ export default function MembrosPage() {
     fetch("/api/usuarios/lista")
       .then((r) => r.json())
       .then((d) => setUsuarios(d.usuarios || []))
+      .catch(() => {});
+    // Eventos realizados (orçamentos aprovados) para vincular avaliações
+    fetch("/api/orcamentos?status=APROVADO&limit=200")
+      .then((r) => r.json())
+      .then((d) =>
+        setEventos(
+          (d.orcamentos || []).map((o: any) => ({
+            id: o.id,
+            label: `${o.eventoNome || `Orçamento #${o.numero}`} — ${o.cliente?.nomeFantasia || "?"}${
+              o.dataInicio ? ` (${new Date(o.dataInicio).toLocaleDateString("pt-BR")})` : ""
+            }`,
+          }))
+        )
+      )
       .catch(() => {});
   }, [fetchMembros, fetchEspecialidades]);
 
@@ -698,11 +713,14 @@ export default function MembrosPage() {
                     />
                   </div>
                 ))}
-                <Input
-                  label="Evento de referência (opcional)"
+                <Select
+                  label="Evento realizado (opcional)"
                   value={avForm.evento}
                   onChange={(e) => setAvForm((p) => ({ ...p, evento: e.target.value }))}
-                  placeholder="Ex.: Convenção IBIS julho/2026"
+                  options={eventos.map((ev) => ({ value: ev.label, label: ev.label }))}
+                  placeholder="Busque o evento realizado..."
+                  searchable
+                  clearable
                 />
                 <Textarea
                   label="Comentários"
