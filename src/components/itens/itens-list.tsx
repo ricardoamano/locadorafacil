@@ -61,7 +61,7 @@ export function ItensList() {
   const [search, setSearch] = useState(buscaInicial);
   const [searchInput, setSearchInput] = useState(buscaInicial);
   const [etiquetaItem, setEtiquetaItem] = useState<Item | null>(null);
-  const [view, setView] = useState<"todos" | "catalogo">("todos");
+  const [soCatalogo, setSoCatalogo] = useState(false);
   const [naturezaFilter, setNaturezaFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -145,8 +145,7 @@ export function ItensList() {
     setModalOpen(true);
   }
 
-  const filtrados =
-    view === "catalogo" ? itens.filter((i) => i.emCatalogo) : itens;
+  const filtrados = soCatalogo ? itens.filter((i) => i.emCatalogo) : itens;
 
   // Coloca cada acessório (item que é acessório de outro) logo abaixo do seu
   // item-base, recuado. Acessórios cujo base não está nesta página aparecem na
@@ -187,23 +186,6 @@ export function ItensList() {
 
   return (
     <div>
-      {/* Tabs */}
-      <div className="flex border-b border-slate-100 mb-4">
-        {(["todos", "catalogo"] as const).map((v) => (
-          <button
-            key={v}
-            onClick={() => setView(v)}
-            className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
-              view === v
-                ? "border-blue-600 text-blue-700"
-                : "border-transparent text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            {v === "todos" ? "Itens em Estoque" : "Itens no Catálogo"}
-          </button>
-        ))}
-      </div>
-
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-4 mb-4">
         <form onSubmit={handleSearch} className="flex items-center gap-2 flex-1 max-w-sm">
@@ -248,6 +230,19 @@ export function ItensList() {
             <option value="EQUIPAMENTO">Só Equipamentos</option>
             <option value="SERVICO">Só Serviços</option>
           </select>
+          <button
+            type="button"
+            onClick={() => setSoCatalogo((v) => !v)}
+            title="Mostrar só os itens que aparecem na vitrine pública"
+            className={`h-9 inline-flex items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors ${
+              soCatalogo
+                ? "border-blue-200 bg-blue-50 text-blue-700"
+                : "border-slate-200 bg-white text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <Globe className="h-4 w-4" />
+            Só catálogo
+          </button>
           <ExportarCsv tipo="itens" />
           <Button onClick={openCreate}>
             <Plus className="h-4 w-4" />
