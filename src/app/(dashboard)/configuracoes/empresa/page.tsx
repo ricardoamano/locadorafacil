@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { fetchAddressByCEP, formatCEP, slugify } from "@/lib/utils";
-import { Loader2, Building2, Landmark, ReceiptText } from "lucide-react";
+import { Loader2, Building2, Landmark, ReceiptText, Hash } from "lucide-react";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -23,6 +23,7 @@ const campos = [
   "cep","rua","numero","bairro","complemento","cidade","estado",
   "telefone","email","site","logoUrl","banco","agencia","conta","pix",
   "responsavel","naturezaOperacao","observacaoFatura",
+  "orcamentoNumeroInicial","faturaNumeroInicial",
 ] as const;
 
 type Form = Record<(typeof campos)[number], string>;
@@ -233,6 +234,39 @@ export default function EmpresaConfigPage() {
                   onChange={(e) => set("observacaoFatura", e.target.value)}
                   placeholder="Ex: Desobrigado a emissão de NOTA FISCAL, em decorrência de..."
                   rows={3}
+                />
+              </div>
+            </section>
+
+            {/* Numeração de documentos (onboarding / migração) */}
+            <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-1">
+                <Hash className="h-4 w-4 text-blue-600" />
+                <h2 className="text-sm font-semibold text-slate-900">
+                  Numeração de documentos
+                </h2>
+              </div>
+              <p className="text-xs text-slate-400 mb-4">
+                Se você já emitia orçamentos e faturas em outro sistema, informe o
+                próximo número para a sequência continuar de onde parou. Deixe em branco
+                para começar do 1. Só afeta documentos novos — os já emitidos não mudam.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                  label="Próximo nº de orçamento"
+                  type="number"
+                  min={1}
+                  value={form.orcamentoNumeroInicial}
+                  onChange={(e) => set("orcamentoNumeroInicial", e.target.value)}
+                  placeholder="Ex.: 1000"
+                />
+                <Input
+                  label="Próximo nº de fatura"
+                  type="number"
+                  min={1}
+                  value={form.faturaNumeroInicial}
+                  onChange={(e) => set("faturaNumeroInicial", e.target.value)}
+                  placeholder="Ex.: 500"
                 />
               </div>
             </section>

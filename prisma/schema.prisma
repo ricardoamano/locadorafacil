@@ -41,6 +41,9 @@ model Company {
   descontoQuinzena   Float    @default(0)
   descontoMes        Float    @default(0)
   permitirPrecoManual Boolean @default(true)
+  // Numeração inicial (onboarding/migração): o 1º documento continua a partir daqui
+  orcamentoNumeroInicial Int? // ex.: 1000 → o próximo orçamento sai como #1000
+  faturaNumeroInicial    Int? // ex.: 500  → a próxima fatura sai como #500
   menuConfig         Json?
   tiposEvento        Json?
   icsToken           String?  @unique // token do link privado de agenda (Google Agenda etc.)

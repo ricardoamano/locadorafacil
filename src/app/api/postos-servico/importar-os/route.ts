@@ -383,10 +383,15 @@ async function criarOrcamento(req: NextRequest, companyId: string) {
     orderBy: { numero: "desc" },
     select: { numero: true },
   });
+  const empresaNum = await prisma.company.findUnique({
+    where: { id: companyId },
+    select: { orcamentoNumeroInicial: true },
+  });
+  const numeroOrc = Math.max((last?.numero || 0) + 1, empresaNum?.orcamentoNumeroInicial || 1);
 
   const orcamento = await prisma.orcamento.create({
     data: {
-      numero: (last?.numero || 0) + 1,
+      numero: numeroOrc,
       clienteId,
       // Posto de serviço: já entra APROVADO (gera a OS abaixo); o financeiro
       // é consolidado mensalmente numa única fatura, não por evento.

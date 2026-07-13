@@ -96,7 +96,11 @@ export async function POST(req: NextRequest) {
       orderBy: { numero: "desc" },
       select: { numero: true },
     });
-    const numero = (last?.numero || 0) + 1;
+    const empresaNum = await tx.company.findUnique({
+      where: { id: sessao.companyId },
+      select: { faturaNumeroInicial: true },
+    });
+    const numero = Math.max((last?.numero || 0) + 1, empresaNum?.faturaNumeroInicial || 1);
     const dataEmissao = new Date();
     const dataVencimento = new Date(dataEmissao.getTime() + diasVencimento * 86_400_000);
     const mesNome = new Date(ano, mes - 1, 1).toLocaleDateString("pt-BR", {

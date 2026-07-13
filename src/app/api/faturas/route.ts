@@ -85,7 +85,11 @@ export async function POST(req: NextRequest) {
       orderBy: { numero: "desc" },
       select: { numero: true },
     });
-    const numero = (last?.numero || 0) + 1;
+    const empresaNum = await tx.company.findUnique({
+      where: { id: companyId },
+      select: { faturaNumeroInicial: true },
+    });
+    const numero = Math.max((last?.numero || 0) + 1, empresaNum?.faturaNumeroInicial || 1);
 
     const nova = await tx.fatura.create({
       data: {

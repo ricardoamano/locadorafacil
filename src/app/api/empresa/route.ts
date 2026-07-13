@@ -85,6 +85,23 @@ export async function PUT(req: NextRequest) {
       ...(b.descontoQuinzena !== undefined ? { descontoQuinzena: Number(b.descontoQuinzena) || 0 } : {}),
       ...(b.descontoMes !== undefined ? { descontoMes: Number(b.descontoMes) || 0 } : {}),
       ...(b.permitirPrecoManual !== undefined ? { permitirPrecoManual: !!b.permitirPrecoManual } : {}),
+      // Numeração inicial (onboarding/migração) — vazio limpa (null = começa do 1)
+      ...(b.orcamentoNumeroInicial !== undefined
+        ? {
+            orcamentoNumeroInicial:
+              b.orcamentoNumeroInicial === "" || b.orcamentoNumeroInicial == null
+                ? null
+                : Math.max(1, Number(b.orcamentoNumeroInicial) || 1),
+          }
+        : {}),
+      ...(b.faturaNumeroInicial !== undefined
+        ? {
+            faturaNumeroInicial:
+              b.faturaNumeroInicial === "" || b.faturaNumeroInicial == null
+                ? null
+                : Math.max(1, Number(b.faturaNumeroInicial) || 1),
+          }
+        : {}),
     },
   });
   return NextResponse.json(empresa);

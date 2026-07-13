@@ -102,12 +102,19 @@ export async function POST(req: NextRequest) {
       })()
     : computeTotals(salas, Number(body.desconto) || 0, body.descontoTipo || "valor");
 
-  const last = await prisma.orcamento.findFirst({
-    where: { companyId },
-    orderBy: { numero: "desc" },
-    select: { numero: true },
-  });
-  const numero = (last?.numero || 0) + 1;
+  const [last, empresaNum] = await Promise.all([
+    prisma.orcamento.findFirst({
+      where: { companyId },
+      orderBy: { numero: "desc" },
+      select: { numero: true },
+    }),
+    prisma.company.findUnique({
+      where: { id: companyId },
+      select: { orcamentoNumeroInicial: true },
+    }),
+  ]);
+  // Número inicial (migração) funciona como piso: o 1º orçamento sai a partir dele
+  const numero = Math.max((last?.numero || 0) + 1, empresaNum?.orcamentoNumeroInicial || 1);
 
   const orcamento = await prisma.orcamento.create({
     data: {
