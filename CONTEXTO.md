@@ -140,17 +140,21 @@ Sistema multiempresa de gestão de locação de equipamentos e serviços para ev
   (sugere a diária ao escolher). Total do kit e aplicarKit no orçamento respeitam o valor manual.
 
 ## Pendências / próximos passos possíveis
-### FILA DE PEDIDOS DO RICARDO (ainda não implementados — priorizar após /compact)
-1. **Tarefas**: atribuir tarefas a outro usuário (ex.: Ricardo → Wellington) e tarefas **recorrentes**
-   (todo mês etc.), inspirado no Google Calendar/Tasks. (Tarefa tem criadorId; falta responsável + recorrência.)
-2. **CRM — cadência de follow-up**: rotina automática baseada na data do evento e na criação do orçamento
-   para cobrar feedback de orçamentos/projetos ainda NÃO aprovados (relacionamento com o contato).
-3. **Ajuda**: histórico de perguntas (estilo ChatGPT/Claude) — persistir conversas do /ajuda por usuário.
-4. **Skills múltiplas + chat de escala na OS**: hoje só há 1 skill de IA (Company.iaInstrucoes p/ propostas).
-   Permitir várias skills nomeadas (ex.: "propostas" e "escala de equipe/carros") e um **input de chat dentro
-   do módulo OS** para ajudar a escalar equipe e pensar logística (usa contexto da OS + skill de escala).
-5. **Features de ERP/CRM de mercado com IA**: pedido amplo — priorizar itens concretos (cadência CRM acima já
-   é um deles). Sugerir menu: previsão de demanda, lead scoring, funil visual, NPS/pós-evento, automações.
+### FILA DE PEDIDOS DO RICARDO
+1. ✅ **Tarefas**: atribuição a usuários (TarefaUsuario) + recorrência estilo Google Agenda
+   (DIARIA/SEMANAL/MENSAL/ANUAL + "repetir até"; ao concluir gera a próxima). `src/lib/tarefas-recorrencia.ts`.
+2. ✅ **CRM — cadência de follow-up**: módulo `/crm` (`src/lib/crm.ts`), log `CrmFollowUp`, cron diário
+   `/api/crm/rotina` (11h UTC) gera tarefa de cobrança p/ orçamentos vencidos (idempotente por orçamento).
+   Ganhou/Perdeu no follow-up muda o status do orçamento. Cadência: 2d após criar, +3d por contato,
+   urgência se evento <=7d.
+3. ✅ **Ajuda**: histórico de conversas por usuário (`AjudaConversa`), sidebar estilo ChatGPT em `/ajuda`.
+4. ✅ **Skills múltiplas + chat de escala na OS**: `Company.iaSkills` (tipos PROPOSTA/ESCALA/GERAL),
+   Configurações → IA gerencia a lista; chat `OsEscalaIa` na OS (`/api/ordens-servico/[id]/escala-ia`)
+   usa a skill ESCALA + contexto da OS (equipamentos, datas, local, equipe, veículos).
+5. ⏳ **Features de ERP/CRM de mercado com IA** (pedido amplo — próximo): cadência CRM (item 2) já foi um.
+   Menu proposto p/ priorizar: funil/pipeline visual (Kanban de orçamentos), visão 360 do cliente
+   (histórico + LTV + rentabilidade), previsão de demanda de equipamentos por data, NPS/pós-evento
+   automático, lead scoring por IA, automações (regras "quando X → faça Y").
 
 ### Outras pendências antigas
 - Ricardo ainda precisa colar a chave da Claude API (sem ela os botões ✨ retornam aviso).
