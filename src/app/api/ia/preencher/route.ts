@@ -65,17 +65,18 @@ Responda APENAS com um JSON válido:
 }`,
 };
 
-// Busca na web URLs de imagens do produto (best-effort), baixa (máx 3, 3MB
-// cada) e grava no banco como Arquivo — devolve URLs internas para a galeria.
-// Timeout curto: se a web_search demorar, desiste e o cadastro segue sem fotos.
-async function buscarFotosDoModelo(
+// Busca na web mídia do produto (best-effort): fotos e 1 link de vídeo.
+// Fotos: tenta baixar e gravar no banco (URL interna, estável); o que não
+// baixar, devolve a URL direta para o navegador tentar exibir. Vídeo: só a URL
+// (YouTube) — confiável, pois não depende de download.
+async function buscarMidiaDoModelo(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ia: any,
   companyId: string,
   info: { nome: string; marca: string; modelo: string }
-): Promise<string[]> {
+): Promise<{ fotos: string[]; videoUrl: string | null }> {
   const consulta = [info.marca, info.modelo || info.nome].filter(Boolean).join(" ");
-  if (!consulta.trim()) return [];
+  if (!consulta.trim()) return { fotos: [], videoUrl: null };
 
   const resposta = await ia.messages.create(
     {
@@ -85,7 +86,11 @@ async function buscarFotosDoModelo(
       messages: [
         {
           role: "user",
-          content: `Encontre até 3 URLs DIRETAS de imagens (terminadas em .jpg, .jpeg, .png ou .webp, ou URLs de imagem de CDNs) do produto "${consulta}" (equipamento de eventos), preferindo fotos oficiais do fabricante em fundo branco. Responda APENAS com um JSON: {"imagens": ["url1", "url2", "url3"]}`,
+          content: `Pesquise na web o produto "${consulta}" (equipamento de eventos) e responda APENAS com um JSON:
+{
+  "imagens": ["até 3 URLs DIRETAS de imagens .jpg/.jpeg/.png/.webp, preferindo fotos oficiais do fabricante em fundo branco"],
+  "video": "1 URL de vídeo do YouTube demonstrando/reviewando este modelo (ou null se não achar um confiável)"
+}`,
         },
       ],
     },
@@ -99,38 +104,50 @@ async function buscarFotosDoModelo(
     .map((b: any) => b.text)
     .join("");
   const json = extrairJson(texto);
+
   const urls: string[] = Array.isArray(json?.imagens)
     ? (json!.imagens as string[]).filter((u) => /^https?:\/\//i.test(u)).slice(0, 3)
     : [];
 
-  const salvas: string[] = [];
+  const fotos: string[] = [];
   for (const url of urls) {
+    let baixou = false;
     try {
       const res = await fetch(url, {
         signal: AbortSignal.timeout(8000),
         headers: { "User-Agent": "Mozilla/5.0 (LocadoraFacil)" },
       });
-      if (!res.ok) continue;
       const mime = res.headers.get("content-type")?.split(";")[0] || "";
-      if (!mime.startsWith("image/")) continue;
-      const buffer = Buffer.from(await res.arrayBuffer());
-      if (buffer.length < 5_000 || buffer.length > 3 * 1024 * 1024) continue;
-      const arquivo = await prisma.arquivo.create({
-        data: {
-          nome: `ia_${consulta.slice(0, 40)}.${mime.split("/")[1] || "jpg"}`,
-          mime,
-          tamanho: buffer.length,
-          dados: buffer,
-          companyId,
-        },
-        select: { id: true },
-      });
-      salvas.push(`/api/arquivos/${arquivo.id}`);
+      if (res.ok && mime.startsWith("image/")) {
+        const buffer = Buffer.from(await res.arrayBuffer());
+        if (buffer.length >= 5_000 && buffer.length <= 3 * 1024 * 1024) {
+          const arquivo = await prisma.arquivo.create({
+            data: {
+              nome: `ia_${consulta.slice(0, 40)}.${mime.split("/")[1] || "jpg"}`,
+              mime,
+              tamanho: buffer.length,
+              dados: buffer,
+              companyId,
+            },
+            select: { id: true },
+          });
+          fotos.push(`/api/arquivos/${arquivo.id}`);
+          baixou = true;
+        }
+      }
     } catch {
-      // imagem inacessível — segue para a próxima
+      // não deu para baixar — usa a URL direta como fallback abaixo
     }
+    // Fallback: se não baixou, devolve a URL original (o navegador tenta exibir)
+    if (!baixou && /\.(jpe?g|png|webp)(\?|$)/i.test(url)) fotos.push(url);
   }
-  return salvas;
+
+  const video =
+    typeof json?.video === "string" && /^https?:\/\/[^ ]*(youtube\.com|youtu\.be)/i.test(json.video)
+      ? json.video
+      : null;
+
+  return { fotos, videoUrl: video };
 }
 
 export async function POST(req: NextRequest) {
@@ -342,22 +359,24 @@ Responda APENAS com um JSON válido:
     if (!dados)
       return NextResponse.json({ error: "A IA não retornou dados válidos — tente de novo." }, { status: 502 });
 
-    // Itens: tenta achar fotos reais do modelo na web (best-effort). Timeout
-    // curto e sem travar — se não achar, o cadastro segue e avisa para adicionar.
+    // Itens: tenta achar fotos + link de vídeo do modelo na web (best-effort).
+    // Timeout curto e sem travar — se não achar fotos, segue e avisa.
     if (tipo === "item") {
       try {
-        dados.fotos = await buscarFotosDoModelo(ia, companyId, {
+        const midia = await buscarMidiaDoModelo(ia, companyId, {
           nome: String(body.texto || ""),
           marca: String(dados.marca || body.marca || ""),
           modelo: String(dados.modelo || body.modelo || ""),
         });
-        if (!Array.isArray(dados.fotos) || dados.fotos.length === 0) {
+        dados.fotos = midia.fotos;
+        if (midia.videoUrl) dados.videoUrl = midia.videoUrl;
+        if (!midia.fotos.length) {
           dados.fotosAviso =
             "Não encontrei fotos do modelo na web — adicione manualmente na galeria.";
         }
       } catch {
         dados.fotos = [];
-        dados.fotosAviso = "Busca de fotos indisponível agora — adicione manualmente na galeria.";
+        dados.fotosAviso = "Busca de mídia indisponível agora — adicione manualmente.";
       }
     }
 

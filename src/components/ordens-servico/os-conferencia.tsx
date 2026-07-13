@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import {
   QrCode,
@@ -25,6 +26,7 @@ interface ResumoItem {
   saida: number;
   entrada: number;
   extra?: boolean;
+  acessorios?: { nome: string; quantidade: number }[];
 }
 
 interface Evento {
@@ -90,6 +92,12 @@ export function OsConferencia({ osId }: { osId: string }) {
   const [qtd, setQtd] = useState(1);
   const [registrando, setRegistrando] = useState(false);
   const [scanAberto, setScanAberto] = useState(false);
+  // Double-check dos acessórios após dar saída de um item que tem acessórios
+  const [checagem, setChecagem] = useState<{
+    item: string;
+    acessorios: { nome: string; quantidade: number }[];
+  } | null>(null);
+  const [checados, setChecados] = useState<Record<number, boolean>>({});
   const [scanSuportado, setScanSuportado] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -202,6 +210,19 @@ export function OsConferencia({ osId }: { osId: string }) {
           }${d.evento?.item?.nome || "item"}`,
           "success"
         );
+        // Double-check: se deu SAÍDA de um item com acessórios, lembra de separá-los
+        if (tipoRef.current === "SAIDA" && d.evento?.item) {
+          const cod = d.evento.item.codigo;
+          const nome = d.evento.item.nome;
+          const it = ((d.resumo || []) as ResumoItem[]).find(
+            (r) => (cod && r.codigo === cod) || r.nome === nome
+          );
+          const acc = it?.acessorios || [];
+          if (acc.length > 0) {
+            setChecados({});
+            setChecagem({ item: nome, acessorios: acc });
+          }
+        }
         carregar();
         return true;
       } catch {
@@ -727,6 +748,52 @@ export function OsConferencia({ osId }: { osId: string }) {
           </ul>
         </div>
       )}
+
+      {/* Double-check dos acessórios da saída */}
+      <Modal
+        open={!!checagem}
+        onClose={() => setChecagem(null)}
+        title="Confere os acessórios?"
+        size="sm"
+      >
+        <ModalBody>
+          <p className="text-sm text-slate-600 mb-3">
+            Você deu saída de <strong>{checagem?.item}</strong>. Confirme que separou também:
+          </p>
+          <div className="space-y-2">
+            {(checagem?.acessorios || []).map((a, i) => (
+              <label
+                key={i}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition-colors ${
+                  checados[i] ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 text-slate-700"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={!!checados[i]}
+                  onChange={(e) => setChecados((p) => ({ ...p, [i]: e.target.checked }))}
+                  className="h-4 w-4 rounded shrink-0"
+                />
+                <span>
+                  Separou {a.quantidade > 1 ? `${a.quantidade}× ` : ""}
+                  <strong>{a.nome}</strong>?
+                </span>
+              </label>
+            ))}
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setChecagem(null)}>
+            Depois
+          </Button>
+          <Button
+            onClick={() => setChecagem(null)}
+            disabled={(checagem?.acessorios || []).some((_, i) => !checados[i])}
+          >
+            Tudo separado ✓
+          </Button>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 }

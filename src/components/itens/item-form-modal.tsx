@@ -513,7 +513,9 @@ export function ItemFormModal({
                       apelidos:
                         p.apelidos ||
                         [d.apelidoComercial, d.apelidos].filter(Boolean).join(", "),
+                      videoUrl: p.videoUrl || d.videoUrl || "",
                     }));
+                    if (d.videoUrl) toast("Sugestão de vídeo adicionada. 🎬", "success");
                     if (d.fotosAviso) toast(d.fotosAviso, "error");
                     // Fotos do modelo encontradas na web (já salvas no banco)
                     if (Array.isArray(d.fotos) && d.fotos.length > 0) {
