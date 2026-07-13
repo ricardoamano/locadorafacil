@@ -51,33 +51,40 @@ export async function PUT(req: NextRequest) {
     }
   }
 
+  // IMPORTANTE: só grava os campos que REALMENTE vieram no corpo. Telas que
+  // salvam só uma parte (ex.: a política de preços) não podem zerar o resto do
+  // cadastro da empresa (razão social, CNPJ, endereço, banco...). Cada campo é
+  // condicional a `!== undefined`; enviar "" limpa o campo, ausência preserva.
+  const campoTexto = (k: string) =>
+    b[k] !== undefined ? { [k]: b[k] === "" ? null : b[k] } : {};
+
   const empresa = await prisma.company.update({
     where: { id: user.companyId },
     data: {
-      name: b.name || undefined,
+      ...(b.name?.trim() ? { name: b.name } : {}),
       ...(slugFinal ? { slug: slugFinal } : {}),
-      razaoSocial: b.razaoSocial ?? null,
-      cnpj: b.cnpj ?? null,
-      inscricaoEstadual: b.inscricaoEstadual ?? null,
-      inscricaoMunicipal: b.inscricaoMunicipal ?? null,
-      cep: b.cep ?? null,
-      rua: b.rua ?? null,
-      numero: b.numero ?? null,
-      bairro: b.bairro ?? null,
-      complemento: b.complemento ?? null,
-      cidade: b.cidade ?? null,
-      estado: b.estado ?? null,
-      telefone: b.telefone ?? null,
-      email: b.email ?? null,
-      site: b.site ?? null,
-      logoUrl: b.logoUrl ?? null,
-      banco: b.banco ?? null,
-      agencia: b.agencia ?? null,
-      conta: b.conta ?? null,
-      pix: b.pix ?? null,
-      responsavel: b.responsavel ?? null,
-      naturezaOperacao: b.naturezaOperacao ?? null,
-      observacaoFatura: b.observacaoFatura ?? null,
+      ...campoTexto("razaoSocial"),
+      ...campoTexto("cnpj"),
+      ...campoTexto("inscricaoEstadual"),
+      ...campoTexto("inscricaoMunicipal"),
+      ...campoTexto("cep"),
+      ...campoTexto("rua"),
+      ...campoTexto("numero"),
+      ...campoTexto("bairro"),
+      ...campoTexto("complemento"),
+      ...campoTexto("cidade"),
+      ...campoTexto("estado"),
+      ...campoTexto("telefone"),
+      ...campoTexto("email"),
+      ...campoTexto("site"),
+      ...campoTexto("logoUrl"),
+      ...campoTexto("banco"),
+      ...campoTexto("agencia"),
+      ...campoTexto("conta"),
+      ...campoTexto("pix"),
+      ...campoTexto("responsavel"),
+      ...campoTexto("naturezaOperacao"),
+      ...campoTexto("observacaoFatura"),
       ...(b.diasSemana !== undefined ? { diasSemana: Number(b.diasSemana) || 7 } : {}),
       ...(b.diasQuinzena !== undefined ? { diasQuinzena: Number(b.diasQuinzena) || 15 } : {}),
       ...(b.diasMes !== undefined ? { diasMes: Number(b.diasMes) || 30 } : {}),
