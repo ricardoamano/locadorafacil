@@ -53,7 +53,8 @@ model Company {
   osPublicaConfig    Json?    // seções visíveis na OS pública (decisão do admin, por empresa)
   // Inteligência Artificial (Claude API) — por empresa
   iaApiKey           String?  // chave da API Anthropic (nunca exibida de volta)
-  iaInstrucoes       String?  // skill/instruções do gerador de propostas
+  iaInstrucoes       String?  // (legado) skill do gerador de propostas — migrada para iaSkills
+  iaSkills           Json?    // skills nomeadas: [{id, nome, tipo, instrucoes}] tipo=PROPOSTA|ESCALA|GERAL
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

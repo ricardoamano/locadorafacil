@@ -60,3 +60,80 @@ Regras:
 - Seja específico e profissional, sem jargão desnecessário.
 - Se faltar informação importante, faça no máximo 2 perguntas objetivas antes de gerar.
 - Quando o usuário pedir ajustes, reescreva a proposta completa já ajustada.`;
+
+export const INSTRUCOES_ESCALA_PADRAO = `Você é um especialista em logística, escala de equipe e frota para produção de eventos.
+
+A partir da ordem de serviço (equipamentos, datas de montagem/desmontagem, local, equipe já escalada e veículos), ajude o responsável a:
+- Dimensionar a equipe necessária (funções e quantidade) para montagem, operação e desmontagem.
+- Sugerir a escala de veículos considerando o volume de equipamentos e a distância.
+- Apontar riscos logísticos (rodízio de veículos, janelas de carga/descarga, horários apertados, gargalos).
+- Propor uma linha do tempo (timeline) objetiva da operação.
+
+Regras:
+- Seja prático e direto, em português do Brasil, com listas curtas.
+- Use os dados da OS fornecidos no contexto. Se faltar algo crítico, faça no máximo 2 perguntas objetivas.
+- Não invente custos nem cachês — foque na logística e no dimensionamento.`;
+
+// ── Skills nomeadas por empresa ────────────────────────────────────────────────
+// A empresa pode ter várias skills (ex.: uma para propostas, outra para escala).
+// Cada skill tem um tipo que diz onde ela é usada.
+
+export type SkillTipo = "PROPOSTA" | "ESCALA" | "GERAL";
+
+export interface IaSkill {
+  id: string;
+  nome: string;
+  tipo: SkillTipo;
+  instrucoes: string;
+}
+
+const TIPOS_VALIDOS: SkillTipo[] = ["PROPOSTA", "ESCALA", "GERAL"];
+
+/**
+ * Normaliza as skills da empresa. Se ainda não houver nenhuma cadastrada,
+ * devolve as duas skills padrão (propostas + escala), semeando a de propostas
+ * com o texto legado de `iaInstrucoes` quando existir.
+ */
+export function normalizarSkills(
+  iaSkills: unknown,
+  iaInstrucoesLegado?: string | null
+): IaSkill[] {
+  if (Array.isArray(iaSkills) && iaSkills.length > 0) {
+    return iaSkills.map((raw, i) => {
+      const s = (raw || {}) as Record<string, unknown>;
+      const tipo = TIPOS_VALIDOS.includes(s.tipo as SkillTipo)
+        ? (s.tipo as SkillTipo)
+        : "GERAL";
+      return {
+        id: String(s.id || `skill-${i}`),
+        nome: String(s.nome || "Skill sem nome").slice(0, 120),
+        tipo,
+        instrucoes: String(s.instrucoes || ""),
+      };
+    });
+  }
+  return [
+    {
+      id: "proposta",
+      nome: "Gerador de propostas",
+      tipo: "PROPOSTA",
+      instrucoes: iaInstrucoesLegado?.trim() || INSTRUCOES_PROPOSTA_PADRAO,
+    },
+    {
+      id: "escala",
+      nome: "Escala de equipe e veículos",
+      tipo: "ESCALA",
+      instrucoes: INSTRUCOES_ESCALA_PADRAO,
+    },
+  ];
+}
+
+/** Instruções da primeira skill de um tipo (ou o padrão informado). */
+export function instrucoesPorTipo(
+  skills: IaSkill[],
+  tipo: SkillTipo,
+  padrao: string
+): string {
+  const s = skills.find((x) => x.tipo === tipo && x.instrucoes.trim());
+  return s?.instrucoes.trim() || padrao;
+}

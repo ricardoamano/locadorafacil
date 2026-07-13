@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { clienteIa, INSTRUCOES_PROPOSTA_PADRAO, MODELO_PROPOSTA } from "@/lib/ia";
+import {
+  clienteIa,
+  INSTRUCOES_PROPOSTA_PADRAO,
+  MODELO_PROPOSTA,
+  normalizarSkills,
+  instrucoesPorTipo,
+} from "@/lib/ia";
 
 // Chat de geração de propostas (Projeto Especial) — usa a skill da empresa
 
@@ -35,10 +41,13 @@ export async function POST(req: NextRequest) {
 
   const empresa = await prisma.company.findUnique({
     where: { id: companyId },
-    select: { name: true, iaInstrucoes: true },
+    select: { name: true, iaInstrucoes: true, iaSkills: true },
   });
 
-  const system = `${empresa?.iaInstrucoes || INSTRUCOES_PROPOSTA_PADRAO}
+  const skills = normalizarSkills(empresa?.iaSkills, empresa?.iaInstrucoes);
+  const instrucoes = instrucoesPorTipo(skills, "PROPOSTA", INSTRUCOES_PROPOSTA_PADRAO);
+
+  const system = `${instrucoes}
 
 Empresa que está propondo: ${empresa?.name || "—"}.`;
 

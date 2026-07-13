@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/toast";
 import { OsConferencia } from "./os-conferencia";
 import { OsNestor } from "./os-nestor";
 import { OsAnexos } from "./os-anexos";
+import { OsEscalaIa } from "./os-escala-ia";
 import {
   User,
   CalendarDays,
@@ -678,6 +679,9 @@ export function OsDetail({
 
       {/* Arquivos e links para a equipe */}
       <OsAnexos osId={os.id} />
+
+      {/* Assistente de escala e logística (IA, com contexto desta OS) */}
+      <OsEscalaIa osId={os.id} />
 
       {/* Assistente — comunicação com a equipe via WhatsApp */}
       <OsNestor osId={os.id} />
