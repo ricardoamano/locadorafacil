@@ -4,12 +4,59 @@ import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
-import { Upload, FileUp, CheckCircle2 } from "lucide-react";
+import { Upload, FileUp, CheckCircle2, MapPin } from "lucide-react";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 // Importa clientes + contatos exportados do Bubble (2 CSVs), com prévia antes
 // de gravar. Reconstrói o vínculo cliente↔contatos automaticamente.
+
+// Completa o endereço dos clientes pelo CNPJ (Receita), em lotes, até acabar.
+export function CompletarEnderecos({ onCompletado }: { onCompletado?: () => void }) {
+  const { toast } = useToast();
+  const [rodando, setRodando] = useState(false);
+  const [progresso, setProgresso] = useState<string>("");
+
+  async function completar() {
+    setRodando(true);
+    let preenchidosTotal = 0;
+    try {
+      for (let i = 0; i < 60; i++) {
+        const res = await fetch("/api/import/completar-cnpj", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ limite: 20 }),
+        });
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error);
+        preenchidosTotal += d.preenchidos || 0;
+        setProgresso(
+          `${preenchidosTotal} preenchido(s)` +
+            (d.restantes ? ` · ${d.restantes} restante(s)...` : "")
+        );
+        if (d.rateLimited) {
+          await new Promise((r) => setTimeout(r, 3000)); // aguarda o limite liberar
+          continue;
+        }
+        if (!d.restantes) break;
+      }
+      toast(`✅ Endereços completados: ${preenchidosTotal} cliente(s) pelo CNPJ.`, "success");
+      onCompletado?.();
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro ao completar.", "error");
+    } finally {
+      setRodando(false);
+      setProgresso("");
+    }
+  }
+
+  return (
+    <Button variant="outline" onClick={completar} loading={rodando}>
+      <MapPin className="h-4 w-4" />
+      {rodando ? progresso || "Completando..." : "Completar endereços (CNPJ)"}
+    </Button>
+  );
+}
 
 export function ImportarClientes({ onImportado }: { onImportado?: () => void }) {
   const { toast } = useToast();

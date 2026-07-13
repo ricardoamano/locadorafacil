@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ContactFormModal } from "./contact-form-modal";
-import { ImportarClientes } from "./importar-clientes";
+import { ImportarClientes, CompletarEnderecos } from "./importar-clientes";
 import { useToast } from "@/components/ui/toast";
 import {
   Plus,
@@ -174,6 +174,7 @@ export function ContactsList({ type }: ContactsListProps) {
           )}
         </form>
 
+        {type === "CLIENTE" && <CompletarEnderecos onCompletado={fetchContacts} />}
         {type === "CLIENTE" && <ImportarClientes onImportado={fetchContacts} />}
         <ExportarCsv tipo={type === "CLIENTE" ? "clientes" : "fornecedores"} />
         <Button onClick={openCreate}>
