@@ -31,6 +31,9 @@ export async function GET(req: NextRequest) {
         responsaveis: {
           include: { membro: { select: { id: true, nome: true } } },
         },
+        atribuidos: {
+          include: { user: { select: { id: true, name: true, email: true } } },
+        },
       },
       orderBy: { dataEntrega: "asc" },
       skip,
@@ -54,6 +57,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Datas obrigatórias" }, { status: 400 });
 
   const responsaveis: string[] = (body.responsaveis || []).filter(Boolean);
+  const atribuidos: string[] = (body.atribuidos || []).filter(Boolean);
+  const recorrencia = ["DIARIA", "SEMANAL", "MENSAL", "ANUAL"].includes(body.recorrencia)
+    ? body.recorrencia
+    : null;
 
   const tarefa = await prisma.tarefa.create({
     data: {
@@ -65,11 +72,16 @@ export async function POST(req: NextRequest) {
       status: body.status || "NAO_INICIADA",
       criadorId: user.id as string,
       companyId: user.companyId,
+      recorrencia,
+      recorrenciaAte: body.recorrenciaAte ? new Date(body.recorrenciaAte) : null,
       responsaveis: {
         create: responsaveis.map((membroId) => ({ membroId })),
       },
+      atribuidos: {
+        create: atribuidos.map((userId) => ({ userId })),
+      },
     },
-    include: { responsaveis: true },
+    include: { responsaveis: true, atribuidos: true },
   });
 
   return NextResponse.json(tarefa, { status: 201 });

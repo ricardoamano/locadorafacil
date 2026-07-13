@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
-import { Plus, Pencil, Trash2, CheckSquare } from "lucide-react";
+import { RECORRENCIA_OPCOES } from "@/lib/tarefas-recorrencia";
+import { Plus, Pencil, Trash2, CheckSquare, Repeat } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; variant: "success" | "warning" | "danger" | "info" | "neutral" }> = {
   NAO_INICIADA: { label: "Não Iniciada", variant: "warning" },
@@ -30,11 +31,20 @@ interface Tarefa {
   status: string;
   criador: { id: string; name: string | null };
   responsaveis: { membro: { id: string; nome: string } }[];
+  atribuidos: { user: { id: string; name: string | null; email: string } }[];
+  recorrencia: string | null;
+  recorrenciaAte: string | null;
 }
 
 interface MembroOpt {
   id: string;
   nome: string;
+}
+
+interface UsuarioOpt {
+  id: string;
+  name: string | null;
+  email: string;
 }
 
 interface FormData {
@@ -46,17 +56,22 @@ interface FormData {
   obsExecucao: string;
   status: string;
   responsaveis: string[];
+  atribuidos: string[];
+  recorrencia: string;
+  recorrenciaAte: string;
 }
 
 const empty = (): FormData => ({
   nome: "", instrucoes: "", dataInicio: "", dataEntrega: "",
   obsExecucao: "", status: "NAO_INICIADA", responsaveis: [],
+  atribuidos: [], recorrencia: "", recorrenciaAte: "",
 });
 
 export default function TarefasPage() {
   const { toast } = useToast();
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [membros, setMembros] = useState<MembroOpt[]>([]);
+  const [usuarios, setUsuarios] = useState<UsuarioOpt[]>([]);
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -85,6 +100,10 @@ export default function TarefasPage() {
       .then((r) => r.json())
       .then((d) => setMembros(d.membros || []))
       .catch(() => setMembros([]));
+    fetch("/api/usuarios/lista")
+      .then((r) => r.json())
+      .then((d) => setUsuarios(d.usuarios || []))
+      .catch(() => setUsuarios([]));
   }, [fetchTarefas]);
 
   function openCreate() {
@@ -101,6 +120,9 @@ export default function TarefasPage() {
       obsExecucao: t.obsExecucao || "",
       status: t.status,
       responsaveis: t.responsaveis.map((r) => r.membro.id),
+      atribuidos: (t.atribuidos || []).map((a) => a.user.id),
+      recorrencia: t.recorrencia || "",
+      recorrenciaAte: t.recorrenciaAte ? t.recorrenciaAte.slice(0, 10) : "",
     });
     setModalOpen(true);
   }
@@ -111,6 +133,15 @@ export default function TarefasPage() {
       responsaveis: p.responsaveis.includes(id)
         ? p.responsaveis.filter((x) => x !== id)
         : [...p.responsaveis, id],
+    }));
+  }
+
+  function toggleAtribuido(id: string) {
+    setForm((p) => ({
+      ...p,
+      atribuidos: p.atribuidos.includes(id)
+        ? p.atribuidos.filter((x) => x !== id)
+        : [...p.atribuidos, id],
     }));
   }
 
@@ -128,7 +159,12 @@ export default function TarefasPage() {
         body: JSON.stringify(form),
       });
       if (!res.ok) throw new Error();
-      toast(form.id ? "Tarefa atualizada!" : "Tarefa criada!", "success");
+      const d = await res.json().catch(() => null);
+      if (d?.proximaId) {
+        toast("Tarefa concluída — próxima ocorrência criada automaticamente. 🔁", "success");
+      } else {
+        toast(form.id ? "Tarefa atualizada!" : "Tarefa criada!", "success");
+      }
       setModalOpen(false);
       fetchTarefas();
     } catch {
@@ -204,12 +240,12 @@ export default function TarefasPage() {
             <table className="w-full min-w-[640px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
-                  {["Tarefa", "Responsáveis", "Criador", "Início", "Entrega", "Status", "Ações"].map(
+                  {["Tarefa", "Atribuída a", "Equipe", "Criador", "Início", "Entrega", "Status", "Ações"].map(
                     (h, i) => (
                       <th
                         key={h}
                         className={`px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider ${
-                          i === 6 ? "text-right" : "text-left"
+                          i === 7 ? "text-right" : "text-left"
                         }`}
                       >
                         {h}
@@ -224,12 +260,37 @@ export default function TarefasPage() {
                   return (
                     <tr key={t.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-3">
-                        <p className="text-sm font-medium text-slate-900">{t.nome}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-medium text-slate-900">{t.nome}</p>
+                          {t.recorrencia && (
+                            <span
+                              title="Tarefa recorrente"
+                              className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-violet-600 bg-violet-50 border border-violet-100 rounded px-1 py-0.5"
+                            >
+                              <Repeat className="h-2.5 w-2.5" />
+                            </span>
+                          )}
+                        </div>
                         {t.instrucoes && (
                           <p className="text-xs text-slate-400 truncate max-w-56">
                             {t.instrucoes}
                           </p>
                         )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          {(t.atribuidos || []).map((a) => (
+                            <span
+                              key={a.user.id}
+                              className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[11px] font-medium text-emerald-700"
+                            >
+                              {a.user.name || a.user.email}
+                            </span>
+                          ))}
+                          {(!t.atribuidos || t.atribuidos.length === 0) && (
+                            <span className="text-xs text-slate-400">—</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex -space-x-1.5">
@@ -326,9 +387,63 @@ export default function TarefasPage() {
                 />
               </div>
 
+              {/* Recorrência (estilo Google Agenda) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Select
+                  label="Repetir"
+                  value={form.recorrencia}
+                  onChange={(e) => setForm((p) => ({ ...p, recorrencia: e.target.value }))}
+                  options={RECORRENCIA_OPCOES}
+                />
+                {form.recorrencia && (
+                  <Input
+                    label="Repetir até (opcional)"
+                    type="date"
+                    value={form.recorrenciaAte}
+                    onChange={(e) => setForm((p) => ({ ...p, recorrenciaAte: e.target.value }))}
+                  />
+                )}
+              </div>
+              {form.recorrencia && (
+                <p className="-mt-2 text-xs text-slate-400">
+                  Ao concluir esta tarefa, o sistema cria automaticamente a próxima
+                  ocorrência com os mesmos responsáveis.
+                </p>
+              )}
+
+              {/* Atribuir a usuários do sistema (ex.: Ricardo → Wellington) */}
               <div>
                 <label className="text-sm font-medium text-slate-700 block mb-2">
-                  Responsáveis
+                  Atribuir a (usuários do sistema)
+                </label>
+                {usuarios.length === 0 ? (
+                  <p className="text-xs text-slate-400">Nenhum outro usuário na empresa.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {usuarios.map((u) => {
+                      const selected = form.atribuidos.includes(u.id);
+                      return (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onClick={() => toggleAtribuido(u.id)}
+                          className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                            selected
+                              ? "bg-emerald-600 text-white border-emerald-600"
+                              : "bg-white text-slate-600 border-slate-200 hover:border-emerald-300"
+                          }`}
+                        >
+                          {u.name || u.email}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-slate-700 block mb-2">
+                  Equipe (freelancers/técnicos)
                 </label>
                 {membros.length === 0 ? (
                   <p className="text-xs text-amber-600">

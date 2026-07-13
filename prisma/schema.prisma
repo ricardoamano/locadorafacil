@@ -98,6 +98,7 @@ model User {
   accounts       Account[]
   sessions       Session[]
   tarefasCriadas Tarefa[]  @relation("TarefaCriador")
+  tarefasAtribuidas TarefaUsuario[]
 }
 
 model Account {
@@ -706,12 +707,28 @@ model Tarefa {
   status      String   @default("NAO_INICIADA")
   criadorId   String
   criador     User     @relation("TarefaCriador", fields: [criadorId], references: [id])
+  // Recorrência (estilo Google Agenda): ao concluir, gera a próxima ocorrência
+  recorrencia    String?   // DIARIA | SEMANAL | MENSAL | ANUAL (null = tarefa única)
+  recorrenciaAte DateTime? // limite opcional; sem isto repete indefinidamente
+  recorrenteDe   String?   // id da tarefa que originou esta ocorrência
   companyId   String
   company     Company  @relation(fields: [companyId], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   responsaveis TarefaMembro[]
+  atribuidos   TarefaUsuario[]
+}
+
+// Usuários do sistema atribuídos a uma tarefa (ex.: Ricardo atribui p/ Wellington)
+model TarefaUsuario {
+  id       String @id @default(cuid())
+  tarefaId String
+  tarefa   Tarefa @relation(fields: [tarefaId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+
+  @@unique([tarefaId, userId])
 }
 
 model TarefaMembro {
