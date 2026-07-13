@@ -121,7 +121,38 @@ Sistema multiempresa de gestão de locação de equipamentos e serviços para ev
 - **Autofill locais/clientes** (PreencherIa) e **chat de propostas** no Projeto Especial (usa iaInstrucoes).
 - ÚNICO passo do usuário: criar chave em platform.claude.com e colar em Configurações → IA.
 
+### Postos de serviço (consolidação mensal)
+- Cliente com `isPostoServico`. Ao lançar/importar OS de posto, orçamento entra **APROVADO** e gera OS
+  automaticamente. A aprovação de orçamento de posto **NÃO cria receita individual** (branch no PUT e PATCH
+  de /api/orcamentos/[id] checando cliente.isPostoServico).
+- Fechamento mensal (Postos → "Fechar fatura do mês", componente `FechamentoMensal`): /api/postos-servico/
+  fechar-fatura GET(prévia)/POST — soma orçamentos APROVADO do posto no mês com `postoFaturaId=null`, gera
+  1 Fatura (origem POSTO_MENSAL, isPostoServico) + 1 receita, marca os orçamentos com postoFaturaId.
+
+### Permissões (correção importante)
+- Bug: JWT lia módulos/role só no login → remover acesso de usuário logado não fazia efeito. Corrigido em
+  src/lib/auth.ts: callback jwt reconsulta role/permissions/ativo no banco a cada 30s (token.permCheck);
+  usuário desativado → logout; erro de banco → mantém token (fail-open). Config → Usuários salva em
+  User.permissions = { modulos: [...] }.
+
+### Kits — preço manual
+- KitItem.valorUnitario (null = usa diária do item). Cadastro do kit: coluna de preço manual por item
+  (sugere a diária ao escolher). Total do kit e aplicarKit no orçamento respeitam o valor manual.
+
 ## Pendências / próximos passos possíveis
+### FILA DE PEDIDOS DO RICARDO (ainda não implementados — priorizar após /compact)
+1. **Tarefas**: atribuir tarefas a outro usuário (ex.: Ricardo → Wellington) e tarefas **recorrentes**
+   (todo mês etc.), inspirado no Google Calendar/Tasks. (Tarefa tem criadorId; falta responsável + recorrência.)
+2. **CRM — cadência de follow-up**: rotina automática baseada na data do evento e na criação do orçamento
+   para cobrar feedback de orçamentos/projetos ainda NÃO aprovados (relacionamento com o contato).
+3. **Ajuda**: histórico de perguntas (estilo ChatGPT/Claude) — persistir conversas do /ajuda por usuário.
+4. **Skills múltiplas + chat de escala na OS**: hoje só há 1 skill de IA (Company.iaInstrucoes p/ propostas).
+   Permitir várias skills nomeadas (ex.: "propostas" e "escala de equipe/carros") e um **input de chat dentro
+   do módulo OS** para ajudar a escalar equipe e pensar logística (usa contexto da OS + skill de escala).
+5. **Features de ERP/CRM de mercado com IA**: pedido amplo — priorizar itens concretos (cadência CRM acima já
+   é um deles). Sugerir menu: previsão de demanda, lead scoring, funil visual, NPS/pós-evento, automações.
+
+### Outras pendências antigas
 - Ricardo ainda precisa colar a chave da Claude API (sem ela os botões ✨ retornam aviso).
 - Teste do WhatsApp: provável janela de 24h da Meta; oferta em pé: template aprovado Meta p/ iniciar conversas.
 - Ofertas não pedidas: OAuth Google 2-way, versionamento de PDF v2/v3, permissões por ação, seed/limpeza de demo.
