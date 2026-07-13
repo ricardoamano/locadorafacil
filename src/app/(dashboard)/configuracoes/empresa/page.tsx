@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { fetchAddressByCEP, formatCEP, slugify } from "@/lib/utils";
-import { Loader2, Building2, Landmark, ReceiptText, Hash } from "lucide-react";
+import { Loader2, Building2, Landmark, ReceiptText, Hash, Paperclip, Trash2 } from "lucide-react";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -38,8 +38,22 @@ export default function EmpresaConfigPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
+  // Documentos e links da empresa
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [arquivos, setArquivos] = useState<any[]>([]);
+  const [linkTitulo, setLinkTitulo] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [enviandoArq, setEnviandoArq] = useState(false);
+
+  function carregarArquivos() {
+    fetch("/api/empresa/arquivos")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setArquivos(d.arquivos || []))
+      .catch(() => {});
+  }
 
   useEffect(() => {
+    carregarArquivos();
     fetch("/api/empresa")
       .then((r) => r.json())
       .then((d: any) => {
@@ -73,6 +87,55 @@ export default function EmpresaConfigPage() {
           estado: addr.estado || p.estado,
         }));
       }
+    }
+  }
+
+  async function uploadArquivoEmpresa(file: File) {
+    setEnviandoArq(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/empresa/arquivos", { method: "POST", body: fd });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setArquivos((p) => [d, ...p]);
+      toast("Documento anexado!", "success");
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro ao enviar.", "error");
+    } finally {
+      setEnviandoArq(false);
+    }
+  }
+
+  async function adicionarLink() {
+    if (!linkUrl.trim()) return;
+    setEnviandoArq(true);
+    try {
+      const res = await fetch("/api/empresa/arquivos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: linkUrl.trim(), titulo: linkTitulo.trim() || undefined }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setArquivos((p) => [d, ...p]);
+      setLinkTitulo("");
+      setLinkUrl("");
+      toast("Link adicionado!", "success");
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro ao adicionar.", "error");
+    } finally {
+      setEnviandoArq(false);
+    }
+  }
+
+  async function removerArquivoEmpresa(id: string) {
+    try {
+      const res = await fetch(`/api/empresa/arquivos?id=${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setArquivos((p) => p.filter((a) => a.id !== id));
+    } catch {
+      toast("Erro ao remover.", "error");
     }
   }
 
@@ -268,6 +331,101 @@ export default function EmpresaConfigPage() {
                   onChange={(e) => set("faturaNumeroInicial", e.target.value)}
                   placeholder="Ex.: 500"
                 />
+              </div>
+            </section>
+
+            {/* Documentos e links da empresa */}
+            <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-1">
+                <Paperclip className="h-4 w-4 text-blue-600" />
+                <h2 className="text-sm font-semibold text-slate-900">
+                  Documentos e links da empresa
+                </h2>
+              </div>
+              <p className="text-xs text-slate-400 mb-4">
+                Cartão CNPJ, contrato social, documentos fiscais, certidões... Anexe
+                arquivos (até 4 MB) ou cole links de pastas compartilhadas (Google Drive,
+                Dropbox). Ficam acessíveis à sua equipe.
+              </p>
+
+              {arquivos.length > 0 && (
+                <div className="space-y-1.5 mb-4">
+                  {arquivos.map((a) => (
+                    <div
+                      key={a.id}
+                      className="flex items-center gap-2 text-sm rounded-lg border border-slate-100 px-3 py-2"
+                    >
+                      <span className="text-slate-400 text-xs shrink-0">
+                        {a.tipo === "LINK" ? "🔗" : "📄"}
+                      </span>
+                      <a
+                        href={a.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline truncate"
+                      >
+                        {a.titulo}
+                      </a>
+                      {a.criadoPor && (
+                        <span className="text-xs text-slate-300 ml-1 shrink-0 hidden sm:inline">
+                          · {a.criadoPor}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removerArquivoEmpresa(a.id)}
+                        className="ml-auto text-slate-300 hover:text-red-500 shrink-0"
+                        title="Remover"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3">
+                <label className="inline-flex w-fit items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200 bg-white text-slate-600 hover:border-blue-300 cursor-pointer">
+                  {enviandoArq ? "Enviando..." : "📤 Enviar documento"}
+                  <input
+                    type="file"
+                    className="hidden"
+                    disabled={enviandoArq}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) uploadArquivoEmpresa(f);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_auto] gap-2 items-end">
+                  <Input
+                    label="Nome do link (opcional)"
+                    value={linkTitulo}
+                    onChange={(e) => setLinkTitulo(e.target.value)}
+                    placeholder="Ex.: Pasta fiscal"
+                  />
+                  <Input
+                    label="Link (Google Drive, Dropbox...)"
+                    value={linkUrl}
+                    onChange={(e) => setLinkUrl(e.target.value)}
+                    placeholder="https://drive.google.com/..."
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        adicionarLink();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={adicionarLink}
+                    loading={enviandoArq}
+                  >
+                    Adicionar link
+                  </Button>
+                </div>
               </div>
             </section>
 

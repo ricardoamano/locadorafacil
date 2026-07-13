@@ -80,6 +80,20 @@ model Company {
   metodosPagamento MetodoPagamento[]
   bancos           Banco[]
   modelosContrato  ModeloContrato[]
+  arquivos         CompanyArquivo[]
+}
+
+// Documentos e links da empresa: cartão CNPJ, docs fiscais, pastas do Drive...
+model CompanyArquivo {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tipo      String   // ARQUIVO | LINK
+  titulo    String
+  url       String   // /api/arquivos/{id} para arquivos, URL externa para links
+  arquivoId String?
+  criadoPor String?
+  createdAt DateTime @default(now())
 }
 
 model User {
