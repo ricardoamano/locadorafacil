@@ -119,12 +119,13 @@ export function ItensList() {
     setDeleteLoading(true);
     try {
       const res = await fetch(`/api/itens/${deleteId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
+      const d = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(d?.error);
       toast("Item excluído com sucesso.", "success");
       setDeleteId(null);
       fetchItens();
-    } catch {
-      toast("Erro ao excluir.", "error");
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro ao excluir.", "error");
     } finally {
       setDeleteLoading(false);
     }

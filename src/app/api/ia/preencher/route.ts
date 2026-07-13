@@ -76,17 +76,22 @@ async function buscarFotosDoModelo(
   const consulta = [info.marca, info.modelo || info.nome].filter(Boolean).join(" ");
   if (!consulta.trim()) return [];
 
-  const resposta = await ia.messages.create({
-    model: MODELO_PROPOSTA,
-    max_tokens: 1500,
-    tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 2 }],
-    messages: [
-      {
-        role: "user",
-        content: `Encontre até 3 URLs DIRETAS de imagens (terminadas em .jpg, .jpeg, .png ou .webp, ou URLs de imagem de CDNs) do produto "${consulta}" (equipamento de eventos), preferindo fotos oficiais do fabricante em fundo branco. Responda APENAS com um JSON: {"imagens": ["url1", "url2", "url3"]}`,
-      },
-    ],
-  });
+  // A busca na web pode ficar lenta demais (minutos) — timeout curto e sem
+  // retry: se não der tempo, o cadastro segue sem fotos (aviso ao usuário).
+  const resposta = await ia.messages.create(
+    {
+      model: MODELO_PROPOSTA,
+      max_tokens: 1500,
+      tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 2 }],
+      messages: [
+        {
+          role: "user",
+          content: `Encontre até 3 URLs DIRETAS de imagens (terminadas em .jpg, .jpeg, .png ou .webp, ou URLs de imagem de CDNs) do produto "${consulta}" (equipamento de eventos), preferindo fotos oficiais do fabricante em fundo branco. Responda APENAS com um JSON: {"imagens": ["url1", "url2", "url3"]}`,
+        },
+      ],
+    },
+    { timeout: 20_000, maxRetries: 0 }
+  );
 
   const texto = resposta.content
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -213,16 +218,21 @@ export async function POST(req: NextRequest) {
       const consulta = [String(body.marca || ""), String(body.modelo || "") || String(body.texto || "")]
         .filter(Boolean)
         .join(" ");
-      const resposta = await iaP.messages.create({
-        model: MODELO_PROPOSTA,
-        max_tokens: 2000,
-        tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 3 }],
-        messages: [
+      // Busca na web com timeout: se demorar demais (a web search pode levar
+      // minutos), cai na estimativa da IA sem web — o botão responde sempre.
+      let textoR = "";
+      try {
+        const resposta = await iaP.messages.create(
           {
-            role: "user",
-            content: `Pesquise na web quanto locadoras de equipamentos para eventos NO BRASIL estão cobrando pela LOCAÇÃO de: "${consulta}" (${String(
-              body.texto || ""
-            )}).
+            model: MODELO_PROPOSTA,
+            max_tokens: 2000,
+            tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 3 }],
+            messages: [
+              {
+                role: "user",
+                content: `Pesquise na web quanto locadoras de equipamentos para eventos NO BRASIL estão cobrando pela LOCAÇÃO de: "${consulta}" (${String(
+                  body.texto || ""
+                )}).
 
 Procure preços reais de diária de locação em sites de locadoras brasileiras concorrentes. Pesquise também o preço de COMPRA de uma unidade nova no Brasil (valor de reposição).
 
@@ -237,15 +247,20 @@ Responda APENAS com um JSON válido:
   "reposicao": preço de compra de uma unidade nova no Brasil em reais (número ou null),
   "observacao": "1-2 frases: em quais fontes/faixas se baseou e o quão confiável é a estimativa"
 }`,
+              },
+            ],
           },
-        ],
-      });
-      const textoR = resposta.content
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .filter((b: any) => b.type === "text")
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((b: any) => b.text)
-        .join("");
+          { timeout: 40_000, maxRetries: 0 }
+        );
+        textoR = resposta.content
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .filter((b: any) => b.type === "text")
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((b: any) => b.text)
+          .join("");
+      } catch {
+        // busca web demorou demais ou falhou — segue para a estimativa sem web
+      }
       const dadosP = extrairJson(textoR);
       const vazio =
         !dadosP ||

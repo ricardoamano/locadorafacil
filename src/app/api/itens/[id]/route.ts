@@ -158,6 +158,28 @@ export async function DELETE(
   const existing = await prisma.item.findFirst({ where: { id, companyId } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // Item com histórico comercial não pode ser excluído (apagaria linhas de
+  // orçamentos/OS/faturas já emitidos) — orienta o usuário em vez de dar 500.
+  const [emOrcamentos, emOsExtras, emConferencias, emFaturas] = await Promise.all([
+    prisma.salaItem.count({ where: { itemId: id } }),
+    prisma.osItemExtra.count({ where: { itemId: id } }),
+    prisma.osConferencia.count({ where: { itemId: id } }),
+    prisma.faturaItem.count({ where: { itemId: id } }),
+  ]);
+  const usos: string[] = [];
+  if (emOrcamentos) usos.push(`${emOrcamentos} orçamento(s)`);
+  if (emOsExtras || emConferencias) usos.push("ordens de serviço");
+  if (emFaturas) usos.push(`${emFaturas} fatura(s)`);
+  if (usos.length > 0)
+    return NextResponse.json(
+      {
+        error: `Este item está em ${usos.join(", ")} e não pode ser excluído — o histórico seria perdido. Se ele saiu de linha, apenas pare de usá-lo em novos orçamentos.`,
+      },
+      { status: 400 }
+    );
+
+  // Vínculo "é acessório de outro item" é só uma sugestão — remove junto.
+  await prisma.itemAcessorio.deleteMany({ where: { acessorioId: id } });
   await prisma.item.delete({ where: { id } });
   return NextResponse.json({ success: true });
 }
