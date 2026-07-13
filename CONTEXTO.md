@@ -167,6 +167,14 @@ Sistema multiempresa de gestão de locação de equipamentos e serviços para ev
   horas trabalhadas com alerta de extras acima de 12h (const `HORAS_CACHE` em os-detail.tsx).
 - ✅ **Kanban de tarefas**: toggle Lista/Kanban em /tarefas; arrastar muda status via PATCH
   (concluir recorrente gera próxima). Filtro por especialidade na lista de membros.
+- ✅ **Itens**: subcategorias (gestão inline em Categorias + select no item), acessórios avulsos
+  (`ItemAcessorioAvulso`, checklist no romaneio ☐ e alerta "Separar junto" na conferência) e
+  arquivos do item (`ItemArquivo`, `/api/itens/[id]/arquivos` — manuais/vídeos/qualquer espécie).
+- ✅ **Pós-evento na OS**: posSucessos/posProblemas/posFeedback/posComentarios com carimbo; botão ⭐
+  por técnico escalado (avalia direto da OS, evento como referência); card "Resumo dos eventos do
+  período (IA)" nos Indicadores (`/api/ia/resumo-eventos`).
+- ✅ **Veículos**: documentos anexos (`VeiculoArquivo`) e manutenções genéricas (`VeiculoManutencao`:
+  tipo livre, data, km, custo, próxima por data/km, obs, comprovantes) — botão 🔧 na lista.
 - ✅ **Contratos com IA + versões**: skill tipo CONTRATO; `/api/contratos/gerar-ia` escolhe orçamento
   e redige contrato (v1) com dados de cliente/equipamentos/serviços/valores. `ContratoVersao`: cada
   salvamento de conteúdo cria versão nova (nunca sobrescreve). PDF em `/contratos/[id]/imprimir?v=N`
