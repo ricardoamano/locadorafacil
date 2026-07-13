@@ -123,7 +123,7 @@ export default function CategoriasPage() {
 
   async function criarSub(categoriaId: string) {
     const nome = (novaSub[categoriaId] || "").trim();
-    if (!nome) return;
+    if (!nome || criandoSub) return;
     setCriandoSub(categoriaId);
     try {
       const res = await fetch("/api/subcategorias", {
@@ -131,11 +131,25 @@ export default function CategoriasPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ categoriaId, nome }),
       });
-      if (!res.ok) throw new Error();
+      const d = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(d?.error);
       setNovaSub((p) => ({ ...p, [categoriaId]: "" }));
-      fetchCategorias();
-    } catch {
-      toast("Erro ao criar subcategoria.", "error");
+      // Atualiza só esta categoria na lista (sem recarregar a tela/piscar)
+      setCategorias((prev) =>
+        prev.map((c) =>
+          c.id === categoriaId
+            ? {
+                ...c,
+                subCategorias: [
+                  ...(c.subCategorias || []).filter((s) => s.id !== d.id),
+                  { id: d.id, nome: d.nome },
+                ],
+              }
+            : c
+        )
+      );
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro ao criar subcategoria.", "error");
     } finally {
       setCriandoSub(null);
     }
@@ -145,7 +159,12 @@ export default function CategoriasPage() {
     try {
       const res = await fetch(`/api/subcategorias?id=${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
-      fetchCategorias();
+      setCategorias((prev) =>
+        prev.map((c) => ({
+          ...c,
+          subCategorias: (c.subCategorias || []).filter((s) => s.id !== id),
+        }))
+      );
     } catch {
       toast("Erro ao excluir subcategoria.", "error");
     }
@@ -234,21 +253,32 @@ export default function CategoriasPage() {
                               </button>
                             </span>
                           ))}
-                          <input
-                            value={novaSub[c.id] || ""}
-                            onChange={(e) =>
-                              setNovaSub((p) => ({ ...p, [c.id]: e.target.value }))
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                criarSub(c.id);
+                          <span className="inline-flex items-center gap-1">
+                            <input
+                              value={novaSub[c.id] || ""}
+                              onChange={(e) =>
+                                setNovaSub((p) => ({ ...p, [c.id]: e.target.value }))
                               }
-                            }}
-                            placeholder={criandoSub === c.id ? "Criando..." : "+ subcategoria (Enter)"}
-                            disabled={criandoSub === c.id}
-                            className="h-6 w-44 rounded-full border border-dashed border-slate-200 bg-white px-2 text-[11px] text-slate-600 placeholder:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                          />
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  criarSub(c.id);
+                                }
+                              }}
+                              placeholder={criandoSub === c.id ? "Criando..." : "nova subcategoria"}
+                              disabled={criandoSub === c.id}
+                              className="h-6 w-40 rounded-full border border-dashed border-slate-300 bg-white px-2 text-[11px] text-slate-600 placeholder:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => criarSub(c.id)}
+                              disabled={criandoSub === c.id || !(novaSub[c.id] || "").trim()}
+                              title="Adicionar subcategoria"
+                              className="h-6 px-2 rounded-full bg-blue-600 text-white text-[11px] font-medium hover:bg-blue-700 disabled:opacity-40"
+                            >
+                              + Add
+                            </button>
+                          </span>
                         </div>
                       )}
                     </td>
