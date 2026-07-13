@@ -46,6 +46,7 @@ export default async function OsPublicaPage({
       orcamento: {
         include: {
           local: true,
+          cliente: { select: { nomeFantasia: true } },
           salas: {
             include: {
               itens: {
@@ -59,6 +60,7 @@ export default async function OsPublicaPage({
       },
       itensExtras: { include: { item: { select: { nome: true, codigo: true } } } },
       escala: { include: { membro: { select: { nome: true, telefone: true, email: true } } } },
+      veiculos: { include: { veiculo: { select: { modelo: true, placa: true, tipo: true } } } },
       anexos: { orderBy: { createdAt: "desc" } },
       alteracoes: { orderBy: { createdAt: "desc" }, take: 40 },
     },
@@ -110,6 +112,20 @@ export default async function OsPublicaPage({
         }))
     ) || [];
 
+  const servicos =
+    orc?.salas.flatMap((s) =>
+      s.itens
+        .filter((it) => it.item?.natureza === "SERVICO")
+        .map((it) => ({
+          quantidade: it.quantidade,
+          nome: it.item?.nome || "—",
+          sala: s.nome,
+        }))
+    ) || [];
+
+  // Montagem/desmontagem: usa o horário da OS; sem ele, cai na data do orçamento
+  const montagem = fmtDataHora(os.horarioMontagem) || fmtData(orc?.dataMontagem);
+
   return (
     <div className="min-h-screen bg-slate-50 py-6 px-4">
       <div className="max-w-lg mx-auto space-y-4">
@@ -128,6 +144,13 @@ export default async function OsPublicaPage({
           <h1 className="text-xl font-bold text-slate-900">
             OS #{orc?.numero} — {orc?.eventoNome || "Evento"}
           </h1>
+          {cfg.cliente && (orc?.cliente?.nomeFantasia || orc?.tipoEvento) && (
+            <p className="text-sm text-slate-600 mt-1">
+              {orc?.cliente?.nomeFantasia}
+              {orc?.cliente?.nomeFantasia && orc?.tipoEvento ? " · " : ""}
+              {orc?.tipoEvento}
+            </p>
+          )}
           <p className="text-xs text-slate-400 mt-1">
             Ordem de serviço operacional · sem valores
           </p>
@@ -150,13 +173,11 @@ export default async function OsPublicaPage({
                   : ""}
               </dd>
             </div>
-            {(os.horarioMontagem || os.obsMontagem) && (
+            {(montagem || os.obsMontagem) && (
               <div>
                 <div className="flex justify-between">
                   <dt className="text-slate-500">🔧 Montagem</dt>
-                  <dd className="font-medium text-slate-800">
-                    {fmtDataHora(os.horarioMontagem) || "a combinar"}
-                  </dd>
+                  <dd className="font-medium text-slate-800">{montagem || "a combinar"}</dd>
                 </div>
                 {os.obsMontagem && (
                   <p className="text-xs text-amber-700 bg-amber-50 rounded-md px-2 py-1 mt-1">
@@ -338,12 +359,17 @@ export default async function OsPublicaPage({
                       {e.membro?.nome}
                       {e.funcao ? <span className="text-slate-400 font-normal"> · {e.funcao}</span> : null}
                     </span>
-                    <span className="text-slate-500 text-xs">
-                      {e.horarioEntrada
-                        ? new Date(e.horarioEntrada).toLocaleTimeString("pt-BR", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
+                    <span className="text-slate-500 text-xs text-right">
+                      {fmtDataHora(e.horarioEntrada)}
+                      {e.horarioSaida
+                        ? ` → ${
+                            fmtData(e.horarioSaida) === fmtData(e.horarioEntrada)
+                              ? new Date(e.horarioSaida).toLocaleTimeString("pt-BR", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : fmtDataHora(e.horarioSaida)
+                          }`
                         : ""}
                     </span>
                   </div>
@@ -360,6 +386,38 @@ export default async function OsPublicaPage({
                         </a>
                       )}
                     </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Veículos escalados */}
+        {cfg.veiculos && os.veiculos.length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Navigation className="h-4 w-4 text-blue-600" />
+              <h2 className="text-sm font-semibold text-slate-900">Veículos</h2>
+            </div>
+            <ul className="text-sm space-y-1.5">
+              {os.veiculos.map((v) => (
+                <li key={v.id} className="border-b border-slate-50 pb-1.5">
+                  <div className="flex justify-between">
+                    <span className="font-medium text-slate-800">
+                      {v.veiculo?.modelo}
+                      {v.veiculo?.tipo ? (
+                        <span className="text-slate-400 font-normal"> · {v.veiculo.tipo}</span>
+                      ) : null}
+                    </span>
+                    <span className="text-xs text-slate-500">{v.veiculo?.placa}</span>
+                  </div>
+                  {(v.motorista || v.observacao) && (
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {v.motorista ? `Motorista: ${v.motorista}` : ""}
+                      {v.motorista && v.observacao ? " · " : ""}
+                      {v.observacao || ""}
+                    </p>
                   )}
                 </li>
               ))}
@@ -391,6 +449,26 @@ export default async function OsPublicaPage({
                     {ex.item?.codigo ? <span className="text-red-400"> ({ex.item.codigo})</span> : null}
                   </span>
                   <span className="text-xs text-red-400">extra / acessório</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Serviços contratados (sem valores) */}
+        {cfg.servicos && servicos.length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <ClipboardList className="h-4 w-4 text-blue-600" />
+              <h2 className="text-sm font-semibold text-slate-900">Serviços</h2>
+            </div>
+            <ul className="text-sm space-y-1">
+              {servicos.map((sv, i) => (
+                <li key={i} className="flex justify-between border-b border-slate-50 pb-1">
+                  <span className="text-slate-700">
+                    {sv.quantidade}x {sv.nome}
+                  </span>
+                  <span className="text-xs text-slate-400">{sv.sala}</span>
                 </li>
               ))}
             </ul>
