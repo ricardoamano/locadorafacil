@@ -26,6 +26,8 @@ export default function PrecosMercadoPage() {
   const [nomeColado, setNomeColado] = useState("");
   const [fonteColada, setFonteColada] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  // Entrada rápida: escreva os preços à mão e a IA estrutura e sobe no banco
+  const [textoRapido, setTextoRapido] = useState("");
 
   // Orientações por IA (manutenção do banco: limpar antigos, reajustar...)
   const [comando, setComando] = useState("");
@@ -82,6 +84,7 @@ export default function PrecosMercadoPage() {
       setTextoColado("");
       setNomeColado("");
       setFonteColada("");
+      setTextoRapido("");
       carregar();
     } catch (e) {
       toast(e instanceof Error && e.message ? e.message : "Erro na importação.", "error");
@@ -198,6 +201,40 @@ export default function PrecosMercadoPage() {
             <Button onClick={() => fileRef.current?.click()} loading={enviando}>
               <FileUp className="h-4 w-4" />
               {enviando ? "Analisando documento..." : "Importar arquivo"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Entrada rápida — escreva e a IA analisa e sobe no banco */}
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 mb-4">
+          <p className="text-sm font-semibold text-slate-900 mb-1">
+            ✍️ Anotar preços rapidamente
+          </p>
+          <p className="text-xs text-slate-400 mb-2">
+            Escreva do seu jeito — a IA identifica equipamento, empresa e valores e sobe
+            no banco. Ex.: &quot;Mega Eventos cobra R$ 350 a diária do moving beam 230,
+            semana 900. Reposição 8 mil.&quot;
+          </p>
+          <div className="flex gap-2 items-end">
+            <Textarea
+              value={textoRapido}
+              onChange={(e) => setTextoRapido(e.target.value)}
+              rows={2}
+              placeholder="Escreva os preços que você ouviu/recebeu... (Enter envia, Shift+Enter quebra linha)"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if (textoRapido.trim())
+                    importar({ texto: textoRapido, nome: "Anotação rápida" });
+                }
+              }}
+            />
+            <Button
+              loading={enviando}
+              disabled={!textoRapido.trim()}
+              onClick={() => importar({ texto: textoRapido, nome: "Anotação rápida" })}
+            >
+              Analisar e subir
             </Button>
           </div>
         </div>
