@@ -12,7 +12,7 @@ import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { RECORRENCIA_OPCOES } from "@/lib/tarefas-recorrencia";
-import { Plus, Pencil, Trash2, CheckSquare, Repeat } from "lucide-react";
+import { Plus, Pencil, Trash2, CheckSquare, Repeat, Kanban, List, GripVertical } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; variant: "success" | "warning" | "danger" | "info" | "neutral" }> = {
   NAO_INICIADA: { label: "Não Iniciada", variant: "warning" },
@@ -20,6 +20,14 @@ const statusConfig: Record<string, { label: string; variant: "success" | "warnin
   CONCLUIDA: { label: "Concluída", variant: "success" },
   ATRASADA: { label: "Atrasada", variant: "danger" },
 };
+
+// Colunas do Kanban de tarefas (mesmos status da lista)
+const COLUNAS_KANBAN: { key: string; label: string; cor: string; corTopo: string }[] = [
+  { key: "NAO_INICIADA", label: "Não iniciada", cor: "bg-amber-50", corTopo: "border-amber-400" },
+  { key: "EM_ANDAMENTO", label: "Em andamento", cor: "bg-blue-50", corTopo: "border-blue-400" },
+  { key: "ATRASADA", label: "Atrasada", cor: "bg-red-50", corTopo: "border-red-400" },
+  { key: "CONCLUIDA", label: "Concluída", cor: "bg-emerald-50", corTopo: "border-emerald-400" },
+];
 
 interface Tarefa {
   id: string;
@@ -79,6 +87,9 @@ export default function TarefasPage() {
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [visao, setVisao] = useState<"lista" | "kanban">("lista");
+  const [arrastando, setArrastando] = useState<string | null>(null);
+  const [sobre, setSobre] = useState<string | null>(null);
 
   const fetchTarefas = useCallback(async () => {
     setLoading(true);
@@ -174,6 +185,30 @@ export default function TarefasPage() {
     }
   }
 
+  async function moverTarefa(id: string, novoStatus: string) {
+    const t = tarefas.find((x) => x.id === id);
+    if (!t || t.status === novoStatus) return;
+    const anterior = t.status;
+    // Otimista: move o card na hora
+    setTarefas((p) => p.map((x) => (x.id === id ? { ...x, status: novoStatus } : x)));
+    try {
+      const res = await fetch(`/api/tarefas/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: novoStatus }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      if (d.proximaId) {
+        toast("Tarefa concluída — próxima ocorrência criada automaticamente. 🔁", "success");
+        fetchTarefas();
+      }
+    } catch (e) {
+      setTarefas((p) => p.map((x) => (x.id === id ? { ...x, status: anterior } : x)));
+      toast(e instanceof Error && e.message ? e.message : "Erro ao mover.", "error");
+    }
+  }
+
   async function handleDelete() {
     if (!deleteId) return;
     setDeleteLoading(true);
@@ -202,6 +237,28 @@ export default function TarefasPage() {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+              <button
+                onClick={() => setVisao("lista")}
+                title="Ver em lista"
+                className={`px-3 h-9 flex items-center gap-1.5 text-sm transition-colors ${
+                  visao === "lista" ? "bg-blue-600 text-white" : "bg-white text-slate-500 hover:bg-slate-50"
+                }`}
+              >
+                <List className="h-4 w-4" />
+                Lista
+              </button>
+              <button
+                onClick={() => setVisao("kanban")}
+                title="Ver em quadro Kanban"
+                className={`px-3 h-9 flex items-center gap-1.5 text-sm transition-colors ${
+                  visao === "kanban" ? "bg-blue-600 text-white" : "bg-white text-slate-500 hover:bg-slate-50"
+                }`}
+              >
+                <Kanban className="h-4 w-4" />
+                Kanban
+              </button>
+            </div>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -222,6 +279,114 @@ export default function TarefasPage() {
           </div>
         </div>
 
+        {visao === "kanban" && !loading ? (
+          <div className="flex gap-4 overflow-x-auto pb-4">
+            {COLUNAS_KANBAN.map((col) => {
+              const cards = tarefas.filter((t) => t.status === col.key);
+              return (
+                <div
+                  key={col.key}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setSobre(col.key);
+                  }}
+                  onDragLeave={() => setSobre((s) => (s === col.key ? null : s))}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setSobre(null);
+                    const id = e.dataTransfer.getData("text/plain");
+                    if (id) moverTarefa(id, col.key);
+                  }}
+                  className={`w-72 shrink-0 rounded-xl border-t-4 ${col.corTopo} ${col.cor} border border-slate-100 transition-shadow ${
+                    sobre === col.key ? "ring-2 ring-blue-400 shadow-md" : ""
+                  }`}
+                >
+                  <div className="px-3 pt-3 pb-2 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-slate-800">{col.label}</h3>
+                    <span className="text-xs font-medium text-slate-500 bg-white/70 rounded-full px-2 py-0.5">
+                      {cards.length}
+                    </span>
+                  </div>
+                  <div className="px-2 pb-2 space-y-2 min-h-24 max-h-[calc(100vh-300px)] overflow-y-auto">
+                    {cards.length === 0 && (
+                      <p className="text-xs text-slate-400 text-center py-6">Solte uma tarefa aqui</p>
+                    )}
+                    {cards.map((t) => {
+                      const atrasadaVisual =
+                        t.status !== "CONCLUIDA" && new Date(t.dataEntrega) < new Date();
+                      return (
+                        <div
+                          key={t.id}
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData("text/plain", t.id);
+                            setArrastando(t.id);
+                          }}
+                          onDragEnd={() => setArrastando(null)}
+                          onDoubleClick={() => openEdit(t)}
+                          className={`group bg-white rounded-lg border border-slate-100 shadow-sm p-3 cursor-grab active:cursor-grabbing transition-opacity ${
+                            arrastando === t.id ? "opacity-50" : ""
+                          }`}
+                        >
+                          <div className="flex items-start gap-1.5">
+                            <GripVertical className="h-4 w-4 text-slate-200 group-hover:text-slate-400 shrink-0 mt-0.5" />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => openEdit(t)}
+                                  className="text-sm font-semibold text-slate-900 hover:text-blue-600 text-left truncate"
+                                >
+                                  {t.nome}
+                                </button>
+                                {t.recorrencia && (
+                                  <Repeat className="h-3 w-3 text-violet-500 shrink-0" />
+                                )}
+                              </div>
+                              {(t.atribuidos || []).length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {t.atribuidos.map((a) => (
+                                    <span
+                                      key={a.user.id}
+                                      className="inline-flex rounded-full bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700"
+                                    >
+                                      {a.user.name || a.user.email}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              <div className="flex items-center justify-between mt-1.5">
+                                <span
+                                  className={`text-[11px] ${
+                                    atrasadaVisual ? "text-red-600 font-medium" : "text-slate-400"
+                                  }`}
+                                >
+                                  entrega {new Date(t.dataEntrega).toLocaleDateString("pt-BR")}
+                                </span>
+                                {t.responsaveis.length > 0 && (
+                                  <div className="flex -space-x-1">
+                                    {t.responsaveis.slice(0, 3).map((r) => (
+                                      <span
+                                        key={r.membro.id}
+                                        title={r.membro.nome}
+                                        className="h-5 w-5 rounded-full bg-blue-100 border border-white flex items-center justify-center text-[9px] font-bold text-blue-700"
+                                      >
+                                        {r.membro.nome.charAt(0).toUpperCase()}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
         <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-x-auto">
           {loading ? (
             <div className="flex items-center justify-center h-40">
@@ -343,6 +508,7 @@ export default function TarefasPage() {
             </table>
           )}
         </div>
+        )}
 
         <Modal
           open={modalOpen}

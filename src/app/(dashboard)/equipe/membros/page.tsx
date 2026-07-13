@@ -103,6 +103,7 @@ export default function MembrosPage() {
   const [especialidades, setEspecialidades] = useState<{ id: string; nome: string }[]>([]);
   const [novaEsp, setNovaEsp] = useState("");
   const [criandoEsp, setCriandoEsp] = useState(false);
+  const [filtroEsp, setFiltroEsp] = useState("");
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<FormData>(empty());
@@ -343,6 +344,12 @@ export default function MembrosPage() {
     }
   }
 
+  const membrosFiltrados = filtroEsp
+    ? membros.filter((m) =>
+        (m.especialidades || []).some((e) => e.especialidade.id === filtroEsp)
+      )
+    : membros;
+
   return (
     <>
       <Header breadcrumbs={[{ label: "Equipe" }, { label: "Membros" }]} />
@@ -355,6 +362,19 @@ export default function MembrosPage() {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <select
+              value={filtroEsp}
+              onChange={(e) => setFiltroEsp(e.target.value)}
+              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              title="Filtrar por especialidade"
+            >
+              <option value="">Todas as especialidades</option>
+              {especialidades.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.nome}
+                </option>
+              ))}
+            </select>
             {selecionados.size > 0 && (
               <Button variant="outline" onClick={copiarSelecionados}>
                 <Copy className="h-4 w-4" />
@@ -374,7 +394,7 @@ export default function MembrosPage() {
             <div className="flex items-center justify-center h-40">
               <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full" />
             </div>
-          ) : membros.length === 0 ? (
+          ) : membrosFiltrados.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-40 gap-2 text-slate-400">
               <UserCheck className="h-8 w-8" />
               <p className="text-sm">Nenhum membro cadastrado ainda</p>
@@ -390,7 +410,7 @@ export default function MembrosPage() {
                   <th className="px-4 py-3 w-10">
                     <input
                       type="checkbox"
-                      checked={membros.length > 0 && selecionados.size === membros.length}
+                      checked={membrosFiltrados.length > 0 && selecionados.size === membrosFiltrados.length}
                       onChange={toggleTodos}
                       title="Selecionar todos os listados"
                       className="h-4 w-4 rounded cursor-pointer"
@@ -409,7 +429,7 @@ export default function MembrosPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {membros.map((m) => (
+                {membrosFiltrados.map((m) => (
                   <tr key={m.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3">
                       <input

@@ -72,6 +72,38 @@ export async function PUT(
   return NextResponse.json({ ...tarefa, proximaId });
 }
 
+// Mudança rápida de status (Kanban) — não mexe em responsáveis/atribuídos.
+// Concluir uma tarefa recorrente também gera a próxima ocorrência.
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const companyId = await getCompanyId();
+  if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+  const body = await req.json();
+  const novoStatus = String(body.status || "");
+  const VALIDOS = ["NAO_INICIADA", "EM_ANDAMENTO", "CONCLUIDA", "ATRASADA"];
+  if (!VALIDOS.includes(novoStatus))
+    return NextResponse.json({ error: "Status inválido" }, { status: 400 });
+
+  const existing = await prisma.tarefa.findFirst({ where: { id, companyId } });
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const tarefa = await prisma.tarefa.update({
+    where: { id },
+    data: { status: novoStatus },
+  });
+
+  let proximaId: string | null = null;
+  if (novoStatus === "CONCLUIDA" && existing.status !== "CONCLUIDA" && existing.recorrencia) {
+    proximaId = await gerarProximaOcorrencia(prisma, id);
+  }
+
+  return NextResponse.json({ ...tarefa, proximaId });
+}
+
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
