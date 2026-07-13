@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { dadosContato, dadosSubContatos } from "@/lib/contacts";
 
 type SessionUser = { companyId?: string };
 
@@ -59,17 +60,13 @@ export async function POST(req: NextRequest) {
   if (!companyId) return NextResponse.json({ error: "No company" }, { status: 400 });
 
   const body = await req.json();
-  const { subContacts, ...data } = body;
+  const subs = dadosSubContatos(body.subContacts);
 
   const contact = await prisma.contact.create({
     data: {
-      ...data,
+      ...dadosContato(body),
       companyId,
-      subContacts: subContacts?.length
-        ? {
-            create: subContacts,
-          }
-        : undefined,
+      subContacts: subs.length ? { create: subs } : undefined,
     },
     include: { subContacts: true },
   });

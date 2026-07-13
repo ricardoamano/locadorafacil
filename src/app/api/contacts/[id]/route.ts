@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
+import { dadosContato, dadosSubContatos } from "@/lib/contacts";
+
 type SessionUser = {
   id?: string;
   companyId?: string;
@@ -39,7 +41,6 @@ export async function PUT(
 
   const { id } = await params;
   const body = await req.json();
-  const { subContacts, ...data } = body;
 
   const existing = await prisma.contact.findFirst({ where: { id, companyId } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -47,10 +48,10 @@ export async function PUT(
   const contact = await prisma.contact.update({
     where: { id },
     data: {
-      ...data,
+      ...dadosContato(body),
       subContacts: {
         deleteMany: {},
-        create: subContacts || [],
+        create: dadosSubContatos(body.subContacts),
       },
     },
     include: { subContacts: true },
