@@ -297,11 +297,36 @@ export default function UsuariosPage() {
                 />
               </div>
 
-              {form.role !== "ADMIN" && (
+              {form.role === "ADMIN" ? (
+                <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3 text-sm text-blue-800">
+                  <p className="font-medium">Administrador tem acesso total.</p>
+                  <p className="text-xs text-blue-700 mt-1">
+                    Para liberar só alguns módulos deste usuário, mude o perfil acima para{" "}
+                    <strong>Usuário</strong> — os módulos aparecerão aqui para você marcar.
+                  </p>
+                </div>
+              ) : (
                 <div>
                   <label className="text-sm font-medium text-slate-700 block mb-2">
                     Módulos que este usuário pode acessar
                   </label>
+                  <div className="flex gap-2 mb-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm((p) => ({ ...p, modulos: [...PADRAO_USER] }))}
+                      className="text-xs font-medium text-blue-600 hover:underline"
+                    >
+                      Marcar todos
+                    </button>
+                    <span className="text-slate-300">·</span>
+                    <button
+                      type="button"
+                      onClick={() => setForm((p) => ({ ...p, modulos: [] }))}
+                      className="text-xs font-medium text-slate-500 hover:underline"
+                    >
+                      Desmarcar todos
+                    </button>
+                  </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                     {MODULOS.filter((m) => m.key !== "configuracoes").map((m) => {
                       const marcado = form.modulos.includes(m.key);
@@ -334,7 +359,7 @@ export default function UsuariosPage() {
                   </div>
                   <p className="text-xs text-slate-400 mt-2">
                     Módulos desmarcados somem do menu e ficam bloqueados por URL e API.
-                    O acesso é revalidado no próximo login do usuário.
+                    A mudança vale em até ~30 segundos, sem precisar relogar.
                   </p>
                 </div>
               )}
