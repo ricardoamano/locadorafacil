@@ -8,7 +8,7 @@ import { Modal } from "@/components/ui/modal";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { formatCurrency } from "@/lib/utils";
-import { FileUp, Trash2, Search, Database, ClipboardPaste, Sparkles } from "lucide-react";
+import { FileUp, Trash2, Search, Database, ClipboardPaste, Sparkles, Pencil } from "lucide-react";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -28,6 +28,9 @@ export default function PrecosMercadoPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   // Entrada rápida: escreva os preços à mão e a IA estrutura e sobe no banco
   const [textoRapido, setTextoRapido] = useState("");
+  // Edição manual de um registro
+  const [editando, setEditando] = useState<any | null>(null);
+  const [editSalvando, setEditSalvando] = useState(false);
 
   // Orientações por IA (manutenção do banco: limpar antigos, reajustar...)
   const [comando, setComando] = useState("");
@@ -91,6 +94,27 @@ export default function PrecosMercadoPage() {
     } finally {
       setEnviando(false);
       if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  async function salvarEdicao() {
+    if (!editando) return;
+    setEditSalvando(true);
+    try {
+      const res = await fetch("/api/precos-mercado", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editando),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      toast("Registro atualizado!", "success");
+      setEditando(null);
+      carregar();
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro ao salvar.", "error");
+    } finally {
+      setEditSalvando(false);
     }
   }
 
@@ -437,12 +461,22 @@ export default function PrecosMercadoPage() {
                       {r.createdAt ? new Date(r.createdAt).toLocaleDateString("pt-BR") : "—"}
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      <button
-                        onClick={() => excluir(r.id)}
-                        className="text-slate-300 hover:text-red-500 transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => setEditando({ ...r })}
+                          title="Editar registro"
+                          className="text-slate-300 hover:text-blue-600 transition-colors"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => excluir(r.id)}
+                          title="Excluir registro"
+                          className="text-slate-300 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -454,6 +488,71 @@ export default function PrecosMercadoPage() {
           {registros.length} registro(s) · valores unitários por diária · a pesquisa de
           mercado do cadastro de itens consulta este banco primeiro
         </p>
+
+        {/* Edição manual de um registro */}
+        <Modal
+          open={!!editando}
+          onClose={() => !editSalvando && setEditando(null)}
+          title="Editar preço de mercado"
+          size="lg"
+        >
+          {editando && (
+            <div className="flex flex-col gap-3">
+              <div className="grid sm:grid-cols-2 gap-3">
+                <Input
+                  label="Equipamento *"
+                  value={editando.equipamento || ""}
+                  onChange={(e) => setEditando((p: any) => ({ ...p, equipamento: e.target.value }))}
+                />
+                <Input
+                  label="Empresa (fonte)"
+                  value={editando.fonte || ""}
+                  onChange={(e) => setEditando((p: any) => ({ ...p, fonte: e.target.value }))}
+                />
+                <Input
+                  label="Marca"
+                  value={editando.marca || ""}
+                  onChange={(e) => setEditando((p: any) => ({ ...p, marca: e.target.value }))}
+                />
+                <Input
+                  label="Modelo"
+                  value={editando.modelo || ""}
+                  onChange={(e) => setEditando((p: any) => ({ ...p, modelo: e.target.value }))}
+                />
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                {(
+                  [
+                    ["diaria", "Diária (R$)"],
+                    ["semana", "Semana (R$)"],
+                    ["quinzena", "Quinzena (R$)"],
+                    ["mes", "Mês (R$)"],
+                    ["reposicao", "Reposição (R$)"],
+                  ] as const
+                ).map(([campo, rotulo]) => (
+                  <Input
+                    key={campo}
+                    label={rotulo}
+                    type="number"
+                    step="0.01"
+                    value={editando[campo] ?? ""}
+                    onChange={(e) =>
+                      setEditando((p: any) => ({ ...p, [campo]: e.target.value }))
+                    }
+                  />
+                ))}
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setEditando(null)} disabled={editSalvando}>
+                  Cancelar
+                </Button>
+                <Button onClick={salvarEdicao} loading={editSalvando}>
+                  Salvar
+                </Button>
+              </div>
+            </div>
+          )}
+        </Modal>
       </main>
     </>
   );

@@ -210,6 +210,36 @@ Regras: valores UNITÁRIOS (divida pelo número de unidades e diárias se o docu
   }
 }
 
+// PUT: edição manual de um registro do banco de preços
+export async function PUT(req: NextRequest) {
+  const companyId = await getCompanyId();
+  if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = await req.json();
+  const id = String(body.id || "");
+  const existing = await prisma.precoMercado.findFirst({ where: { id, companyId } });
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const num = (v: unknown) =>
+    v === null || v === undefined || v === "" ? null : Number(v) || null;
+
+  const registro = await prisma.precoMercado.update({
+    where: { id },
+    data: {
+      equipamento: String(body.equipamento || "").trim() || existing.equipamento,
+      marca: body.marca?.trim() || null,
+      modelo: body.modelo?.trim() || null,
+      fonte: body.fonte?.trim() || null,
+      diaria: num(body.diaria),
+      semana: num(body.semana),
+      quinzena: num(body.quinzena),
+      mes: num(body.mes),
+      reposicao: num(body.reposicao),
+    },
+  });
+  return NextResponse.json(registro);
+}
+
 export async function DELETE(req: NextRequest) {
   const companyId = await getCompanyId();
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
