@@ -111,7 +111,6 @@ async function buscarMidiaDoModelo(
 
   const fotos: string[] = [];
   for (const url of urls) {
-    let baixou = false;
     try {
       const res = await fetch(url, {
         signal: AbortSignal.timeout(8000),
@@ -132,14 +131,11 @@ async function buscarMidiaDoModelo(
             select: { id: true },
           });
           fotos.push(`/api/arquivos/${arquivo.id}`);
-          baixou = true;
         }
       }
     } catch {
-      // não deu para baixar — usa a URL direta como fallback abaixo
+      // não deu para baixar — ignora (fotos vêm do Google/colar, mais confiável)
     }
-    // Fallback: se não baixou, devolve a URL original (o navegador tenta exibir)
-    if (!baixou && /\.(jpe?g|png|webp)(\?|$)/i.test(url)) fotos.push(url);
   }
 
   const video =

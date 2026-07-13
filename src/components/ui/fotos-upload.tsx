@@ -1,49 +1,98 @@
 "use client";
 
-import React, { useRef, useState } from "react";
-import { ImagePlus, X } from "lucide-react";
+import React, { useRef, useState, useEffect } from "react";
+import { ImagePlus, X, Search, ClipboardPaste } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 
-// Upload de várias fotos (galeria do item) — grava no banco via /api/upload
+// Upload de várias fotos (galeria do item) — grava no banco via /api/upload.
+// Também: link de busca de imagens no Google + colar imagem (Ctrl+V).
 
 export function FotosUpload({
   label,
   value,
   onChange,
+  consultaBusca,
 }: {
   label?: string;
   value: string[];
   onChange: (urls: string[]) => void;
+  // Texto para o botão "Buscar imagens no Google" (ex.: marca + modelo + nome)
+  consultaBusca?: string;
 }) {
   const { toast } = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
   const [enviando, setEnviando] = useState(false);
+  // Guarda em ref para o listener de "paste" sempre ver o value/estado atuais
+  const valueRef = useRef(value);
+  valueRef.current = value;
 
-  async function enviarArquivos(files: FileList) {
+  async function enviarArquivos(files: File[]) {
     setEnviando(true);
     const novas: string[] = [];
     try {
-      for (const file of Array.from(files).slice(0, 10)) {
+      for (const file of files.slice(0, 10)) {
         const fd = new FormData();
         fd.append("file", file);
         const res = await fetch("/api/upload", { method: "POST", body: fd });
         const d = await res.json();
         if (!res.ok) {
-          toast(`${file.name}: ${d.error || "erro no upload"}`, "error");
+          toast(`${file.name || "imagem"}: ${d.error || "erro no upload"}`, "error");
           continue;
         }
         novas.push(d.url);
       }
-      if (novas.length > 0) onChange([...value, ...novas]);
+      if (novas.length > 0) onChange([...valueRef.current, ...novas]);
     } finally {
       setEnviando(false);
       if (inputRef.current) inputRef.current.value = "";
     }
   }
 
+  // Colar imagem (Ctrl+V) de qualquer lugar enquanto o formulário está aberto.
+  // Só age quando o clipboard tem imagem — não atrapalha colar texto nos campos.
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      const itens = Array.from(e.clipboardData?.items || []);
+      const imgs = itens
+        .filter((it) => it.type.startsWith("image/"))
+        .map((it) => it.getAsFile())
+        .filter((f): f is File => !!f);
+      if (imgs.length === 0) return;
+      e.preventDefault();
+      enviarArquivos(imgs);
+      toast("Imagem colada — enviando... 📋", "success");
+    }
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const buscaUrl = consultaBusca?.trim()
+    ? `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(consultaBusca.trim())}`
+    : "";
+
   return (
     <div>
       {label && <p className="text-sm font-medium text-slate-700 mb-1">{label}</p>}
+
+      <div className="flex items-center gap-2 mb-2 flex-wrap">
+        {buscaUrl && (
+          <a
+            href={buscaUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+          >
+            <Search className="h-3.5 w-3.5" />
+            Buscar imagens no Google
+          </a>
+        )}
+        <span className="inline-flex items-center gap-1 text-xs text-slate-400">
+          <ClipboardPaste className="h-3.5 w-3.5" />
+          copie a imagem e cole aqui (Ctrl+V)
+        </span>
+      </div>
+
       <div className="flex flex-wrap gap-2">
         {value.map((url, i) => (
           <div key={i} className="relative h-20 w-20 rounded-lg overflow-hidden border border-slate-200 group">
@@ -80,7 +129,7 @@ export function FotosUpload({
         accept="image/*"
         multiple
         className="hidden"
-        onChange={(e) => e.target.files?.length && enviarArquivos(e.target.files)}
+        onChange={(e) => e.target.files?.length && enviarArquivos(Array.from(e.target.files))}
       />
     </div>
   );

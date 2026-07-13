@@ -852,7 +852,18 @@ export function ItemFormModal({
                   />
                 </div>
                           {/* Fotos do item (galeria — várias fotos, gravadas no banco) */}
-          <FotosUpload label="Fotos do equipamento" value={fotos} onChange={setFotos} />
+          <FotosUpload
+            label="Fotos do equipamento"
+            value={fotos}
+            onChange={setFotos}
+            consultaBusca={[
+              marcas.find((m) => m.id === form.marcaId)?.nome,
+              form.modelo,
+              form.nome,
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          />
 
           {/* Acessórios que acompanham (podem virar itens vinculados) */}
           <div className="rounded-lg border border-slate-100 p-3">
