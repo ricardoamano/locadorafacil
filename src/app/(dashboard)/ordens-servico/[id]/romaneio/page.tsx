@@ -20,6 +20,7 @@ export default function RomaneioPage() {
   const params = useParams<{ id: string }>();
   const [os, setOs] = useState<any | null>(null);
   const [extras, setExtras] = useState<any[]>([]);
+  const [resumo, setResumo] = useState<any[]>([]);
   const [empresa, setEmpresa] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -28,11 +29,13 @@ export default function RomaneioPage() {
     Promise.all([
       fetch(`/api/ordens-servico/${params.id}`).then((r) => r.json()),
       fetch(`/api/ordens-servico/${params.id}/itens-extras`).then((r) => r.json()),
+      fetch(`/api/ordens-servico/${params.id}/conferencia`).then((r) => r.json()),
       fetch("/api/empresa").then((r) => r.json()),
     ])
-      .then(([o, e, emp]) => {
+      .then(([o, e, conf, emp]) => {
         setOs(o?.id ? o : null);
         setExtras(e?.extras || []);
+        setResumo(conf?.resumo || []);
         setEmpresa(emp?.id ? emp : null);
       })
       .finally(() => setLoading(false));
@@ -47,25 +50,27 @@ export default function RomaneioPage() {
   if (!os) return <NaoEncontrado mensagem="OS não encontrada." voltarHref="/ordens-servico" voltarLabel="Voltar para Ordens de Serviço" />;
 
   const orc = os.orcamento;
-  // Só equipamentos vão no romaneio (serviços não embarcam no caminhão)
-  const salas = (orc?.salas || [])
-    .map((s: any) => ({
-      ...s,
-      itens: (s.itens || []).filter((i: any) => i.item?.natureza !== "SERVICO"),
-    }))
-    .filter((s: any) => s.itens.length > 0);
 
-  const totalReposicao =
-    salas.reduce(
-      (acc: number, s: any) =>
-        acc +
-        s.itens.reduce(
-          (a: number, i: any) => a + (i.item?.valorReposicao || 0) * (i.quantidade || 0),
-          0
-        ),
-      0
-    ) +
-    extras.reduce((a: number, e: any) => a + (e.item?.valorReposicao || 0) * e.quantidade, 0);
+  // Reposição por item (vem do orçamento/extras — o resumo da conferência não traz)
+  const reposMap = new Map<string, number>();
+  for (const s of orc?.salas || [])
+    for (const i of s.itens || [])
+      if (i.item?.id) reposMap.set(i.item.id, i.item.valorReposicao || 0);
+  for (const e of extras) if (e.item?.id) reposMap.set(e.item.id, e.item.valorReposicao || 0);
+
+  // O romaneio reflete o que foi SEPARADO (conferência de saída). Se nada foi
+  // conferido ainda, cai no planejado para não sair em branco.
+  const houveConferencia = resumo.some((r: any) => r.saida > 0);
+  const linhas = resumo
+    .map((r: any) => ({
+      ...r,
+      carga: houveConferencia ? r.saida : r.quantidade,
+      reposicao: reposMap.get(r.itemId) || 0,
+    }))
+    .filter((r: any) => r.carga > 0)
+    .sort((a: any, b: any) => a.nome.localeCompare(b.nome));
+
+  const totalReposicao = linhas.reduce((a: number, r: any) => a + r.reposicao * r.carga, 0);
 
   return (
     <div className="min-h-screen bg-slate-100 print:bg-white">
@@ -120,36 +125,51 @@ export default function RomaneioPage() {
           </div>
         </div>
 
-        {/* Equipamentos por sala */}
-        {salas.map((sala: any, si: number) => (
-          <div key={si} className="mt-4" style={{ breakInside: "avoid" }}>
-            <p className="bg-slate-800 text-white font-bold px-2 py-1 text-[11px] uppercase">
-              {sala.nome}
-            </p>
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-slate-100 text-[9px] uppercase text-slate-600">
-                  <th className="border border-slate-300 px-1.5 py-1 w-10 text-center">Qtd</th>
-                  <th className="border border-slate-300 px-1.5 py-1 text-left">Equipamento</th>
-                  <th className="border border-slate-300 px-1.5 py-1 w-24 text-right">Reposição (un.)</th>
-                  <th className="border border-slate-300 px-1.5 py-1 w-14 text-center">Saída ✓</th>
-                  <th className="border border-slate-300 px-1.5 py-1 w-14 text-center">Retorno ✓</th>
+        {/* Itens separados (conferência de saída) */}
+        <div className="mt-4" style={{ breakInside: "avoid" }}>
+          <p className="bg-slate-800 text-white font-bold px-2 py-1 text-[11px] uppercase flex justify-between">
+            <span>Carga separada</span>
+            <span className="font-normal normal-case">
+              {houveConferencia
+                ? "Baseado na conferência de saída"
+                : "Ainda sem conferência — mostrando o planejado"}
+            </span>
+          </p>
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-slate-100 text-[9px] uppercase text-slate-600">
+                <th className="border border-slate-300 px-1.5 py-1 w-10 text-center">Qtd</th>
+                <th className="border border-slate-300 px-1.5 py-1 text-left">Equipamento</th>
+                <th className="border border-slate-300 px-1.5 py-1 w-24 text-right">Reposição (un.)</th>
+                <th className="border border-slate-300 px-1.5 py-1 w-14 text-center">Saída ✓</th>
+                <th className="border border-slate-300 px-1.5 py-1 w-14 text-center">Retorno ✓</th>
+              </tr>
+            </thead>
+            <tbody>
+              {linhas.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="border border-slate-300 px-2 py-3 text-center text-slate-400">
+                    Nada separado para carga.
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {sala.itens.map((i: any, ii: number) => (
-                  <tr key={ii}>
+              ) : (
+                linhas.map((i: any) => (
+                  <tr key={i.itemId} className={i.extra ? "text-red-700" : ""}>
                     <td className="border border-slate-300 px-1.5 py-1.5 text-center font-bold">
-                      {i.quantidade}
+                      {i.carga}
+                      {houveConferencia && i.carga !== i.quantidade && (
+                        <span className="block text-[8px] font-normal text-slate-400">
+                          plan: {i.quantidade}
+                        </span>
+                      )}
                     </td>
                     <td className="border border-slate-300 px-1.5 py-1.5">
-                      {i.item?.nome}
-                      {i.item?.codigo && (
-                        <span className="text-slate-400"> ({i.item.codigo})</span>
-                      )}
-                      {(i.item?.acessoriosAvulsos || []).length > 0 && (
+                      {i.nome}
+                      {i.codigo && <span className="text-slate-400"> ({i.codigo})</span>}
+                      {i.extra && <span className="font-semibold"> · extra</span>}
+                      {(i.acessorios || []).length > 0 && (
                         <div className="mt-0.5 text-[9px] text-slate-500 leading-tight">
-                          {i.item.acessoriosAvulsos.map((a: any, ai: number) => (
+                          {i.acessorios.map((a: any, ai: number) => (
                             <span key={ai} className="mr-2 whitespace-nowrap">
                               ☐ {a.quantidade > 1 ? `${a.quantidade}× ` : ""}
                               {a.nome}
@@ -159,53 +179,16 @@ export default function RomaneioPage() {
                       )}
                     </td>
                     <td className="border border-slate-300 px-1.5 py-1.5 text-right">
-                      {fmtValor(i.item?.valorReposicao)}
+                      {fmtValor(i.reposicao)}
                     </td>
-                    <td className="border border-slate-300 px-1.5 py-1.5 text-center text-slate-300">
-                      ☐
-                    </td>
-                    <td className="border border-slate-300 px-1.5 py-1.5 text-center text-slate-300">
-                      ☐
-                    </td>
+                    <td className="border border-slate-300 px-1.5 py-1.5 text-center text-slate-300">☐</td>
+                    <td className="border border-slate-300 px-1.5 py-1.5 text-center text-slate-300">☐</td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ))}
-
-        {/* Itens extras */}
-        {extras.length > 0 && (
-          <div className="mt-4" style={{ breakInside: "avoid" }}>
-            <p className="bg-red-700 text-white font-bold px-2 py-1 text-[11px] uppercase">
-              Itens Extras / Acessórios (fora do orçamento)
-            </p>
-            <table className="w-full border-collapse">
-              <tbody>
-                {extras.map((e: any) => (
-                  <tr key={e.id} className="text-red-700">
-                    <td className="border border-slate-300 px-1.5 py-1.5 w-10 text-center font-bold">
-                      {e.quantidade}
-                    </td>
-                    <td className="border border-slate-300 px-1.5 py-1.5">
-                      {e.item?.nome}
-                      {e.item?.codigo && <span> ({e.item.codigo})</span>}
-                      {e.fornecedor && (
-                        <span className="font-semibold"> · sub-locado de {e.fornecedor.nomeFantasia}</span>
-                      )}
-                      {e.observacao && <span className="italic"> — {e.observacao}</span>}
-                    </td>
-                    <td className="border border-slate-300 px-1.5 py-1.5 w-24 text-right">
-                      {fmtValor(e.item?.valorReposicao)}
-                    </td>
-                    <td className="border border-slate-300 px-1.5 py-1.5 w-14 text-center text-slate-300">☐</td>
-                    <td className="border border-slate-300 px-1.5 py-1.5 w-14 text-center text-slate-300">☐</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
 
         {/* Termo de responsabilidade */}
         <div className="mt-5 border border-slate-300 rounded p-3 text-[9.5px] text-slate-600" style={{ breakInside: "avoid" }}>

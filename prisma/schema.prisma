@@ -489,6 +489,7 @@ model OrdemServico {
   mensagensWhatsapp MensagemWhatsapp[]
   anexos       OsAnexo[]
   alteracoes   OsAlteracao[]
+  entrega      OsEntrega?
   veiculos     OsVeiculo[]
 }
 
@@ -513,6 +514,26 @@ model OsAnexo {
   arquivoId String?      // referência ao Arquivo quando tipo = ARQUIVO
   criadoPor String?
   createdAt DateTime     @default(now())
+}
+
+// Entrega no evento — "o que ficou" com o cliente (termo + aceite assinado).
+// itens: snapshot [{ itemId, nome, codigo, separado, ficou }]
+model OsEntrega {
+  id               String       @id @default(cuid())
+  osId             String       @unique
+  os               OrdemServico @relation(fields: [osId], references: [id], onDelete: Cascade)
+  publicToken      String       @unique
+  itens            Json         @default("[]")
+  observacoes      String?
+  clienteNome      String?
+  clienteDoc       String?
+  aceiteAssinatura String?      // dataURL (PNG) da assinatura desenhada
+  aceiteEm         DateTime?
+  aceiteDispositivo String?
+  registradoPor    String?
+  companyId        String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 }
 
 // NESTOR — log de mensagens de WhatsApp enviadas à equipe

@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { OsConferencia } from "./os-conferencia";
+import { OsEntrega } from "./os-entrega";
 import { OsNestor } from "./os-nestor";
 import { OsAnexos } from "./os-anexos";
 import { OsEscalaIa } from "./os-escala-ia";
@@ -452,6 +453,11 @@ export function OsDetail({
 
       {/* Conferência de estoque (saída/entrada por QR ou busca) */}
       <OsConferencia osId={os.id} />
+
+      {/* O que ficou no evento — termo de entrega + aceite do cliente */}
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+        <OsEntrega osId={os.id} />
+      </div>
 
       {/* Escala de Equipe */}
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
