@@ -187,6 +187,22 @@ Sistema multiempresa de gestão de locação de equipamentos e serviços para ev
 - Bug reportado e corrigido nesta sessão: acessórios eram invisíveis (emCatalogo=false), fotos/preços falhavam
   em silêncio (web_search em modelo errado). Validar em produção com a chave de IA ativa.
 
+## Migração do sistema antigo (Bubble) — IMPORTAÇÃO
+Sistema antigo = Bubble (workspaceId `W4YU5IH34UIYN`). Ids do Bubble no formato `1725...x...`.
+Guardamos o id de origem em `Contact.bubbleId` e `Local.bubbleId` (índice por companyId+bubbleId).
+- **Clientes** (`/api/import/clientes`, `ImportarClientes` em Clientes): 2 CSVs (Clientes sem id +
+  Contatos com `clienteId`). O vínculo cliente↔contato é reconstruído pela lista de nomes
+  (`src/lib/import-bubble.ts`), grava `bubbleId` = clienteId do Bubble. 133 clientes, 171 contatos,
+  testes filtrados. Endereço dos clientes: botão **Completar endereços (CNPJ)** (`/api/import/completar-cnpj`,
+  BrasilAPI) — proxy do dev bloqueia, mas Vercel acessa.
+- **Locais/espaços** (`/api/import/locais`, `ImportarLocais` em Locais): CSV de Locais (nome + endereco[rua]
+  + `unique id`) + CSV de Endereços opcional (cruza rua→CEP/número quando única). 129 espaços, todos com id,
+  83 com endereço completo. Grava `Local.bubbleId` = unique id.
+- Arquivos salvos no scratchpad `.../scratchpad/import/` (clientes.csv, contatos.csv, enderecos.csv, locais.csv).
+- **PRÓXIMO: orçamentos e faturas.** No Bubble eles referenciam o cliente (clienteId) e o local (local id).
+  Como já guardamos `Contact.bubbleId` e `Local.bubbleId`, o cruzamento será direto por esses ids.
+  Pedir export de Orçamentos/Faturas COM as colunas de referência (cliente id, local id) + unique id próprio.
+
 ## Convenções de comunicação com o Ricardo
 - Relatórios em pt-BR, liderando com o resultado, com seção "🧪 Teste:" no final.
 - Sempre honesto sobre limitações (ex.: Meta 24h, fotos dependem da web).
