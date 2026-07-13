@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { LocalFormModal } from "./local-form-modal";
+import { ImportarLocais } from "./importar-locais";
 import { useToast } from "@/components/ui/toast";
 import {
   Plus,
@@ -154,6 +155,7 @@ export function LocaisList() {
           )}
         </form>
 
+        <ImportarLocais onImportado={fetchLocais} />
         <Button
           onClick={() => {
             setEditLocal(null);

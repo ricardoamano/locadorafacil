@@ -85,6 +85,122 @@ function nomeValido(s: string): boolean {
   return !NOMES_INVALIDOS.has(norm(s));
 }
 
+// ── Locais (espaços de evento) ──────────────────────────────────────────────
+
+export interface LocalImport {
+  nome: string;
+  rua: string | null;
+  cep: string | null;
+  numero: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  estado: string | null;
+  bubbleId: string | null;
+  enderecoCompleto: boolean; // true se o endereço foi cruzado sem ambiguidade
+}
+
+export interface ResultadoLocais {
+  locais: LocalImport[];
+  stats: { locais: number; comEndereco: number; semEndereco: number; comId: number };
+}
+
+/**
+ * Importa os locais (espaços de evento). Cruza a rua com o arquivo de endereços
+ * (opcional) para preencher CEP/número/cidade quando a rua é única; ruas com
+ * mais de um endereço ficam só com o nome da rua (você completa depois).
+ */
+export function montarImportacaoLocais(
+  locaisCsv: string,
+  enderecosCsv?: string
+): ResultadoLocais {
+  // Índice rua-normalizada -> endereço, quando único
+  const ruaPara = new Map<string, Map<string, LocalImport>>();
+  if (enderecosCsv) {
+    const end = parseCsv(enderecosCsv);
+    const eH = end[0] || [];
+    const iCep = eH.indexOf("cep");
+    const iCid = eH.indexOf("cidade");
+    const iFmt = eH.indexOf("enderecoFormatado");
+    const iEst = eH.indexOf("estado");
+    const iNum = eH.indexOf("numero");
+    const iBairro = eH.indexOf("bairro");
+    for (let i = 1; i < end.length; i++) {
+      const r = end[i];
+      if (!r || r.length < 7) continue;
+      const fmt = (r[iFmt] || "").trim();
+      if (!fmt || fmt.startsWith(", ,")) continue;
+      const rua = fmt.split(",")[0].trim();
+      if (!rua) continue;
+      const key = norm(rua);
+      if (!ruaPara.has(key)) ruaPara.set(key, new Map());
+      const combo = `${(r[iNum] || "").trim()}|${(r[iCep] || "").trim()}`;
+      ruaPara.get(key)!.set(combo, {
+        nome: "",
+        rua,
+        cep: (r[iCep] || "").trim() || null,
+        numero: (r[iNum] || "").trim() || null,
+        bairro: (r[iBairro] || "").trim() || null,
+        cidade: (r[iCid] || "").trim() || null,
+        estado: (r[iEst] || "").trim().toUpperCase() || null,
+        bubbleId: null,
+        enderecoCompleto: false,
+      });
+    }
+  }
+
+  const rows = parseCsv(locaisCsv);
+  const h = rows[0] || [];
+  const kEnd = h.indexOf("endereco");
+  const kNome = h.indexOf("nome");
+  const kId = h.indexOf("unique id");
+
+  const locais: LocalImport[] = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r || r.length < 2) continue;
+    const nome = (r[kNome] || "").trim();
+    if (!nome) continue;
+    const rua = (r[kEnd] || "").trim() || null;
+    const bubbleId = kId >= 0 ? (r[kId] || "").trim() || null : null;
+
+    let cep: string | null = null;
+    let numero: string | null = null;
+    let bairro: string | null = null;
+    let cidade: string | null = null;
+    let estado: string | null = null;
+    let enderecoCompleto = false;
+
+    if (rua) {
+      const combos = ruaPara.get(norm(rua));
+      if (combos) {
+        const distintos = [...combos.values()].filter((c) => c.numero || c.cep);
+        const chaves = new Set(distintos.map((c) => `${c.numero}|${c.cep}`));
+        if (chaves.size === 1 && distintos.length) {
+          const e = distintos[0];
+          cep = e.cep;
+          numero = e.numero;
+          bairro = e.bairro;
+          cidade = e.cidade;
+          estado = e.estado;
+          enderecoCompleto = true;
+        }
+      }
+    }
+
+    locais.push({ nome, rua, cep, numero, bairro, cidade, estado, bubbleId, enderecoCompleto });
+  }
+
+  return {
+    locais,
+    stats: {
+      locais: locais.length,
+      comEndereco: locais.filter((l) => l.enderecoCompleto).length,
+      semEndereco: locais.filter((l) => !l.enderecoCompleto).length,
+      comId: locais.filter((l) => l.bubbleId).length,
+    },
+  };
+}
+
 /** Recebe os textos dos dois CSVs e devolve os clientes prontos + estatísticas. */
 export function montarImportacaoClientes(
   clientesCsv: string,
