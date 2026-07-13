@@ -16,6 +16,9 @@ export async function GET(req: NextRequest) {
 
   const categorias = await prisma.categoria.findMany({
     where: { companyId, ...(tipo ? { tipo } : {}) },
+    include: {
+      subCategorias: { orderBy: { nome: "asc" }, select: { id: true, nome: true } },
+    },
     orderBy: { nome: "asc" },
   });
 

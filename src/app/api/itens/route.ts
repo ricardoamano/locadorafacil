@@ -43,7 +43,9 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         categoria: { select: { id: true, nome: true } },
+        subCategoria: { select: { id: true, nome: true } },
         marca: { select: { id: true, nome: true } },
+        acessoriosAvulsos: { select: { id: true, nome: true, quantidade: true } },
         // Disponibilidade em tempo real calculada pelas unidades serializadas
         unidades: { select: { status: true } },
       },
@@ -140,6 +142,7 @@ export async function POST(req: NextRequest) {
       especificacoes: data.especificacoes || null,
       emCatalogo: data.emCatalogo ?? true,
       categoriaId: data.categoriaId || null,
+      subCategoriaId: data.subCategoriaId || null,
       publicado: !!data.publicado,
       slug: slugFinal,
       descricaoComercial: data.descricaoComercial || null,
@@ -156,6 +159,21 @@ export async function POST(req: NextRequest) {
 
   // Cria as unidades físicas serializadas (codigo-01, codigo-02, ...)
   await sincronizarUnidades(item.id);
+
+  // Acessórios avulsos (checklist de separação, sem código/QR)
+  if (Array.isArray(body.acessoriosAvulsos)) {
+    const avulsos = body.acessoriosAvulsos
+      .map((a: { nome?: string; quantidade?: number | string }) => ({
+        nome: String(a.nome || "").trim(),
+        quantidade: Math.max(1, Number(a.quantidade) || 1),
+      }))
+      .filter((a: { nome: string }) => a.nome);
+    if (avulsos.length > 0) {
+      await prisma.itemAcessorioAvulso.createMany({
+        data: avulsos.map((a: { nome: string; quantidade: number }) => ({ ...a, itemId: item.id })),
+      });
+    }
+  }
 
   // Acessórios sugeridos/selecionados viram itens vinculados
   let acessoriosInfo = null;

@@ -147,6 +147,16 @@ export default function RomaneioPage() {
                       {i.item?.codigo && (
                         <span className="text-slate-400"> ({i.item.codigo})</span>
                       )}
+                      {(i.item?.acessoriosAvulsos || []).length > 0 && (
+                        <div className="mt-0.5 text-[9px] text-slate-500 leading-tight">
+                          {i.item.acessoriosAvulsos.map((a: any, ai: number) => (
+                            <span key={ai} className="mr-2 whitespace-nowrap">
+                              ☐ {a.quantidade > 1 ? `${a.quantidade}× ` : ""}
+                              {a.nome}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </td>
                     <td className="border border-slate-300 px-1.5 py-1.5 text-right">
                       {fmtValor(i.item?.valorReposicao)}

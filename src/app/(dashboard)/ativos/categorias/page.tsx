@@ -15,6 +15,7 @@ interface Categoria {
   id: string;
   nome: string;
   tipo: string;
+  subCategorias?: { id: string; nome: string }[];
 }
 
 export default function CategoriasPage() {
@@ -29,6 +30,8 @@ export default function CategoriasPage() {
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [novaSub, setNovaSub] = useState<Record<string, string>>({});
+  const [criandoSub, setCriandoSub] = useState<string | null>(null);
 
   const fetchCategorias = useCallback(async () => {
     setLoading(true);
@@ -87,6 +90,36 @@ export default function CategoriasPage() {
     }
   }
 
+  async function criarSub(categoriaId: string) {
+    const nome = (novaSub[categoriaId] || "").trim();
+    if (!nome) return;
+    setCriandoSub(categoriaId);
+    try {
+      const res = await fetch("/api/subcategorias", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categoriaId, nome }),
+      });
+      if (!res.ok) throw new Error();
+      setNovaSub((p) => ({ ...p, [categoriaId]: "" }));
+      fetchCategorias();
+    } catch {
+      toast("Erro ao criar subcategoria.", "error");
+    } finally {
+      setCriandoSub(null);
+    }
+  }
+
+  async function excluirSub(id: string) {
+    try {
+      const res = await fetch(`/api/subcategorias?id=${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      fetchCategorias();
+    } catch {
+      toast("Erro ao excluir subcategoria.", "error");
+    }
+  }
+
   return (
     <>
       <Header breadcrumbs={[{ label: "Ativos" }, { label: "Categorias" }]} />
@@ -137,7 +170,43 @@ export default function CategoriasPage() {
               <tbody className="divide-y divide-slate-50">
                 {categorias.map((c) => (
                   <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 text-sm font-medium text-slate-900">{c.nome}</td>
+                    <td className="px-4 py-3">
+                      <p className="text-sm font-medium text-slate-900">{c.nome}</p>
+                      {c.tipo !== "FINANCEIRO" && (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                          {(c.subCategorias || []).map((sc) => (
+                            <span
+                              key={sc.id}
+                              className="group inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-100 px-2 py-0.5 text-[11px] text-blue-700"
+                            >
+                              {sc.nome}
+                              <button
+                                onClick={() => excluirSub(sc.id)}
+                                title="Excluir subcategoria"
+                                className="text-blue-300 hover:text-red-500"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                          <input
+                            value={novaSub[c.id] || ""}
+                            onChange={(e) =>
+                              setNovaSub((p) => ({ ...p, [c.id]: e.target.value }))
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                criarSub(c.id);
+                              }
+                            }}
+                            placeholder={criandoSub === c.id ? "Criando..." : "+ subcategoria (Enter)"}
+                            disabled={criandoSub === c.id}
+                            className="h-6 w-44 rounded-full border border-dashed border-slate-200 bg-white px-2 text-[11px] text-slate-600 placeholder:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                          />
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <Badge variant={c.tipo === "FINANCEIRO" ? "info" : "neutral"}>
                         {c.tipo === "FINANCEIRO" ? "Financeira" : "Item"}

@@ -108,6 +108,7 @@ export async function PUT(
       especificacoes: data.especificacoes || null,
       emCatalogo: data.emCatalogo ?? true,
       categoriaId: data.categoriaId || null,
+      subCategoriaId: data.subCategoriaId || null,
       publicado: !!data.publicado,
       slug: slugFinal,
       descricaoComercial: data.descricaoComercial || null,
@@ -121,6 +122,22 @@ export async function PUT(
   // Mantém unidades serializadas em dia com código e quantidade
   if (codigoFinal !== existing.codigo) await renomearCodigosUnidades(id, codigoFinal);
   await sincronizarUnidades(id);
+
+  // Acessórios avulsos: substitui a lista (checklist de separação)
+  if (Array.isArray(body.acessoriosAvulsos)) {
+    const avulsos = body.acessoriosAvulsos
+      .map((a: { nome?: string; quantidade?: number | string }) => ({
+        nome: String(a.nome || "").trim(),
+        quantidade: Math.max(1, Number(a.quantidade) || 1),
+      }))
+      .filter((a: { nome: string }) => a.nome);
+    await prisma.itemAcessorioAvulso.deleteMany({ where: { itemId: id } });
+    if (avulsos.length > 0) {
+      await prisma.itemAcessorioAvulso.createMany({
+        data: avulsos.map((a: { nome: string; quantidade: number }) => ({ ...a, itemId: id })),
+      });
+    }
+  }
 
   let acessoriosInfo = null;
   if (Array.isArray(body.acessorios) && body.acessorios.length > 0) {

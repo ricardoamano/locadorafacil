@@ -16,6 +16,7 @@ import { formatCurrency } from "@/lib/utils";
 interface Categoria {
   id: string;
   nome: string;
+  subCategorias?: { id: string; nome: string }[];
 }
 
 interface ItemFormData {
@@ -32,6 +33,7 @@ interface ItemFormData {
   valorAluguel: string;
   tipo: string;
   categoriaId: string;
+  subCategoriaId: string;
   quantidade: string;
   especificacoes: string;
   emCatalogo: boolean;
@@ -68,6 +70,7 @@ function emptyForm(): ItemFormData {
     valorAluguel: "",
     tipo: "PROPRIO",
     categoriaId: "",
+    subCategoriaId: "",
     quantidade: "",
     especificacoes: "",
     emCatalogo: true,
@@ -107,6 +110,15 @@ export function ItemFormModal({
   const [fotos, setFotos] = useState<string[]>([]);
   const [acessorios, setAcessorios] = useState<{ nome: string; incluir: boolean }[]>([]);
   const [novoAcessorio, setNovoAcessorio] = useState("");
+  // Acessórios avulsos: checklist de separação (sem código/QR)
+  const [avulsos, setAvulsos] = useState<{ nome: string; quantidade: number }[]>([]);
+  const [novoAvulso, setNovoAvulso] = useState("");
+  const [novoAvulsoQtd, setNovoAvulsoQtd] = useState("1");
+  // Arquivos do item (manuais, apresentações, vídeos...)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [arquivos, setArquivos] = useState<any[]>([]);
+  const [linkArquivo, setLinkArquivo] = useState("");
+  const [enviandoArquivo, setEnviandoArquivo] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [precosMercado, setPrecosMercado] = useState<any | null>(null);
   const [pesquisandoPrecos, setPesquisandoPrecos] = useState(false);
@@ -142,6 +154,7 @@ export function ItemFormModal({
           valorMes: initial.valorMes != null ? String(initial.valorMes) : "",
           quantidade: initial.quantidade != null ? String(initial.quantidade) : "",
           categoriaId: initial.categoriaId || "",
+          subCategoriaId: initial.subCategoriaId || "",
           especificacoes: initial.especificacoes || "",
           marcaId: initial.marcaId || "",
           modelo: initial.modelo || "",
@@ -155,6 +168,23 @@ export function ItemFormModal({
         setNovoAcessorio("");
         setPrecosMercado(null);
         setVinculados([]);
+        setAvulsos(
+          Array.isArray(initial.acessoriosAvulsos)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ? initial.acessoriosAvulsos.map((a: any) => ({
+                nome: a.nome,
+                quantidade: a.quantidade || 1,
+              }))
+            : []
+        );
+        setArquivos([]);
+        setLinkArquivo("");
+        if (initial.id) {
+          fetch(`/api/itens/${initial.id}/arquivos`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => d && setArquivos(d.arquivos || []))
+            .catch(() => {});
+        }
       } else {
         setForm(emptyForm());
         setFotos([]);
@@ -162,6 +192,9 @@ export function ItemFormModal({
         setNovoAcessorio("");
         setPrecosMercado(null);
         setVinculados([]);
+        setAvulsos([]);
+        setArquivos([]);
+        setLinkArquivo("");
       }
       fetch("/api/marcas")
         .then((r) => r.json())
@@ -222,6 +255,7 @@ export function ItemFormModal({
           marcaId: form.marcaId || null,
           fotos,
           acessorios: acessorios.filter((a) => a.incluir).map((a) => a.nome),
+          acessoriosAvulsos: avulsos,
         }),
       });
       const data = await res.json();
@@ -252,6 +286,69 @@ export function ItemFormModal({
   }
 
   const categoriaOptions = categorias.map((c) => ({ value: c.id, label: c.nome }));
+  const subCategoriaOptions = (
+    categorias.find((c) => c.id === form.categoriaId)?.subCategorias || []
+  ).map((sc) => ({ value: sc.id, label: sc.nome }));
+
+  function addAvulso() {
+    const nome = novoAvulso.trim();
+    if (!nome) return;
+    setAvulsos((p) => [...p, { nome, quantidade: Math.max(1, Number(novoAvulsoQtd) || 1) }]);
+    setNovoAvulso("");
+    setNovoAvulsoQtd("1");
+  }
+
+  async function uploadArquivoItem(file: File) {
+    if (!form.id) return;
+    setEnviandoArquivo(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/itens/${form.id}/arquivos`, { method: "POST", body: fd });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setArquivos((p) => [d, ...p]);
+      toast("Arquivo anexado ao item!", "success");
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro ao enviar.", "error");
+    } finally {
+      setEnviandoArquivo(false);
+    }
+  }
+
+  async function addLinkArquivo() {
+    if (!form.id || !linkArquivo.trim()) return;
+    setEnviandoArquivo(true);
+    try {
+      const res = await fetch(`/api/itens/${form.id}/arquivos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: linkArquivo.trim() }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setArquivos((p) => [d, ...p]);
+      setLinkArquivo("");
+      toast("Link anexado ao item!", "success");
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro ao anexar.", "error");
+    } finally {
+      setEnviandoArquivo(false);
+    }
+  }
+
+  async function removerArquivoItem(arquivoId: string) {
+    if (!form.id) return;
+    try {
+      const res = await fetch(`/api/itens/${form.id}/arquivos?arquivoId=${arquivoId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error();
+      setArquivos((p) => p.filter((a) => a.id !== arquivoId));
+    } catch {
+      toast("Erro ao remover arquivo.", "error");
+    }
+  }
 
   return (
     <Modal
@@ -815,6 +912,142 @@ export function ItemFormModal({
             </div>
           </div>
 
+          {/* Acessórios avulsos — checklist de separação, sem código/QR */}
+          <div className="rounded-lg border border-slate-100 p-3">
+            <p className="text-sm font-medium text-slate-700">
+              Acessórios do item (checklist de separação)
+            </p>
+            <p className="text-xs text-slate-400 mb-2">
+              Sem código/QR — servem para conferir na hora de separar o material.
+              Ex.: base do microfone, bastão, fonte, pilhas, antenas. Aparecem no
+              romaneio e na conferência da OS.
+            </p>
+            {avulsos.length > 0 && (
+              <div className="space-y-1 mb-2">
+                {avulsos.map((a, i) => (
+                  <div key={i} className="flex items-center gap-2 text-sm text-slate-700">
+                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded bg-slate-100 px-1 text-xs font-semibold text-slate-600">
+                      {a.quantidade}×
+                    </span>
+                    <span>{a.nome}</span>
+                    <button
+                      type="button"
+                      onClick={() => setAvulsos((p) => p.filter((_, idx2) => idx2 !== i))}
+                      className="ml-auto text-slate-300 hover:text-red-500 text-xs"
+                    >
+                      remover
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <div className="w-20">
+                <Input
+                  type="number"
+                  min={1}
+                  value={novoAvulsoQtd}
+                  onChange={(e) => setNovoAvulsoQtd(e.target.value)}
+                  placeholder="Qtd"
+                />
+              </div>
+              <Input
+                value={novoAvulso}
+                onChange={(e) => setNovoAvulso(e.target.value)}
+                placeholder="Ex.: cabo de energia, pedestal, cabo speakon..."
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addAvulso();
+                  }
+                }}
+              />
+              <Button type="button" variant="outline" size="sm" onClick={addAvulso}>
+                Adicionar
+              </Button>
+            </div>
+          </div>
+
+          {/* Arquivos do item — manuais, apresentações, vídeos, qualquer espécie */}
+          <div className="rounded-lg border border-slate-100 p-3">
+            <p className="text-sm font-medium text-slate-700">Arquivos do item</p>
+            <p className="text-xs text-slate-400 mb-2">
+              Manuais, apresentações, vídeo-tutoriais, documentos... qualquer espécie
+              (até 4 MB por arquivo; maiores, cole o link).
+            </p>
+            {!form.id ? (
+              <p className="text-xs text-amber-600">
+                Salve o item primeiro para poder anexar arquivos.
+              </p>
+            ) : (
+              <>
+                {arquivos.length > 0 && (
+                  <div className="space-y-1 mb-2">
+                    {arquivos.map((a) => (
+                      <div key={a.id} className="flex items-center gap-2 text-sm">
+                        <span className="text-slate-400 text-xs shrink-0">
+                          {a.tipo === "LINK" ? "🔗" : "📄"}
+                        </span>
+                        <a
+                          href={a.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline truncate"
+                        >
+                          {a.titulo}
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => removerArquivoItem(a.id)}
+                          className="ml-auto text-slate-300 hover:text-red-500 text-xs"
+                        >
+                          remover
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2 items-center">
+                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200 bg-white text-slate-600 hover:border-blue-300 cursor-pointer">
+                    {enviandoArquivo ? "Enviando..." : "📤 Enviar arquivo"}
+                    <input
+                      type="file"
+                      className="hidden"
+                      disabled={enviandoArquivo}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) uploadArquivoItem(f);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                  <div className="flex-1 min-w-40 flex gap-2">
+                    <Input
+                      value={linkArquivo}
+                      onChange={(e) => setLinkArquivo(e.target.value)}
+                      placeholder="ou cole um link (Drive, YouTube...)"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addLinkArquivo();
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addLinkArquivo}
+                      loading={enviandoArquivo}
+                    >
+                      Anexar link
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
           <Textarea
                   label="Descrição comercial"
                   value={form.descricaoComercial}
@@ -855,13 +1088,31 @@ export function ItemFormModal({
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Select
               label="Categoria"
               value={form.categoriaId}
-              onChange={(e) => setField("categoriaId", e.target.value)}
+              onChange={(e) => {
+                setField("categoriaId", e.target.value);
+                setField("subCategoriaId", "");
+              }}
               options={categoriaOptions}
               placeholder="Selecione a categoria"
+            />
+            <Select
+              label="Subcategoria"
+              value={form.subCategoriaId}
+              onChange={(e) => setField("subCategoriaId", e.target.value)}
+              options={subCategoriaOptions}
+              placeholder={
+                form.categoriaId
+                  ? subCategoriaOptions.length
+                    ? "Selecione"
+                    : "Sem subcategorias (crie em Categorias)"
+                  : "Escolha a categoria antes"
+              }
+              disabled={!form.categoriaId || subCategoriaOptions.length === 0}
+              clearable
             />
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-slate-700">

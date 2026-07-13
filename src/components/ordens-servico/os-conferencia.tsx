@@ -621,6 +621,16 @@ export function OsConferencia({ osId }: { osId: string }) {
                           extra / acessório
                         </span>
                       )}
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                      {((r as any).acessorios || []).length > 0 && (
+                        <p className="mt-0.5 text-[11px] text-amber-700 leading-tight">
+                          ⚠ Separar junto:{" "}
+                          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                          {((r as any).acessorios as any[])
+                            .map((a) => `${a.quantidade > 1 ? `${a.quantidade}× ` : ""}${a.nome}`)
+                            .join(" · ")}
+                        </p>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-center text-slate-600">{r.quantidade}</td>
                     <td className={`px-3 py-2 text-center font-medium ${saiu ? "text-amber-600" : "text-slate-500"}`}>

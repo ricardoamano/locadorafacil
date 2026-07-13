@@ -283,6 +283,8 @@ model Item {
 
   acessoriosBase ItemAcessorio[] @relation("ItemBase")
   acessoriosVinc ItemAcessorio[] @relation("ItemAcessorio")
+  acessoriosAvulsos ItemAcessorioAvulso[]
+  arquivos       ItemArquivo[]
   salaItens      SalaItem[]
   faturaItens    FaturaItem[]
   conferencias   OsConferencia[]
@@ -301,6 +303,29 @@ model ItemAcessorio {
   acessorio   Item   @relation("ItemAcessorio", fields: [acessorioId], references: [id])
 
   @@unique([itemBaseId, acessorioId])
+}
+
+// Acessório avulso do item (sem código/QR): checklist de separação do material.
+// Ex.: microfone SLXD → base, bastão, fonte da base, pilhas, antenas.
+model ItemAcessorioAvulso {
+  id         String @id @default(cuid())
+  itemId     String
+  item       Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  nome       String
+  quantidade Int    @default(1)
+}
+
+// Arquivos do item: manuais, apresentações, vídeo-tutoriais... qualquer espécie
+model ItemArquivo {
+  id        String   @id @default(cuid())
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  tipo      String   // ARQUIVO | LINK
+  titulo    String
+  url       String   // /api/arquivos/{id} para arquivos, URL externa para links
+  arquivoId String?
+  criadoPor String?
+  createdAt DateTime @default(now())
 }
 
 // ── Orçamentos ──────────────────────────────────────────────────────────────────

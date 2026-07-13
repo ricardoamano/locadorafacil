@@ -30,6 +30,7 @@ async function getOsComItens(osId: string, companyId: string) {
                       apelidos: true,
                       descricaoComercial: true,
                       natureza: true,
+                      acessoriosAvulsos: { select: { nome: true, quantidade: true } },
                     },
                   },
                 },
@@ -50,6 +51,7 @@ type ItemEsperado = {
   descricaoComercial: string | null;
   quantidade: number;
   extra: boolean;
+  acessorios: { nome: string; quantidade: number }[];
 };
 
 // Itens da OS = itens do orçamento + itens lançados direto na OS (extras)
@@ -72,6 +74,7 @@ async function itensDaOs(os: any): Promise<Map<string, ItemEsperado>> {
           descricaoComercial: si.descricaoComercial || si.item.descricaoComercial || null,
           quantidade: si.quantidade || 0,
           extra: false,
+          acessorios: si.item.acessoriosAvulsos || [],
         });
     }
   }
@@ -95,6 +98,7 @@ async function itensDaOs(os: any): Promise<Map<string, ItemEsperado>> {
         descricaoComercial: ex.item.descricaoComercial || null,
         quantidade: ex.quantidade,
         extra: true,
+        acessorios: [],
       });
   }
   return esperado;
