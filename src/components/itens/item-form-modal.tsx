@@ -235,14 +235,10 @@ export function ItemFormModal({
     return Object.keys(errs).length === 0;
   }
 
-  // Antes de finalizar, confirma a quantidade (evita cadastrar com 0 sem querer).
-  // Serviços não têm estoque, então vão direto.
+  // Antes de finalizar, confirma quantidade e valor (evita cadastrar com 0 sem
+  // querer). Serviço confirma só o valor (não tem estoque).
   function handleSubmit() {
     if (!validate()) return;
-    if (form.natureza === "SERVICO") {
-      salvar();
-      return;
-    }
     setConfirmarQtd(true);
   }
 
@@ -1173,30 +1169,48 @@ export function ItemFormModal({
       </ModalFooter>
     </Modal>
 
-    {/* Confirmação da quantidade — evita cadastrar item com estoque 0 sem querer */}
+    {/* Confirmação de quantidade e valor — evita cadastrar com 0 sem querer */}
     <Modal
       open={confirmarQtd}
       onClose={() => setConfirmarQtd(false)}
-      title="Confirmar quantidade em estoque"
+      title="Confirmar quantidade e valor"
       size="sm"
     >
       <ModalBody>
         <p className="text-sm text-slate-600 mb-3">
-          Quantas unidades de <strong>{form.nome || "este item"}</strong> você tem em estoque?
-          Confira antes de finalizar.
+          Confira antes de finalizar <strong>{form.nome || "este item"}</strong>.
         </p>
-        <Input
-          label="Quantidade em estoque"
-          type="number"
-          min="0"
-          autoFocus
-          value={form.quantidade}
-          onChange={(e) => setField("quantidade", e.target.value)}
-        />
-        {(parseInt(form.quantidade) || 0) === 0 && (
+        <div className="space-y-3">
+          {form.natureza !== "SERVICO" && (
+            <Input
+              label="Quantidade em estoque"
+              type="number"
+              min="0"
+              autoFocus
+              value={form.quantidade}
+              onChange={(e) => setField("quantidade", e.target.value)}
+            />
+          )}
+          <Input
+            label={form.natureza === "SERVICO" ? "Valor do serviço (R$)" : "Valor da diária (R$)"}
+            type="number"
+            step="0.01"
+            min="0"
+            autoFocus={form.natureza === "SERVICO"}
+            value={form.valorAluguel}
+            onChange={(e) => setField("valorAluguel", e.target.value)}
+          />
+        </div>
+        {form.natureza !== "SERVICO" && (parseInt(form.quantidade) || 0) === 0 && (
           <p className="text-xs text-amber-700 bg-amber-50 rounded-md px-2 py-1.5 mt-2">
             ⚠️ Quantidade <strong>0</strong>: o item ficará sem estoque e não poderá ser
-            separado/alugado até você ajustar. Confirme só se for intencional.
+            separado/alugado até você ajustar.
+          </p>
+        )}
+        {(parseFloat(form.valorAluguel) || 0) === 0 && (
+          <p className="text-xs text-amber-700 bg-amber-50 rounded-md px-2 py-1.5 mt-2">
+            ⚠️ Valor <strong>R$ 0,00</strong>: o item entrará nos orçamentos sem preço. Confirme
+            só se for intencional (ex.: cortesia).
           </p>
         )}
       </ModalBody>
