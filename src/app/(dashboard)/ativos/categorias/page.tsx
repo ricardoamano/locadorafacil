@@ -23,10 +23,15 @@ export default function CategoriasPage() {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState<{ id?: string; nome: string; tipo: string }>({
-    nome: "",
-    tipo: "ITEM",
-  });
+  // subId preenchido = editando uma subcategoria; categoriaPaiId escolhido no
+  // modal = cria/move a subcategoria para dentro dessa categoria.
+  const [form, setForm] = useState<{
+    id?: string;
+    subId?: string;
+    nome: string;
+    tipo: string;
+    categoriaPaiId: string;
+  }>({ nome: "", tipo: "ITEM", categoriaPaiId: "" });
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -57,14 +62,40 @@ export default function CategoriasPage() {
     }
     setSaving(true);
     try {
-      const url = form.id ? `/api/categorias/${form.id}` : "/api/categorias";
+      let url: string;
+      let method: string;
+      let payload: Record<string, unknown>;
+
+      if (form.subId) {
+        // Editando uma subcategoria (renomear / mover de categoria pai)
+        url = "/api/subcategorias";
+        method = "PUT";
+        payload = { id: form.subId, nome: form.nome, categoriaId: form.categoriaPaiId };
+      } else if (!form.id && form.categoriaPaiId) {
+        // Nova subcategoria dentro da categoria pai escolhida
+        url = "/api/subcategorias";
+        method = "POST";
+        payload = { nome: form.nome, categoriaId: form.categoriaPaiId };
+      } else {
+        url = form.id ? `/api/categorias/${form.id}` : "/api/categorias";
+        method = form.id ? "PUT" : "POST";
+        payload = { nome: form.nome, tipo: form.tipo };
+      }
+
       const res = await fetch(url, {
-        method: form.id ? "PUT" : "POST",
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error();
-      toast(form.id ? "Categoria atualizada!" : "Categoria criada!", "success");
+      toast(
+        form.subId || (!form.id && form.categoriaPaiId)
+          ? "Subcategoria salva!"
+          : form.id
+            ? "Categoria atualizada!"
+            : "Categoria criada!",
+        "success"
+      );
       setModalOpen(false);
       fetchCategorias();
     } catch {
@@ -133,7 +164,7 @@ export default function CategoriasPage() {
           </div>
           <Button
             onClick={() => {
-              setForm({ nome: "", tipo: "ITEM" });
+              setForm({ nome: "", tipo: "ITEM", categoriaPaiId: "" });
               setModalOpen(true);
             }}
           >
@@ -179,7 +210,21 @@ export default function CategoriasPage() {
                               key={sc.id}
                               className="group inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-100 px-2 py-0.5 text-[11px] text-blue-700"
                             >
-                              {sc.nome}
+                              <button
+                                onClick={() => {
+                                  setForm({
+                                    subId: sc.id,
+                                    nome: sc.nome,
+                                    tipo: "ITEM",
+                                    categoriaPaiId: c.id,
+                                  });
+                                  setModalOpen(true);
+                                }}
+                                title="Editar subcategoria"
+                                className="hover:underline"
+                              >
+                                {sc.nome}
+                              </button>
                               <button
                                 onClick={() => excluirSub(sc.id)}
                                 title="Excluir subcategoria"
@@ -216,7 +261,7 @@ export default function CategoriasPage() {
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => {
-                            setForm({ id: c.id, nome: c.nome, tipo: c.tipo });
+                            setForm({ id: c.id, nome: c.nome, tipo: c.tipo, categoriaPaiId: "" });
                             setModalOpen(true);
                           }}
                           className="p-1.5 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
@@ -241,7 +286,13 @@ export default function CategoriasPage() {
         <Modal
           open={modalOpen}
           onClose={() => setModalOpen(false)}
-          title={form.id ? "Editar Categoria" : "Nova Categoria"}
+          title={
+            form.subId
+              ? "Editar Subcategoria"
+              : form.id
+                ? "Editar Categoria"
+                : "Nova Categoria"
+          }
           size="md"
         >
           <ModalBody>
@@ -250,17 +301,32 @@ export default function CategoriasPage() {
                 label="Nome *"
                 value={form.nome}
                 onChange={(e) => setForm((p) => ({ ...p, nome: e.target.value }))}
-                placeholder="Ex: Som, Iluminação, Aluguel..."
+                placeholder="Ex: Áudio, Microfone, Impressora..."
               />
-              <Select
-                label="Tipo"
-                value={form.tipo}
-                onChange={(e) => setForm((p) => ({ ...p, tipo: e.target.value }))}
-                options={[
-                  { value: "ITEM", label: "Categoria de Item" },
-                  { value: "FINANCEIRO", label: "Categoria Financeira" },
-                ]}
-              />
+              {/* Categoria pai: escolher uma transforma em subcategoria (ex.: Áudio → Microfone) */}
+              {!form.id && form.tipo === "ITEM" && (
+                <Select
+                  label="Dentro de (categoria pai)"
+                  value={form.categoriaPaiId}
+                  onChange={(e) => setForm((p) => ({ ...p, categoriaPaiId: e.target.value }))}
+                  options={categorias
+                    .filter((c) => c.tipo === "ITEM")
+                    .map((c) => ({ value: c.id, label: c.nome }))}
+                  placeholder="Nenhuma — é uma categoria principal"
+                  clearable={!form.subId}
+                />
+              )}
+              {!form.subId && !form.categoriaPaiId && (
+                <Select
+                  label="Tipo"
+                  value={form.tipo}
+                  onChange={(e) => setForm((p) => ({ ...p, tipo: e.target.value }))}
+                  options={[
+                    { value: "ITEM", label: "Categoria de Item" },
+                    { value: "FINANCEIRO", label: "Categoria Financeira" },
+                  ]}
+                />
+              )}
             </div>
           </ModalBody>
           <ModalFooter>

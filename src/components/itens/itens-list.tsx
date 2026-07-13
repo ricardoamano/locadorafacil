@@ -41,6 +41,7 @@ interface Item {
   publicado?: boolean;
   slug?: string | null;
   categoria: { id: string; nome: string } | null;
+  subCategoria?: { id: string; nome: string } | null;
 }
 
 export function ItensList() {
@@ -298,6 +299,9 @@ export function ItensList() {
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-500">
                     {item.categoria?.nome || "—"}
+                    {item.subCategoria?.nome ? (
+                      <span className="text-slate-400"> › {item.subCategoria.nome}</span>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3">
                     <Badge variant="neutral">

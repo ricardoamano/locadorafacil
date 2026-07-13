@@ -39,6 +39,40 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(sub, { status: 201 });
 }
 
+export async function PUT(req: NextRequest) {
+  const companyId = await getCompanyId();
+  if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = await req.json();
+  const id = String(body.id || "");
+  const nome = String(body.nome || "").trim();
+  if (!id || !nome)
+    return NextResponse.json({ error: "Id e nome obrigatórios" }, { status: 400 });
+
+  const sub = await prisma.subCategoria.findFirst({
+    where: { id, categoria: { companyId } },
+    select: { id: true, categoriaId: true },
+  });
+  if (!sub) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // Troca de categoria pai (opcional) — precisa ser uma categoria da empresa
+  let categoriaId = sub.categoriaId;
+  if (body.categoriaId && body.categoriaId !== sub.categoriaId) {
+    const cat = await prisma.categoria.findFirst({
+      where: { id: String(body.categoriaId), companyId },
+      select: { id: true },
+    });
+    if (!cat) return NextResponse.json({ error: "Categoria não encontrada" }, { status: 404 });
+    categoriaId = cat.id;
+  }
+
+  const atualizada = await prisma.subCategoria.update({
+    where: { id },
+    data: { nome, categoriaId },
+  });
+  return NextResponse.json(atualizada);
+}
+
 export async function DELETE(req: NextRequest) {
   const companyId = await getCompanyId();
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
