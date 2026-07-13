@@ -9,19 +9,22 @@ import { clienteIa, MODELO_PROPOSTA } from "@/lib/ia";
 // A consulta à IA pode passar do limite padrão de execução da Vercel.
 export const maxDuration = 60;
 
-type SessionUser = { companyId?: string };
+type SessionUser = { id?: string; companyId?: string };
 
-async function getCompanyId() {
+async function getSessao() {
   const session = await auth();
   if (!session?.user) return null;
-  return (session.user as SessionUser).companyId ?? null;
+  const u = session.user as SessionUser;
+  return u.companyId ? { companyId: u.companyId, userId: u.id as string } : null;
 }
 
 export async function POST(req: NextRequest) {
-  const companyId = await getCompanyId();
-  if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const sessao = await getSessao();
+  if (!sessao) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { companyId, userId } = sessao;
 
   const body = await req.json();
+  const conversaId = typeof body.conversaId === "string" ? body.conversaId : null;
   const mensagens = (body.mensagens || []) as { role: "user" | "assistant"; content: string }[];
   if (mensagens.length === 0 || mensagens[mensagens.length - 1].role !== "user")
     return NextResponse.json({ error: "Envie uma pergunta" }, { status: 400 });
@@ -92,7 +95,40 @@ ${linhasItens || "(vazio)"}`;
       .filter((b) => b.type === "text")
       .map((b) => (b.type === "text" ? b.text : ""))
       .join("");
-    return NextResponse.json({ resposta: texto });
+
+    // Persiste o histórico da conversa (cada usuário vê as suas)
+    const completo = [...mensagens, { role: "assistant" as const, content: texto }];
+    const primeira = mensagens.find((m) => m.role === "user")?.content || "Conversa";
+    const titulo = primeira.slice(0, 80);
+
+    let idConversa = conversaId;
+    try {
+      if (conversaId) {
+        const dono = await prisma.ajudaConversa.findFirst({
+          where: { id: conversaId, companyId, userId },
+          select: { id: true },
+        });
+        if (dono) {
+          await prisma.ajudaConversa.update({
+            where: { id: conversaId },
+            data: { mensagens: completo },
+          });
+        } else {
+          idConversa = null;
+        }
+      }
+      if (!idConversa) {
+        const nova = await prisma.ajudaConversa.create({
+          data: { companyId, userId, titulo, mensagens: completo },
+          select: { id: true },
+        });
+        idConversa = nova.id;
+      }
+    } catch {
+      // histórico é secundário: se falhar, ainda devolvemos a resposta
+    }
+
+    return NextResponse.json({ resposta: texto, conversaId: idConversa });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Erro na IA";
     return NextResponse.json({ error: `Erro: ${msg}` }, { status: 502 });

@@ -871,3 +871,17 @@ model Link {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
+
+// ── Ajuda (histórico de conversas com o assistente de IA) ─────────────────────
+
+model AjudaConversa {
+  id        String   @id @default(cuid())
+  companyId String
+  userId    String   // dono da conversa (cada usuário vê as suas)
+  titulo    String
+  mensagens Json     // [{ role: "user"|"assistant", content: string }]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, userId])
+}
