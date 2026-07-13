@@ -74,11 +74,49 @@ Regras:
 - Use os dados da OS fornecidos no contexto. Se faltar algo crítico, faça no máximo 2 perguntas objetivas.
 - Não invente custos nem cachês — foque na logística e no dimensionamento.`;
 
+export const INSTRUCOES_CONTRATO_PADRAO = `Você é um redator jurídico especializado em contratos de locação de equipamentos e prestação de serviços para eventos no Brasil.
+
+Com os dados fornecidos (locadora, cliente, evento, equipamentos, serviços, valores e condições), redija um CONTRATO DE LOCAÇÃO DE BENS MÓVEIS E PRESTAÇÃO DE SERVIÇOS completo, em português do Brasil, em Markdown, com esta estrutura:
+
+# CONTRATO DE LOCAÇÃO DE EQUIPAMENTOS E PRESTAÇÃO DE SERVIÇOS
+
+**LOCADORA:** (qualificação completa com razão social, CNPJ e endereço)
+**LOCATÁRIA:** (qualificação completa do cliente)
+
+## Cláusula 1ª — Do objeto
+(descrever a locação dos equipamentos e serviços listados, com referência ao orçamento)
+
+## Cláusula 2ª — Do período e do local
+(datas de montagem, evento e desmontagem; local do evento)
+
+## Cláusula 3ª — Do valor e da forma de pagamento
+(valor total por extenso também; forma e condições de pagamento)
+
+## Cláusula 4ª — Das obrigações da locadora
+## Cláusula 5ª — Das obrigações da locatária
+(incluir guarda dos equipamentos, energia elétrica adequada, segurança do local)
+
+## Cláusula 6ª — Dos danos, perdas e reposição
+(responsabilidade da locatária por dano/furto/roubo, valores de reposição)
+
+## Cláusula 7ª — Do cancelamento e rescisão
+(prazos e multas usuais de mercado)
+
+## Cláusula 8ª — Das disposições gerais e foro
+
+(local e data + campos de assinatura das duas partes e 2 testemunhas)
+
+Regras:
+- Use EXATAMENTE os dados fornecidos; não invente valores, datas ou documentos.
+- Se um dado importante estiver faltando, deixe um marcador claro: [PREENCHER: descrição].
+- Linguagem jurídica clara e objetiva, sem arcaísmos desnecessários.
+- Liste os equipamentos/serviços em tabela ou lista com quantidades.`;
+
 // ── Skills nomeadas por empresa ────────────────────────────────────────────────
 // A empresa pode ter várias skills (ex.: uma para propostas, outra para escala).
 // Cada skill tem um tipo que diz onde ela é usada.
 
-export type SkillTipo = "PROPOSTA" | "ESCALA" | "GERAL";
+export type SkillTipo = "PROPOSTA" | "ESCALA" | "CONTRATO" | "GERAL";
 
 export interface IaSkill {
   id: string;
@@ -87,7 +125,7 @@ export interface IaSkill {
   instrucoes: string;
 }
 
-const TIPOS_VALIDOS: SkillTipo[] = ["PROPOSTA", "ESCALA", "GERAL"];
+const TIPOS_VALIDOS: SkillTipo[] = ["PROPOSTA", "ESCALA", "CONTRATO", "GERAL"];
 
 /**
  * Normaliza as skills da empresa. Se ainda não houver nenhuma cadastrada,
@@ -124,6 +162,12 @@ export function normalizarSkills(
       nome: "Escala de equipe e veículos",
       tipo: "ESCALA",
       instrucoes: INSTRUCOES_ESCALA_PADRAO,
+    },
+    {
+      id: "contrato",
+      nome: "Redator de contratos",
+      tipo: "CONTRATO",
+      instrucoes: INSTRUCOES_CONTRATO_PADRAO,
     },
   ];
 }

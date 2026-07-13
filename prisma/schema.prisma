@@ -780,7 +780,8 @@ model Contrato {
   orcamentoId String?
   orcamento   Orcamento? @relation(fields: [orcamentoId], references: [id])
   status      String    @default("RASCUNHO")
-  conteudo    String?
+  conteudo    String?   // conteúdo da versão atual
+  versaoAtual Int       @default(1)
   arquivoUrl  String?
   modeloId     String?
   modeloVersao Int?
@@ -790,6 +791,22 @@ model Contrato {
   company     Company   @relation(fields: [companyId], references: [id])
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  versoes ContratoVersao[]
+}
+
+// Histórico de versões do contrato — cada salvamento de conteúdo gera uma nova
+// versão; nunca sobrescrevemos versões anteriores.
+model ContratoVersao {
+  id         String   @id @default(cuid())
+  contratoId String
+  contrato   Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  numero     Int      // v1, v2, v3...
+  conteudo   String
+  criadoPor  String?
+  createdAt  DateTime @default(now())
+
+  @@unique([contratoId, numero])
 }
 
 // ── Configurações ─────────────────────────────────────────────────────────────

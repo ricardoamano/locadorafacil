@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
-import { Plus, Pencil, Trash2, FileSignature, Wand2 } from "lucide-react";
+import { Plus, Pencil, Trash2, FileSignature, Wand2, Sparkles, Printer, History } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; variant: "success" | "warning" | "danger" | "info" | "neutral" }> = {
   RASCUNHO: { label: "Rascunho", variant: "neutral" },
@@ -24,9 +24,11 @@ interface Contrato {
   titulo: string;
   status: string;
   conteudo: string | null;
+  versaoAtual: number;
   createdAt: string;
   cliente: { id: string; nomeFantasia: string };
   orcamento: { id: string; numero: number } | null;
+  versoes: { numero: number; criadoPor: string | null; createdAt: string }[];
 }
 
 interface Opt {
@@ -65,6 +67,11 @@ export default function ContratosPage() {
   const [modeloGerar, setModeloGerar] = useState("");
   const [orcamentoGerar, setOrcamentoGerar] = useState("");
   const [gerando, setGerando] = useState(false);
+  const [iaOpen, setIaOpen] = useState(false);
+  const [orcamentoIa, setOrcamentoIa] = useState("");
+  const [obsIa, setObsIa] = useState("");
+  const [gerandoIa, setGerandoIa] = useState(false);
+  const [versoesDe, setVersoesDe] = useState<Contrato | null>(null);
 
   const fetchContratos = useCallback(async () => {
     setLoading(true);
@@ -126,6 +133,41 @@ export default function ContratosPage() {
     }
   }
 
+  async function handleGerarIa() {
+    if (!orcamentoIa) {
+      toast("Selecione o orçamento.", "error");
+      return;
+    }
+    setGerandoIa(true);
+    try {
+      const res = await fetch("/api/contratos/gerar-ia", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orcamentoId: orcamentoIa, observacoes: obsIa }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast("Contrato redigido pela IA (v1)! Revise, edite e salve — cada edição vira uma nova versão.", "success");
+      setIaOpen(false);
+      fetchContratos();
+      // Abre direto para revisão
+      const c = data.contrato;
+      setForm({
+        id: c.id,
+        titulo: c.titulo,
+        clienteId: c.clienteId || "",
+        orcamentoId: c.orcamentoId || "",
+        status: c.status,
+        conteudo: c.conteudo || "",
+      });
+      setModalOpen(true);
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro ao gerar com IA.", "error");
+    } finally {
+      setGerandoIa(false);
+    }
+  }
+
   async function handleSave() {
     if (!form.titulo.trim() || !form.clienteId) {
       toast("Informe título e cliente.", "error");
@@ -139,12 +181,17 @@ export default function ContratosPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      if (!res.ok) throw new Error();
-      toast(form.id ? "Contrato atualizado!" : "Contrato criado!", "success");
+      const d = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(d?.error);
+      if (d?.novaVersaoCriada) {
+        toast(`Contrato salvo como v${d.versaoAtual} — versões anteriores preservadas.`, "success");
+      } else {
+        toast(form.id ? "Contrato atualizado!" : "Contrato criado!", "success");
+      }
       setModalOpen(false);
       fetchContratos();
-    } catch {
-      toast("Erro ao salvar.", "error");
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro ao salvar.", "error");
     } finally {
       setSaving(false);
     }
@@ -178,6 +225,17 @@ export default function ContratosPage() {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              onClick={() => {
+                setOrcamentoIa("");
+                setObsIa("");
+                setIaOpen(true);
+              }}
+              className="bg-violet-600 hover:bg-violet-700"
+            >
+              <Sparkles className="h-4 w-4" />
+              Gerar com IA
+            </Button>
             <Button
               variant="outline"
               onClick={() => {
@@ -215,12 +273,12 @@ export default function ContratosPage() {
             <table className="w-full min-w-[640px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
-                  {["Contrato", "Cliente", "Orçamento", "Criado em", "Status", "Ações"].map(
+                  {["Contrato", "Cliente", "Orçamento", "Versão", "Criado em", "Status", "Ações"].map(
                     (h, i) => (
                       <th
                         key={h}
                         className={`px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider ${
-                          i === 5 ? "text-right" : "text-left"
+                          i === 6 ? "text-right" : "text-left"
                         }`}
                       >
                         {h}
@@ -243,6 +301,16 @@ export default function ContratosPage() {
                       <td className="px-4 py-3 text-sm text-slate-500">
                         {c.orcamento ? `#${c.orcamento.numero}` : "—"}
                       </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => setVersoesDe(c)}
+                          className="inline-flex items-center gap-1 rounded-full bg-slate-100 hover:bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700"
+                          title="Ver histórico de versões"
+                        >
+                          <History className="h-3 w-3" />
+                          v{c.versaoAtual}
+                        </button>
+                      </td>
                       <td className="px-4 py-3 text-sm text-slate-500">
                         {new Date(c.createdAt).toLocaleDateString("pt-BR")}
                       </td>
@@ -251,6 +319,15 @@ export default function ContratosPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
+                          <a
+                            href={`/contratos/${c.id}/imprimir`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Imprimir / PDF"
+                            className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                          >
+                            <Printer className="h-4 w-4" />
+                          </a>
                           <button
                             onClick={() => {
                               setForm({
@@ -397,6 +474,125 @@ export default function ContratosPage() {
             </Button>
             <Button onClick={handleGerar} loading={gerando}>
               Gerar Contrato
+            </Button>
+          </ModalFooter>
+        </Modal>
+
+        {/* Gerar contrato com IA */}
+        <Modal
+          open={iaOpen}
+          onClose={() => !gerandoIa && setIaOpen(false)}
+          title="✨ Gerar contrato com IA"
+          size="lg"
+        >
+          <ModalBody>
+            <div className="space-y-4">
+              <p className="text-sm text-slate-500">
+                Escolha o orçamento: a IA puxa os dados do cliente, dos equipamentos e
+                serviços, datas, local e valores, e redige o contrato completo seguindo a
+                skill de <strong>Contratos</strong> da empresa. Depois você lê, edita,
+                salva (cada edição vira uma nova versão) e imprime em PDF.
+              </p>
+              <Select
+                label="Orçamento *"
+                value={orcamentoIa}
+                onChange={(e) => setOrcamentoIa(e.target.value)}
+                options={orcamentos.map((o) => ({
+                  value: o.id,
+                  label: `#${o.numero}${o.cliente ? ` — ${o.cliente.nomeFantasia}` : ""}`,
+                }))}
+                placeholder="Selecione o orçamento (de preferência aprovado)"
+                searchable
+              />
+              <Textarea
+                label="Instruções adicionais (opcional)"
+                value={obsIa}
+                onChange={(e) => setObsIa(e.target.value)}
+                placeholder="Ex.: incluir cláusula de seguro obrigatório; sinal de 50% na assinatura..."
+                rows={3}
+              />
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="outline" onClick={() => setIaOpen(false)} disabled={gerandoIa}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleGerarIa}
+              loading={gerandoIa}
+              className="bg-violet-600 hover:bg-violet-700"
+            >
+              <Sparkles className="h-4 w-4" />
+              {gerandoIa ? "Redigindo o contrato..." : "Gerar contrato"}
+            </Button>
+          </ModalFooter>
+        </Modal>
+
+        {/* Histórico de versões */}
+        <Modal
+          open={!!versoesDe}
+          onClose={() => setVersoesDe(null)}
+          title={versoesDe ? `Versões — ${versoesDe.titulo}` : ""}
+          size="lg"
+        >
+          <ModalBody>
+            <p className="text-sm text-slate-500 mb-3">
+              Cada salvamento de conteúdo gera uma nova versão — nada é sobrescrito.
+              Clique na impressora para gerar o PDF daquela versão.
+            </p>
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {(versoesDe?.versoes || []).map((v) => (
+                <div
+                  key={v.numero}
+                  className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2.5"
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold ${
+                        v.numero === versoesDe?.versaoAtual
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      v{v.numero}
+                    </span>
+                    <div>
+                      <p className="text-sm text-slate-700">
+                        {new Date(v.createdAt).toLocaleDateString("pt-BR")}{" "}
+                        {new Date(v.createdAt).toLocaleTimeString("pt-BR", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        {v.numero === versoesDe?.versaoAtual && (
+                          <span className="ml-1.5 text-xs text-emerald-600">(atual)</span>
+                        )}
+                      </p>
+                      {v.criadoPor && (
+                        <p className="text-xs text-slate-400">por {v.criadoPor}</p>
+                      )}
+                    </div>
+                  </div>
+                  <a
+                    href={`/contratos/${versoesDe?.id}/imprimir?v=${v.numero}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`Imprimir v${v.numero} em PDF`}
+                    className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                  >
+                    <Printer className="h-4 w-4" />
+                  </a>
+                </div>
+              ))}
+              {(versoesDe?.versoes || []).length === 0 && (
+                <p className="text-sm text-slate-400 text-center py-4">
+                  Nenhuma versão salva ainda — edite o conteúdo e salve.
+                </p>
+              )}
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="outline" onClick={() => setVersoesDe(null)}>
+              Fechar
             </Button>
           </ModalFooter>
         </Modal>

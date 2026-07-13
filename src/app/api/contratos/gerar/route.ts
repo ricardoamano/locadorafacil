@@ -119,11 +119,13 @@ export async function POST(req: NextRequest) {
       orcamentoId: orcamento.id,
       status: "RASCUNHO",
       conteudo,
+      versaoAtual: 1,
       modeloId: modelo.id,
       modeloVersao: modelo.versao,
       geradoEm: new Date(),
       geradoPor: usuario,
       companyId,
+      versoes: { create: { numero: 1, conteudo, criadoPor: usuario } },
     },
   });
 

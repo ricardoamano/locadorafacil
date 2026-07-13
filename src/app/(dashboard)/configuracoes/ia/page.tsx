@@ -6,13 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
-import { Sparkles, RotateCcw, Plus, Trash2, FileText, Truck, Wand2 } from "lucide-react";
+import { Sparkles, RotateCcw, Plus, Trash2, FileText, Truck, Wand2, FileSignature } from "lucide-react";
 
 // Configuração de IA da empresa: chave da Claude API + skills nomeadas.
 // A empresa pode ter várias skills (ex.: uma para propostas, outra para escala
 // de equipe/veículos). Cada skill tem um tipo que define onde é usada.
 
-type SkillTipo = "PROPOSTA" | "ESCALA" | "GERAL";
+type SkillTipo = "PROPOSTA" | "ESCALA" | "CONTRATO" | "GERAL";
 interface Skill {
   id: string;
   nome: string;
@@ -23,12 +23,14 @@ interface Skill {
 const TIPO_OPCOES = [
   { value: "PROPOSTA", label: "Propostas (Projeto Especial)" },
   { value: "ESCALA", label: "Escala de equipe e veículos (OS)" },
+  { value: "CONTRATO", label: "Contratos (redator jurídico)" },
   { value: "GERAL", label: "Geral" },
 ];
 
 const TIPO_ICONE: Record<SkillTipo, React.ReactNode> = {
   PROPOSTA: <FileText className="h-4 w-4 text-violet-700" />,
   ESCALA: <Truck className="h-4 w-4 text-violet-700" />,
+  CONTRATO: <FileSignature className="h-4 w-4 text-violet-700" />,
   GERAL: <Wand2 className="h-4 w-4 text-violet-700" />,
 };
 

@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import {
   INSTRUCOES_PROPOSTA_PADRAO,
   INSTRUCOES_ESCALA_PADRAO,
+  INSTRUCOES_CONTRATO_PADRAO,
   normalizarSkills,
   type IaSkill,
   type SkillTipo,
@@ -21,7 +22,7 @@ async function getAdmin() {
   return u.companyId;
 }
 
-const TIPOS: SkillTipo[] = ["PROPOSTA", "ESCALA", "GERAL"];
+const TIPOS: SkillTipo[] = ["PROPOSTA", "ESCALA", "CONTRATO", "GERAL"];
 
 export async function GET() {
   const companyId = await getAdmin();
@@ -37,6 +38,7 @@ export async function GET() {
     padroes: {
       PROPOSTA: INSTRUCOES_PROPOSTA_PADRAO,
       ESCALA: INSTRUCOES_ESCALA_PADRAO,
+      CONTRATO: INSTRUCOES_CONTRATO_PADRAO,
     },
   });
 }

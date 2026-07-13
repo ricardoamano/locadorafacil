@@ -15,6 +15,10 @@ export async function GET() {
     include: {
       cliente: { select: { id: true, nomeFantasia: true } },
       orcamento: { select: { id: true, numero: true, total: true } },
+      versoes: {
+        orderBy: { numero: "desc" },
+        select: { numero: true, criadoPor: true, createdAt: true },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -31,6 +35,7 @@ export async function POST(req: NextRequest) {
   if (!body.titulo?.trim() || !body.clienteId)
     return NextResponse.json({ error: "Título e cliente obrigatórios" }, { status: 400 });
 
+  const usuario = session.user.name || session.user.email || null;
   const contrato = await prisma.contrato.create({
     data: {
       titulo: body.titulo.trim(),
@@ -38,8 +43,12 @@ export async function POST(req: NextRequest) {
       orcamentoId: body.orcamentoId || null,
       status: body.status || "RASCUNHO",
       conteudo: body.conteudo || null,
+      versaoAtual: 1,
       arquivoUrl: body.arquivoUrl || null,
       companyId,
+      ...(body.conteudo
+        ? { versoes: { create: { numero: 1, conteudo: body.conteudo, criadoPor: usuario } } }
+        : {}),
     },
   });
   return NextResponse.json(contrato, { status: 201 });
