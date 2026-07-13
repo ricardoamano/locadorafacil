@@ -15,9 +15,15 @@ export interface ClienteImport {
   razaoSocial: string;
   cnpj: string | null;
   rua: string | null;
+  cep: string | null;
+  numero: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  estado: string | null;
   inscricaoEstadual: string | null;
   inscricaoMunicipal: string | null;
   isPostoServico: boolean;
+  enderecoCompleto: boolean; // endereço cruzado pela rua única
   bubbleId: string | null; // id do cliente no Bubble (reconstruído pelos contatos)
   subcontatos: SubContatoImport[];
 }
@@ -31,6 +37,7 @@ export interface ResultadoImportacao {
     semContatos: number;
     subcontatos: number;
     gruposDescartados: number;
+    comEndereco: number;
   };
 }
 
@@ -83,6 +90,58 @@ function norm(s: string): string {
 const NOMES_INVALIDOS = new Set(["", "n/d", "nd", "n/a", "n", "na", "n.d", "n d", "-", "."]);
 function nomeValido(s: string): boolean {
   return !NOMES_INVALIDOS.has(norm(s));
+}
+
+// ── Cruzamento por rua (arquivo de Endereços do Bubble) ─────────────────────
+
+export interface EnderecoCruzado {
+  cep: string | null;
+  numero: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  estado: string | null;
+}
+
+/**
+ * Índice rua-normalizada → endereço, SOMENTE quando a rua tem um único
+ * endereço (número/CEP) no arquivo. Ruas com vários números ficam de fora
+ * (ambíguas), evitando gravar endereço errado.
+ */
+export function mapaEnderecosPorRua(enderecosCsv: string): Map<string, EnderecoCruzado> {
+  const bruto = new Map<string, Map<string, EnderecoCruzado>>();
+  const end = parseCsv(enderecosCsv);
+  const eH = end[0] || [];
+  const iCep = eH.indexOf("cep");
+  const iCid = eH.indexOf("cidade");
+  const iFmt = eH.indexOf("enderecoFormatado");
+  const iEst = eH.indexOf("estado");
+  const iNum = eH.indexOf("numero");
+  const iBairro = eH.indexOf("bairro");
+  for (let i = 1; i < end.length; i++) {
+    const r = end[i];
+    if (!r || r.length < 7) continue;
+    const fmt = (r[iFmt] || "").trim();
+    if (!fmt || fmt.startsWith(", ,")) continue;
+    const rua = fmt.split(",")[0].trim();
+    if (!rua) continue;
+    const numero = (r[iNum] || "").trim();
+    const cep = (r[iCep] || "").trim();
+    if (!numero && !cep) continue;
+    const key = norm(rua);
+    if (!bruto.has(key)) bruto.set(key, new Map());
+    bruto.get(key)!.set(`${numero}|${cep}`, {
+      cep: cep || null,
+      numero: numero || null,
+      bairro: (r[iBairro] || "").trim() || null,
+      cidade: (r[iCid] || "").trim() || null,
+      estado: (r[iEst] || "").trim().toUpperCase() || null,
+    });
+  }
+  const unico = new Map<string, EnderecoCruzado>();
+  for (const [rua, combos] of bruto) {
+    if (combos.size === 1) unico.set(rua, [...combos.values()][0]);
+  }
+  return unico;
 }
 
 // ── Locais (espaços de evento) ──────────────────────────────────────────────
@@ -201,11 +260,13 @@ export function montarImportacaoLocais(
   };
 }
 
-/** Recebe os textos dos dois CSVs e devolve os clientes prontos + estatísticas. */
+/** Recebe os CSVs (Clientes + Contatos + Endereços opcional) e devolve os clientes prontos. */
 export function montarImportacaoClientes(
   clientesCsv: string,
-  contatosCsv: string
+  contatosCsv: string,
+  enderecosCsv?: string
 ): ResultadoImportacao {
+  const enderecoPorRua = enderecosCsv ? mapaEnderecosPorRua(enderecosCsv) : null;
   const contatosRows = parseCsv(contatosCsv);
   const cH = contatosRows[0] || [];
   const cCli = cH.indexOf("Cliente-empresa");
@@ -298,14 +359,23 @@ export function montarImportacaoClientes(
 
     subcontatos += subs.length;
     const cnpj = (r[kCnpj] || "").trim();
+    const rua = (r[kEnd] || "").trim() || null;
+    // Cruza a rua com o arquivo de Endereços (quando a rua é única)
+    const endereco = rua && enderecoPorRua ? enderecoPorRua.get(norm(rua)) : undefined;
     clientes.push({
       nomeFantasia,
       razaoSocial: razao || nomeFantasia,
       cnpj: cnpj && cnpj !== "00.000.000/0000-00" ? cnpj : null,
-      rua: (r[kEnd] || "").trim() || null,
+      rua,
+      cep: endereco?.cep ?? null,
+      numero: endereco?.numero ?? null,
+      bairro: endereco?.bairro ?? null,
+      cidade: endereco?.cidade ?? null,
+      estado: endereco?.estado ?? null,
       inscricaoEstadual: (r[kIe] || "").trim() || null,
       inscricaoMunicipal: (r[kIm] || "").trim() || null,
       isPostoServico: norm(r[kPosto] || "") === "sim",
+      enderecoCompleto: Boolean(endereco),
       bubbleId: best || null,
       subcontatos: subs,
     });
@@ -322,6 +392,7 @@ export function montarImportacaoClientes(
       semContatos,
       subcontatos,
       gruposDescartados,
+      comEndereco: clientes.filter((c) => c.enderecoCompleto).length,
     },
   };
 }

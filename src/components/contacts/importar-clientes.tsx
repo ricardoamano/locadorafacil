@@ -63,29 +63,37 @@ export function ImportarClientes({ onImportado }: { onImportado?: () => void }) 
   const [aberto, setAberto] = useState(false);
   const [clientesCsv, setClientesCsv] = useState("");
   const [contatosCsv, setContatosCsv] = useState("");
+  const [enderecosCsv, setEnderecosCsv] = useState("");
   const [nomeClientes, setNomeClientes] = useState("");
   const [nomeContatos, setNomeContatos] = useState("");
+  const [nomeEnd, setNomeEnd] = useState("");
   const [previa, setPrevia] = useState<any | null>(null);
   const [carregando, setCarregando] = useState(false);
   const refCli = useRef<HTMLInputElement>(null);
   const refCon = useRef<HTMLInputElement>(null);
+  const refEnd = useRef<HTMLInputElement>(null);
 
   function reset() {
     setClientesCsv("");
     setContatosCsv("");
+    setEnderecosCsv("");
     setNomeClientes("");
     setNomeContatos("");
+    setNomeEnd("");
     setPrevia(null);
   }
 
-  async function lerArquivo(file: File, alvo: "clientes" | "contatos") {
+  async function lerArquivo(file: File, alvo: "clientes" | "contatos" | "enderecos") {
     const texto = await file.text();
     if (alvo === "clientes") {
       setClientesCsv(texto);
       setNomeClientes(file.name);
-    } else {
+    } else if (alvo === "contatos") {
       setContatosCsv(texto);
       setNomeContatos(file.name);
+    } else {
+      setEnderecosCsv(texto);
+      setNomeEnd(file.name);
     }
     setPrevia(null);
   }
@@ -100,7 +108,7 @@ export function ImportarClientes({ onImportado }: { onImportado?: () => void }) 
       const res = await fetch("/api/import/clientes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientesCsv, contatosCsv }),
+        body: JSON.stringify({ clientesCsv, contatosCsv, enderecosCsv: enderecosCsv || undefined }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);
@@ -118,13 +126,14 @@ export function ImportarClientes({ onImportado }: { onImportado?: () => void }) 
       const res = await fetch("/api/import/clientes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientesCsv, contatosCsv, confirmar: true }),
+        body: JSON.stringify({ clientesCsv, contatosCsv, enderecosCsv: enderecosCsv || undefined, confirmar: true }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);
       toast(
         `✅ ${d.criados} cliente(s) importado(s) (${d.contatosCriados} contato(s))` +
-          (d.pulados ? ` · ${d.pulados} já existiam` : ""),
+          (d.atualizados ? ` · ${d.atualizados} endereço(s) completado(s)` : "") +
+          (d.pulados ? ` · ${d.pulados} sem alteração` : ""),
         "success"
       );
       setAberto(false);
@@ -152,12 +161,13 @@ export function ImportarClientes({ onImportado }: { onImportado?: () => void }) 
       >
         <ModalBody>
           <p className="text-sm text-slate-500 mb-4">
-            Envie os dois arquivos exportados do Bubble: a lista de <strong>clientes</strong>{" "}
-            e a de <strong>contatos</strong>. O sistema reconstrói o vínculo automaticamente
-            e ignora registros de teste. Nada é gravado antes da prévia.
+            Envie os arquivos do Bubble: <strong>clientes</strong>, <strong>contatos</strong> e
+            (opcional) <strong>endereços</strong>. O vínculo cliente↔contato é reconstruído, os
+            testes são ignorados, e o endereço é completado cruzando a rua com o arquivo de
+            endereços. Se um cliente já existir, só o endereço em branco é preenchido.
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="rounded-lg border border-slate-200 p-3">
               <p className="text-xs font-semibold text-slate-600 mb-1">1. Clientes *</p>
               <input
@@ -198,6 +208,26 @@ export function ImportarClientes({ onImportado }: { onImportado?: () => void }) 
                 <p className="text-xs text-emerald-600 mt-1.5 truncate">✓ {nomeContatos}</p>
               )}
             </div>
+            <div className="rounded-lg border border-slate-200 p-3">
+              <p className="text-xs font-semibold text-slate-600 mb-1">3. Endereços</p>
+              <input
+                ref={refEnd}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) lerArquivo(f, "enderecos");
+                }}
+              />
+              <Button variant="outline" size="sm" onClick={() => refEnd.current?.click()}>
+                <FileUp className="h-4 w-4" />
+                {nomeEnd ? "Trocar" : "Escolher arquivo"}
+              </Button>
+              {nomeEnd && (
+                <p className="text-xs text-emerald-600 mt-1.5 truncate">✓ {nomeEnd}</p>
+              )}
+            </div>
           </div>
 
           {previa && (
@@ -211,7 +241,7 @@ export function ImportarClientes({ onImportado }: { onImportado?: () => void }) 
                   ["Clientes", previa.stats.clientes],
                   ["Postos", previa.stats.postos],
                   ["Contatos", previa.stats.subcontatos],
-                  ["Testes ignorados", previa.stats.gruposDescartados],
+                  ["C/ endereço", previa.stats.comEndereco],
                 ].map(([label, v]) => (
                   <div key={label as string} className="bg-white rounded-lg border border-slate-100 py-2">
                     <p className="text-lg font-bold text-slate-900">{v as number}</p>

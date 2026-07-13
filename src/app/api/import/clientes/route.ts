@@ -3,10 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { montarImportacaoClientes } from "@/lib/import-bubble";
 
-// Importa clientes + contatos do CSV do Bubble para a empresa atual.
-// POST { clientesCsv, contatosCsv, confirmar? }:
-//  - sem confirmar → devolve a prévia (estatísticas + amostra), nada é gravado
-//  - confirmar: true → grava os clientes (Contact) e contatos (SubContact)
+// Importa clientes + contatos (+ endereços opcional) do CSV do Bubble.
+// POST { clientesCsv, contatosCsv, enderecosCsv?, confirmar? }:
+//  - sem confirmar → prévia (estatísticas + amostra), nada é gravado
+//  - confirmar → cria clientes novos e ATUALIZA o endereço em branco dos já
+//    existentes (cruzando a rua com o arquivo de Endereços)
 
 export const maxDuration = 60;
 
@@ -21,12 +22,13 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const clientesCsv = String(body.clientesCsv || "");
   const contatosCsv = String(body.contatosCsv || "");
+  const enderecosCsv = body.enderecosCsv ? String(body.enderecosCsv) : undefined;
   if (!clientesCsv.trim())
     return NextResponse.json({ error: "Envie o arquivo de clientes." }, { status: 400 });
 
   let resultado;
   try {
-    resultado = montarImportacaoClientes(clientesCsv, contatosCsv);
+    resultado = montarImportacaoClientes(clientesCsv, contatosCsv, enderecosCsv);
   } catch {
     return NextResponse.json(
       { error: "Não consegui ler os arquivos. Confira se são os CSVs exportados do Bubble." },
@@ -44,27 +46,50 @@ export async function POST(req: NextRequest) {
         razaoSocial: c.razaoSocial,
         cnpj: c.cnpj,
         posto: c.isPostoServico,
+        cidade: c.cidade,
+        enderecoCompleto: c.enderecoCompleto,
         contatos: c.subcontatos.map((s) => s.nome),
       })),
     });
   }
 
-  // Gravação — evita duplicar clientes já existentes (mesmo nome fantasia)
+  // Índice dos clientes já existentes (por nome fantasia) para atualizar endereço
   const existentes = await prisma.contact.findMany({
     where: { companyId, type: "CLIENTE" },
-    select: { nomeFantasia: true },
+    select: { id: true, nomeFantasia: true, cep: true, numero: true, cidade: true, estado: true },
   });
-  const jaTem = new Set(existentes.map((e) => e.nomeFantasia.trim().toLowerCase()));
+  const porNome = new Map(existentes.map((e) => [e.nomeFantasia.trim().toLowerCase(), e]));
 
   let criados = 0;
+  let atualizados = 0;
   let pulados = 0;
   let contatosCriados = 0;
 
   for (const c of resultado.clientes) {
-    if (jaTem.has(c.nomeFantasia.trim().toLowerCase())) {
-      pulados++;
+    const chave = c.nomeFantasia.trim().toLowerCase();
+    const existente = porNome.get(chave);
+
+    if (existente) {
+      // Já existe: completa só os campos de endereço que estiverem em branco
+      const vazio = (v: string | null) => !v || !v.trim();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const patch: any = {};
+      if (c.enderecoCompleto) {
+        if (vazio(existente.cep) && c.cep) patch.cep = c.cep;
+        if (vazio(existente.numero) && c.numero) patch.numero = c.numero;
+        if (vazio(existente.cidade) && c.cidade) patch.cidade = c.cidade;
+        if (vazio(existente.estado) && c.estado) patch.estado = c.estado;
+        if (c.bairro) patch.bairro = c.bairro;
+      }
+      if (Object.keys(patch).length > 0) {
+        await prisma.contact.update({ where: { id: existente.id }, data: patch });
+        atualizados++;
+      } else {
+        pulados++;
+      }
       continue;
     }
+
     await prisma.contact.create({
       data: {
         type: "CLIENTE",
@@ -72,6 +97,11 @@ export async function POST(req: NextRequest) {
         razaoSocial: c.razaoSocial,
         cnpj: c.cnpj,
         rua: c.rua,
+        cep: c.cep,
+        numero: c.numero,
+        bairro: c.bairro,
+        cidade: c.cidade,
+        estado: c.estado,
         inscricaoEstadual: c.inscricaoEstadual,
         inscricaoMunicipal: c.inscricaoMunicipal,
         isPostoServico: c.isPostoServico,
@@ -88,14 +118,23 @@ export async function POST(req: NextRequest) {
     });
     criados++;
     contatosCriados += c.subcontatos.length;
-    jaTem.add(c.nomeFantasia.trim().toLowerCase());
+    porNome.set(chave, {
+      id: "novo",
+      nomeFantasia: c.nomeFantasia,
+      cep: c.cep,
+      numero: c.numero,
+      cidade: c.cidade,
+      estado: c.estado,
+    });
   }
 
   return NextResponse.json({
     ok: true,
     criados,
+    atualizados,
     pulados,
     contatosCriados,
+    comEndereco: resultado.stats.comEndereco,
     postos: resultado.stats.postos,
   });
 }
