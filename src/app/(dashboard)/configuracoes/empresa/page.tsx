@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { fetchAddressByCEP, formatCEP, formatDoc, formatPhone, slugify } from "@/lib/utils";
-import { Loader2, Building2, Landmark, ReceiptText, Hash, Paperclip, Trash2 } from "lucide-react";
+import { ContasBancarias } from "@/components/configuracoes/contas-bancarias";
+import { Loader2, Building2, ReceiptText, Hash, Paperclip, Trash2 } from "lucide-react";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -21,7 +22,7 @@ const estadoOptions = [
 const campos = [
   "name","razaoSocial","cnpj","inscricaoEstadual","inscricaoMunicipal",
   "cep","rua","numero","bairro","complemento","cidade","estado",
-  "telefone","email","site","logoUrl","banco","agencia","conta","pix",
+  "telefone","email","site","logoUrl",
   "responsavel","naturezaOperacao","observacaoFatura",
   "orcamentoNumeroInicial","faturaNumeroInicial",
   "catalogoWhatsappTexto","catalogoWhatsappMensagem",
@@ -262,22 +263,7 @@ export default function EmpresaConfigPage() {
             </section>
 
             {/* Dados bancários */}
-            <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <Landmark className="h-4 w-4 text-blue-600" />
-                <h2 className="text-sm font-semibold text-slate-900">
-                  Dados Bancários e PIX
-                </h2>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Input label="Banco" value={form.banco} onChange={(e) => set("banco", e.target.value)} placeholder="Ex: Nubank (260)" />
-                <Input label="Agência" value={form.agencia} onChange={(e) => set("agencia", e.target.value)} placeholder="0001" />
-                <Input label="Conta Corrente" value={form.conta} onChange={(e) => set("conta", e.target.value)} placeholder="00000000-0" />
-              </div>
-              <div className="mt-3">
-                <Input label="Chave PIX" value={form.pix} onChange={(e) => set("pix", e.target.value)} placeholder="E-mail, CNPJ, telefone ou chave aleatória" />
-              </div>
-            </section>
+            <ContasBancarias />
 
             {/* Documentos / Fatura */}
             <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">

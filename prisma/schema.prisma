@@ -85,6 +85,7 @@ model Company {
   bancos           Banco[]
   modelosContrato  ModeloContrato[]
   arquivos         CompanyArquivo[]
+  contasBancarias  ContaBancaria[]
 }
 
 // Documentos e links da empresa: cartão CNPJ, docs fiscais, pastas do Drive...
@@ -98,6 +99,24 @@ model CompanyArquivo {
   arquivoId String?
   criadoPor String?
   createdAt DateTime @default(now())
+}
+
+// Contas bancárias da empresa (dados para pagamento — várias por empresa)
+model ContaBancaria {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  banco     String
+  agencia   String?
+  conta     String?
+  tipoConta String   @default("Corrente")
+  pix       String?
+  pixTipo   String?
+  ordem     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
 }
 
 model User {
