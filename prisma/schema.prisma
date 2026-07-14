@@ -293,6 +293,7 @@ model Item {
   slug           String?
   descricaoComercial     String?
   especificacoesPublicas String?
+  observacaoInterna      String?
   fotoCapaUrl    String?
   videoUrl       String?
   mostrarCodigo  Boolean      @default(false)

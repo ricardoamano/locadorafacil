@@ -1,30 +1,38 @@
 "use client";
 
 import React, { useRef, useState, useEffect } from "react";
-import { ImagePlus, X, Search, ClipboardPaste } from "lucide-react";
+import { ImagePlus, X, Search, ClipboardPaste, Star } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 
 // Upload de várias fotos (galeria do item) — grava no banco via /api/upload.
 // Também: link de busca de imagens no Google + colar imagem (Ctrl+V).
+// A capa é escolhida entre as próprias fotos (estrela), sem upload separado.
 
 export function FotosUpload({
   label,
   value,
   onChange,
   consultaBusca,
+  capa,
+  onCapa,
 }: {
   label?: string;
   value: string[];
   onChange: (urls: string[]) => void;
   // Texto para o botão "Buscar imagens no Google" (ex.: marca + modelo + nome)
   consultaBusca?: string;
+  // Foto de capa selecionada e callback para alterá-la
+  capa?: string;
+  onCapa?: (url: string) => void;
 }) {
   const { toast } = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
   const [enviando, setEnviando] = useState(false);
   // Guarda em ref para o listener de "paste" sempre ver o value/estado atuais
   const valueRef = useRef(value);
-  valueRef.current = value;
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
 
   async function enviarArquivos(files: File[]) {
     setEnviando(true);
@@ -41,7 +49,11 @@ export function FotosUpload({
         }
         novas.push(d.url);
       }
-      if (novas.length > 0) onChange([...valueRef.current, ...novas]);
+      if (novas.length > 0) {
+        onChange([...valueRef.current, ...novas]);
+        // Se ainda não há capa, a primeira foto adicionada vira a capa
+        if (onCapa && !capa) onCapa(novas[0]);
+      }
     } finally {
       setEnviando(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -94,19 +106,51 @@ export function FotosUpload({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {value.map((url, i) => (
-          <div key={i} className="relative h-20 w-20 rounded-lg overflow-hidden border border-slate-200 group">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={url} alt="" className="h-full w-full object-cover" />
-            <button
-              type="button"
-              onClick={() => onChange(value.filter((_, idx) => idx !== i))}
-              className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+        {value.map((url, i) => {
+          const ehCapa = !!onCapa && capa === url;
+          return (
+            <div
+              key={i}
+              className={`relative h-20 w-20 rounded-lg overflow-hidden border-2 group ${
+                ehCapa ? "border-amber-400" : "border-slate-200"
+              }`}
             >
-              <X className="h-3 w-3" />
-            </button>
-          </div>
-        ))}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url} alt="" className="h-full w-full object-cover" />
+              {onCapa && (
+                <button
+                  type="button"
+                  onClick={() => onCapa(url)}
+                  title={ehCapa ? "Esta é a capa" : "Definir como capa"}
+                  className={`absolute bottom-0.5 left-0.5 h-5 w-5 rounded-full flex items-center justify-center transition-opacity ${
+                    ehCapa
+                      ? "bg-amber-400 text-white"
+                      : "bg-black/50 text-white opacity-0 group-hover:opacity-100"
+                  }`}
+                >
+                  <Star className={`h-3 w-3 ${ehCapa ? "fill-current" : ""}`} />
+                </button>
+              )}
+              {ehCapa && (
+                <span className="absolute bottom-0.5 right-0.5 text-[8px] font-bold text-amber-700 bg-amber-100 rounded px-1">
+                  CAPA
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  const novas = value.filter((_, idx) => idx !== i);
+                  onChange(novas);
+                  // Se removeu a capa, escolhe a primeira restante (ou limpa)
+                  if (onCapa && capa === url) onCapa(novas[0] || "");
+                }}
+                className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          );
+        })}
         <button
           type="button"
           onClick={() => inputRef.current?.click()}

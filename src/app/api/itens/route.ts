@@ -152,7 +152,9 @@ export async function POST(req: NextRequest) {
       publicado: !!data.publicado,
       slug: slugFinal,
       descricaoComercial: data.descricaoComercial || null,
-      especificacoesPublicas: data.especificacoesPublicas || null,
+      // A "Especificações / Descrição" também é a versão técnica pública
+      especificacoesPublicas: data.especificacoes || null,
+      observacaoInterna: data.observacaoInterna || null,
       fotoCapaUrl: data.fotoCapaUrl || null,
       videoUrl: data.videoUrl || null,
       mostrarCodigo: !!data.mostrarCodigo,

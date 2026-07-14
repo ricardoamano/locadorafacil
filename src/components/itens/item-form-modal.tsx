@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ImageUpload } from "@/components/ui/image-upload";
 import { FotosUpload } from "@/components/ui/fotos-upload";
+import { Plus } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { calcularPrecos, POLITICA_PADRAO, type PoliticaPrecos } from "@/lib/precos";
 import { formatCurrency } from "@/lib/utils";
@@ -36,6 +36,7 @@ interface ItemFormData {
   subCategoriaId: string;
   quantidade: string;
   especificacoes: string;
+  observacaoInterna: string;
   emCatalogo: boolean;
   publicado: boolean;
   slug: string;
@@ -73,6 +74,7 @@ function emptyForm(): ItemFormData {
     subCategoriaId: "",
     quantidade: "",
     especificacoes: "",
+    observacaoInterna: "",
     emCatalogo: true,
     publicado: true,
     slug: "",
@@ -109,8 +111,6 @@ export function ItemFormModal({
   const [marcas, setMarcas] = useState<Categoria[]>([]);
   const [confirmarQtd, setConfirmarQtd] = useState(false);
   const [fotos, setFotos] = useState<string[]>([]);
-  const [acessorios, setAcessorios] = useState<{ nome: string; incluir: boolean }[]>([]);
-  const [novoAcessorio, setNovoAcessorio] = useState("");
   // Acessórios avulsos: checklist de separação (sem código/QR)
   const [avulsos, setAvulsos] = useState<{ nome: string; quantidade: number }[]>([]);
   const [novoAvulso, setNovoAvulso] = useState("");
@@ -123,11 +123,76 @@ export function ItemFormModal({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [precosMercado, setPrecosMercado] = useState<any | null>(null);
   const [pesquisandoPrecos, setPesquisandoPrecos] = useState(false);
-  const [vinculados, setVinculados] = useState<string[]>([]);
   const [politica, setPolitica] = useState<PoliticaPrecos>(POLITICA_PADRAO);
   const [permitirManual, setPermitirManual] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof ItemFormData, string>>>({});
+  // Criação rápida de categoria/subcategoria dentro do próprio cadastro do item
+  const [criarCatOpen, setCriarCatOpen] = useState(false);
+  const [novaCatNome, setNovaCatNome] = useState("");
+  const [criarSubOpen, setCriarSubOpen] = useState(false);
+  const [novaSubNome, setNovaSubNome] = useState("");
+  const [criandoCatSub, setCriandoCatSub] = useState(false);
+
+  async function carregarCategorias(): Promise<Categoria[]> {
+    try {
+      const r = await fetch("/api/categorias");
+      const d = await r.json();
+      const lista: Categoria[] = d.categorias || [];
+      setCategorias(lista);
+      return lista;
+    } catch {
+      setCategorias([]);
+      return [];
+    }
+  }
+
+  async function criarCategoriaRapida() {
+    const nome = novaCatNome.trim();
+    if (!nome || criandoCatSub) return;
+    setCriandoCatSub(true);
+    try {
+      const res = await fetch("/api/categorias", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome, tipo: "ITEM" }),
+      });
+      const nova = await res.json();
+      if (!res.ok) throw new Error(nova?.error);
+      await carregarCategorias();
+      setField("categoriaId", nova.id);
+      setField("subCategoriaId", "");
+      setNovaCatNome("");
+      setCriarCatOpen(false);
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro ao criar categoria.", "error");
+    } finally {
+      setCriandoCatSub(false);
+    }
+  }
+
+  async function criarSubRapida() {
+    const nome = novaSubNome.trim();
+    if (!nome || !form.categoriaId || criandoCatSub) return;
+    setCriandoCatSub(true);
+    try {
+      const res = await fetch("/api/subcategorias", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome, categoriaId: form.categoriaId }),
+      });
+      const nova = await res.json();
+      if (!res.ok) throw new Error(nova?.error);
+      await carregarCategorias();
+      setField("subCategoriaId", nova.id);
+      setNovaSubNome("");
+      setCriarSubOpen(false);
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Erro ao criar subcategoria.", "error");
+    } finally {
+      setCriandoCatSub(false);
+    }
+  }
 
   useEffect(() => {
     if (open) {
@@ -157,6 +222,7 @@ export function ItemFormModal({
           categoriaId: initial.categoriaId || "",
           subCategoriaId: initial.subCategoriaId || "",
           especificacoes: initial.especificacoes || "",
+          observacaoInterna: initial.observacaoInterna || "",
           marcaId: initial.marcaId || "",
           modelo: initial.modelo || "",
         });
@@ -165,10 +231,7 @@ export function ItemFormModal({
         } catch {
           setFotos([]);
         }
-        setAcessorios([]);
-        setNovoAcessorio("");
         setPrecosMercado(null);
-        setVinculados([]);
         setAvulsos(
           Array.isArray(initial.acessoriosAvulsos)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -189,10 +252,7 @@ export function ItemFormModal({
       } else {
         setForm(emptyForm());
         setFotos([]);
-        setAcessorios([]);
-        setNovoAcessorio("");
         setPrecosMercado(null);
-        setVinculados([]);
         setAvulsos([]);
         setArquivos([]);
         setLinkArquivo("");
@@ -201,10 +261,7 @@ export function ItemFormModal({
         .then((r) => r.json())
         .then((d) => setMarcas(d.marcas || []))
         .catch(() => setMarcas([]));
-      fetch("/api/categorias")
-        .then((r) => r.json())
-        .then((d) => setCategorias(d.categorias || []))
-        .catch(() => setCategorias([]));
+      carregarCategorias();
       fetch("/api/empresa")
         .then((r) => r.json())
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -231,7 +288,11 @@ export function ItemFormModal({
   function validate(): boolean {
     const errs: typeof errors = {};
     if (!form.nome.trim()) errs.nome = "Campo obrigatório";
+    if (!form.categoriaId) errs.categoriaId = "Escolha ou crie uma categoria";
+    if (!form.subCategoriaId) errs.subCategoriaId = "Escolha ou crie uma subcategoria";
     setErrors(errs);
+    if (errs.categoriaId || errs.subCategoriaId)
+      toast("Categoria e subcategoria são obrigatórias.", "error");
     return Object.keys(errs).length === 0;
   }
 
@@ -262,7 +323,6 @@ export function ItemFormModal({
           categoriaId: form.categoriaId || null,
           marcaId: form.marcaId || null,
           fotos,
-          acessorios: acessorios.filter((a) => a.incluir).map((a) => a.nome),
           acessoriosAvulsos: avulsos,
         }),
       });
@@ -275,15 +335,6 @@ export function ItemFormModal({
         form.id ? "Item atualizado com sucesso!" : "Item criado com sucesso!",
         "success"
       );
-      if (data.acessoriosInfo?.vinculados > 0 || data.acessoriosInfo?.criados?.length > 0) {
-        toast(
-          `Acessórios vinculados: ${data.acessoriosInfo.vinculados}` +
-            (data.acessoriosInfo.criados.length > 0
-              ? ` (criados como itens: ${data.acessoriosInfo.criados.join(", ")})`
-              : ""),
-          "success"
-        );
-      }
       onSuccess(data);
       onClose();
     } catch {
@@ -504,8 +555,6 @@ export function ItemFormModal({
                       modelo: p.modelo || d.modelo || "",
                       especificacoes: p.especificacoes || d.especificacoes || "",
                       descricaoComercial: p.descricaoComercial || d.descricaoComercial || "",
-                      especificacoesPublicas:
-                        p.especificacoesPublicas || d.especificacoesPublicas || "",
                       watts: p.watts || (d.watts != null ? String(d.watts) : ""),
                       valorReposicao:
                         p.valorReposicao ||
@@ -523,16 +572,6 @@ export function ItemFormModal({
                         ...prev,
                         ...d.fotos.filter((u: string) => !prev.includes(u)),
                       ]);
-                    }
-                    // Acessórios sugeridos (desmarcados por padrão — você escolhe)
-                    if (Array.isArray(d.acessorios) && d.acessorios.length > 0) {
-                      setAcessorios((prev) => {
-                        const nomes = new Set(prev.map((a) => a.nome.toLowerCase()));
-                        const novos = d.acessorios
-                          .filter((n: string) => n && !nomes.has(String(n).toLowerCase()))
-                          .map((n: string) => ({ nome: String(n), incluir: false }));
-                        return [...prev, ...novos];
-                      });
                     }
                   }}
                 />
@@ -838,103 +877,29 @@ export function ItemFormModal({
             </div>
             {form.publicado && (
               <div className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Input
-                    label="Slug amigável (URL)"
-                    value={form.slug}
-                    onChange={(e) => setField("slug", e.target.value)}
-                    placeholder="gerado do nome se vazio"
-                  />
-                  <ImageUpload
-                    label="Foto de capa"
-                    value={form.fotoCapaUrl}
-                    onChange={(url) => setField("fotoCapaUrl", url)}
-                  />
-                </div>
-                          {/* Fotos do item (galeria — várias fotos, gravadas no banco) */}
-          <FotosUpload
-            label="Fotos do equipamento"
-            value={fotos}
-            onChange={setFotos}
-            consultaBusca={[
-              marcas.find((m) => m.id === form.marcaId)?.nome,
-              form.modelo,
-              form.nome,
-            ]
-              .filter(Boolean)
-              .join(" ")}
-          />
+                <Input
+                  label="Slug amigável (URL)"
+                  value={form.slug}
+                  onChange={(e) => setField("slug", e.target.value)}
+                  placeholder="gerado do nome se vazio"
+                />
+                {/* Fotos do item (galeria) — a capa é escolhida aqui, pela estrela */}
+                <FotosUpload
+                  label="Fotos do equipamento (clique na ⭐ para definir a capa)"
+                  value={fotos}
+                  onChange={setFotos}
+                  capa={form.fotoCapaUrl}
+                  onCapa={(url) => setField("fotoCapaUrl", url)}
+                  consultaBusca={[
+                    marcas.find((m) => m.id === form.marcaId)?.nome,
+                    form.modelo,
+                    form.nome,
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                />
 
-          {/* Acessórios que acompanham (podem virar itens vinculados) */}
-          <div className="rounded-lg border border-slate-100 p-3">
-            <p className="text-sm font-medium text-slate-700">Acessórios que acompanham</p>
-            <p className="text-xs text-slate-400 mb-2">
-              Marque os que devem virar itens vinculados (ex.: cabo de energia, controle
-              remoto). Os que não existirem serão criados automaticamente.
-            </p>
-            {vinculados.length > 0 && (
-              <p className="text-xs text-emerald-700 bg-emerald-50 rounded-md px-2 py-1.5 mb-2">
-                ✓ Já vinculados: {vinculados.join(", ")}
-              </p>
-            )}
-            {acessorios.length > 0 && (
-              <div className="space-y-1 mb-2">
-                {acessorios.map((a, i) => (
-                  <label key={i} className="flex items-center gap-2 text-sm text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={a.incluir}
-                      onChange={() =>
-                        setAcessorios((p) =>
-                          p.map((x, idx2) => (idx2 === i ? { ...x, incluir: !x.incluir } : x))
-                        )
-                      }
-                      className="h-4 w-4 rounded border-slate-300 text-blue-600"
-                    />
-                    <span className={a.incluir ? "" : "text-slate-500"}>{a.nome}</span>
-                    <button
-                      type="button"
-                      onClick={() => setAcessorios((p) => p.filter((_, idx2) => idx2 !== i))}
-                      className="ml-auto text-slate-300 hover:text-red-500 text-xs"
-                    >
-                      remover
-                    </button>
-                  </label>
-                ))}
-              </div>
-            )}
-            <div className="flex gap-2">
-              <Input
-                value={novoAcessorio}
-                onChange={(e) => setNovoAcessorio(e.target.value)}
-                placeholder="Adicionar acessório manualmente..."
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    if (novoAcessorio.trim()) {
-                      setAcessorios((p) => [...p, { nome: novoAcessorio.trim(), incluir: true }]);
-                      setNovoAcessorio("");
-                    }
-                  }
-                }}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (novoAcessorio.trim()) {
-                    setAcessorios((p) => [...p, { nome: novoAcessorio.trim(), incluir: true }]);
-                    setNovoAcessorio("");
-                  }
-                }}
-              >
-                Adicionar
-              </Button>
-            </div>
-          </div>
-
-          {/* Acessórios avulsos — checklist de separação, sem código/QR */}
+          {/* Acessórios — checklist de separação, sem código/QR */}
           <div className="rounded-lg border border-slate-100 p-3">
             <p className="text-sm font-medium text-slate-700">
               Acessórios do item (checklist de separação)
@@ -1077,13 +1042,10 @@ export function ItemFormModal({
                   placeholder="Texto de apresentação para clientes..."
                   rows={3}
                 />
-                <Textarea
-                  label="Especificações técnicas públicas"
-                  value={form.especificacoesPublicas}
-                  onChange={(e) => setField("especificacoesPublicas", e.target.value)}
-                  placeholder="Potência, dimensões, alcance..."
-                  rows={3}
-                />
+                <p className="text-xs text-slate-400">
+                  As especificações técnicas públicas usam o campo “Especificações / Descrição”
+                  abaixo — não precisa repetir aqui.
+                </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
                   <Input
                     label="Vídeo demonstrativo (URL)"
@@ -1111,31 +1073,105 @@ export function ItemFormModal({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <Select
-              label="Categoria"
-              value={form.categoriaId}
-              onChange={(e) => {
-                setField("categoriaId", e.target.value);
-                setField("subCategoriaId", "");
-              }}
-              options={categoriaOptions}
-              placeholder="Selecione a categoria"
-            />
-            <Select
-              label="Subcategoria"
-              value={form.subCategoriaId}
-              onChange={(e) => setField("subCategoriaId", e.target.value)}
-              options={subCategoriaOptions}
-              placeholder={
-                form.categoriaId
-                  ? subCategoriaOptions.length
-                    ? "Selecione"
-                    : "Sem subcategorias (crie em Categorias)"
-                  : "Escolha a categoria antes"
-              }
-              disabled={!form.categoriaId || subCategoriaOptions.length === 0}
-              clearable
-            />
+            <div>
+              <div className="flex items-end gap-1">
+                <div className="flex-1">
+                  <Select
+                    label="Categoria *"
+                    value={form.categoriaId}
+                    onChange={(e) => {
+                      setField("categoriaId", e.target.value);
+                      setField("subCategoriaId", "");
+                    }}
+                    options={categoriaOptions}
+                    placeholder="Selecione a categoria"
+                    error={errors.categoriaId}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCriarCatOpen((v) => !v);
+                    setCriarSubOpen(false);
+                  }}
+                  title="Incluir nova categoria"
+                  className="h-9 w-9 shrink-0 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 flex items-center justify-center"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+              {criarCatOpen && (
+                <div className="flex gap-1 mt-1.5">
+                  <Input
+                    value={novaCatNome}
+                    onChange={(e) => setNovaCatNome(e.target.value)}
+                    placeholder="Nome da categoria"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        criarCategoriaRapida();
+                      }
+                    }}
+                  />
+                  <Button type="button" size="sm" onClick={criarCategoriaRapida} loading={criandoCatSub}>
+                    Criar
+                  </Button>
+                </div>
+              )}
+            </div>
+            <div>
+              <div className="flex items-end gap-1">
+                <div className="flex-1">
+                  <Select
+                    label="Subcategoria *"
+                    value={form.subCategoriaId}
+                    onChange={(e) => setField("subCategoriaId", e.target.value)}
+                    options={subCategoriaOptions}
+                    placeholder={
+                      form.categoriaId
+                        ? subCategoriaOptions.length
+                          ? "Selecione"
+                          : "Use o + para criar"
+                        : "Escolha a categoria antes"
+                    }
+                    disabled={!form.categoriaId || subCategoriaOptions.length === 0}
+                    error={errors.subCategoriaId}
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={!form.categoriaId}
+                  onClick={() => {
+                    setCriarSubOpen((v) => !v);
+                    setCriarCatOpen(false);
+                  }}
+                  title="Incluir nova subcategoria"
+                  className="h-9 w-9 shrink-0 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 flex items-center justify-center disabled:opacity-40"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+              {criarSubOpen && form.categoriaId && (
+                <div className="flex gap-1 mt-1.5">
+                  <Input
+                    value={novaSubNome}
+                    onChange={(e) => setNovaSubNome(e.target.value)}
+                    placeholder="Nome da subcategoria"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        criarSubRapida();
+                      }
+                    }}
+                  />
+                  <Button type="button" size="sm" onClick={criarSubRapida} loading={criandoCatSub}>
+                    Criar
+                  </Button>
+                </div>
+              )}
+            </div>
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-slate-700">
                 Exibir no catálogo?
@@ -1163,11 +1199,19 @@ export function ItemFormModal({
           </div>
 
           <Textarea
-            label="Especificações / Descrição"
+            label="Especificações / Descrição (também usada como specs públicas)"
             value={form.especificacoes}
             onChange={(e) => setField("especificacoes", e.target.value)}
             placeholder="Detalhes técnicos, potência, dimensões..."
             rows={3}
+          />
+
+          <Textarea
+            label="Observação interna (uso interno — não aparece no catálogo)"
+            value={form.observacaoInterna}
+            onChange={(e) => setField("observacaoInterna", e.target.value)}
+            placeholder="Ex.: 'unidade 03 com risco na tampa', 'comprado em 2023', fornecedor..."
+            rows={2}
           />
         </div>
       </ModalBody>
