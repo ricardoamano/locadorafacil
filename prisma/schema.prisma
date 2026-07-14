@@ -54,6 +54,10 @@ model Company {
   whatsappToken      String?  // token de acesso permanente da Cloud API
   whatsappTemplates  Json?    // textos das mensagens (ESCALA/ALTERACAO/LEMBRETE) editáveis pelo admin
   osPublicaConfig    Json?    // seções visíveis na OS pública (decisão do admin, por empresa)
+  // Catálogo público: botão de WhatsApp (texto, mensagem e se aparece)
+  catalogoWhatsappAtivo    Boolean @default(true)
+  catalogoWhatsappTexto    String?
+  catalogoWhatsappMensagem String?
   // Inteligência Artificial (Claude API) — por empresa
   iaApiKey           String?  // chave da API Anthropic (nunca exibida de volta)
   iaInstrucoes       String?  // (legado) skill do gerador de propostas — migrada para iaSkills

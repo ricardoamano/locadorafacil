@@ -92,6 +92,12 @@ export async function PUT(req: NextRequest) {
       ...(b.descontoQuinzena !== undefined ? { descontoQuinzena: Number(b.descontoQuinzena) || 0 } : {}),
       ...(b.descontoMes !== undefined ? { descontoMes: Number(b.descontoMes) || 0 } : {}),
       ...(b.permitirPrecoManual !== undefined ? { permitirPrecoManual: !!b.permitirPrecoManual } : {}),
+      // Catálogo público — botão de WhatsApp
+      ...(b.catalogoWhatsappAtivo !== undefined
+        ? { catalogoWhatsappAtivo: !!b.catalogoWhatsappAtivo }
+        : {}),
+      ...campoTexto("catalogoWhatsappTexto"),
+      ...campoTexto("catalogoWhatsappMensagem"),
       // Numeração inicial (onboarding/migração) — vazio limpa (null = começa do 1)
       ...(b.orcamentoNumeroInicial !== undefined
         ? {

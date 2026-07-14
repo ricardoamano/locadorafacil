@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { Phone, Mail, Globe, MessageCircle, Tag, Package } from "lucide-react";
+import { Phone, Mail, Globe, MessageCircle, Tag, Package, FileText, Link2, Zap } from "lucide-react";
+import { GaleriaCatalogo } from "./galeria";
 
 // Página comercial pública: NUNCA expõe preços, custos, estoque, fornecedores
 // ou informações internas — apenas os campos expressamente autorizados abaixo.
@@ -18,6 +19,9 @@ async function getDados(empresaSlug: string, itemSlug: string) {
       site: true,
       cidade: true,
       estado: true,
+      catalogoWhatsappAtivo: true,
+      catalogoWhatsappTexto: true,
+      catalogoWhatsappMensagem: true,
     },
   });
   if (!empresa) return null;
@@ -28,6 +32,9 @@ async function getDados(empresaSlug: string, itemSlug: string) {
       nome: true,
       codigo: true,
       mostrarCodigo: true,
+      modelo: true,
+      watts: true,
+      kva: true,
       descricaoComercial: true,
       especificacoesPublicas: true,
       fotoCapaUrl: true,
@@ -35,6 +42,7 @@ async function getDados(empresaSlug: string, itemSlug: string) {
       fotos: true,
       categoria: { select: { nome: true } },
       marca: { select: { nome: true } },
+      arquivos: { select: { id: true, tipo: true, titulo: true, url: true } },
     },
   });
   if (!item) return null;
@@ -75,13 +83,27 @@ export default async function CatalogoItemPage({
   } catch {
     galeria = [];
   }
+  // Capa primeiro, sem repetir; todas as fotos entram na galeria clicável
+  const fotosAll = [item.fotoCapaUrl, ...galeria].filter(
+    (f, i, arr): f is string => !!f && arr.indexOf(f) === i
+  );
 
   const whatsappDigits = (empresa.telefone || "").replace(/\D/g, "");
-  const whatsappUrl = whatsappDigits
-    ? `https://wa.me/55${whatsappDigits}?text=${encodeURIComponent(
-        `Olá! Gostaria de um orçamento para: ${item.nome}`
-      )}`
-    : null;
+  const mensagemWpp = (
+    empresa.catalogoWhatsappMensagem || "Olá! Gostaria de um orçamento para: {item}"
+  ).replace(/\{item\}/g, item.nome);
+  const textoWpp =
+    empresa.catalogoWhatsappTexto || "Solicitar orçamento pelo WhatsApp";
+  const whatsappUrl =
+    empresa.catalogoWhatsappAtivo && whatsappDigits
+      ? `https://wa.me/55${whatsappDigits}?text=${encodeURIComponent(mensagemWpp)}`
+      : null;
+
+  // Só mostra specs elétricas quando existem
+  const eletricas = [
+    item.watts != null && item.watts > 0 ? `${item.watts} W` : null,
+    item.kva != null && item.kva > 0 ? `${item.kva} kVA` : null,
+  ].filter(Boolean) as string[];
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -113,34 +135,8 @@ export default async function CatalogoItemPage({
 
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Foto */}
-          <div>
-            {item.fotoCapaUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={item.fotoCapaUrl}
-                alt={item.nome}
-                className="w-full rounded-2xl border border-slate-100 bg-white object-contain aspect-square"
-              />
-            ) : (
-              <div className="w-full aspect-square rounded-2xl border border-slate-100 bg-white flex items-center justify-center">
-                <Package className="h-20 w-20 text-slate-200" />
-              </div>
-            )}
-            {galeria.length > 0 && (
-              <div className="grid grid-cols-4 gap-2 mt-2">
-                {galeria.slice(0, 8).map((foto, i) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={i}
-                    src={foto}
-                    alt={`${item.nome} — foto ${i + 1}`}
-                    className="w-full aspect-square rounded-lg border border-slate-100 bg-white object-cover"
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+          {/* Foto (galeria clicável estilo e-commerce) */}
+          <GaleriaCatalogo fotos={fotosAll} nome={item.nome} />
 
           {/* Informações */}
           <div>
@@ -151,9 +147,15 @@ export default async function CatalogoItemPage({
                   {item.categoria.nome}
                 </span>
               )}
-              {item.marca && (
+              {(item.marca || item.modelo) && (
                 <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-                  {item.marca.nome}
+                  {[item.marca?.nome, item.modelo].filter(Boolean).join(" · ")}
+                </span>
+              )}
+              {eletricas.length > 0 && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 text-xs font-medium">
+                  <Zap className="h-3 w-3" />
+                  {eletricas.join(" · ")}
                 </span>
               )}
             </div>
@@ -191,6 +193,34 @@ export default async function CatalogoItemPage({
               </a>
             )}
 
+            {/* Arquivos e links do item (manuais, fichas técnicas, etc.) */}
+            {item.arquivos.length > 0 && (
+              <div className="mt-6">
+                <h2 className="text-sm font-semibold text-slate-900 mb-2">
+                  Documentos e links
+                </h2>
+                <ul className="space-y-1.5">
+                  {item.arquivos.map((a) => (
+                    <li key={a.id}>
+                      <a
+                        href={a.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline"
+                      >
+                        {a.tipo === "ARQUIVO" ? (
+                          <FileText className="h-4 w-4 shrink-0 text-slate-400" />
+                        ) : (
+                          <Link2 className="h-4 w-4 shrink-0 text-slate-400" />
+                        )}
+                        <span>{a.titulo}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {/* CTA */}
             <div className="mt-8 flex flex-col gap-2">
               {whatsappUrl && (
@@ -201,7 +231,7 @@ export default async function CatalogoItemPage({
                   className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 transition-colors"
                 >
                   <MessageCircle className="h-5 w-5" />
-                  Solicitar orçamento pelo WhatsApp
+                  {textoWpp}
                 </a>
               )}
               {empresa.email && (

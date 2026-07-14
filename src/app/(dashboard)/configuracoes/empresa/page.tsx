@@ -24,6 +24,7 @@ const campos = [
   "telefone","email","site","logoUrl","banco","agencia","conta","pix",
   "responsavel","naturezaOperacao","observacaoFatura",
   "orcamentoNumeroInicial","faturaNumeroInicial",
+  "catalogoWhatsappTexto","catalogoWhatsappMensagem",
 ] as const;
 
 type Form = Record<(typeof campos)[number], string>;
@@ -38,6 +39,7 @@ export default function EmpresaConfigPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
+  const [catalogoWppAtivo, setCatalogoWppAtivo] = useState(true);
   // Documentos e links da empresa
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [arquivos, setArquivos] = useState<any[]>([]);
@@ -60,6 +62,7 @@ export default function EmpresaConfigPage() {
         const f = emptyForm();
         for (const c of campos) f[c] = d[c] ?? "";
         setForm(f);
+        setCatalogoWppAtivo(d.catalogoWhatsappAtivo ?? true);
       })
       .catch(() => toast("Erro ao carregar dados da empresa.", "error"))
       .finally(() => setLoading(false));
@@ -149,7 +152,7 @@ export default function EmpresaConfigPage() {
       const res = await fetch("/api/empresa", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, catalogoWhatsappAtivo: catalogoWppAtivo }),
       });
       if (res.status === 403) {
         toast("Apenas administradores podem alterar os dados da empresa.", "error");
@@ -427,6 +430,52 @@ export default function EmpresaConfigPage() {
                   </Button>
                 </div>
               </div>
+            </section>
+
+            {/* Catálogo público — botão de WhatsApp */}
+            <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+              <h2 className="text-sm font-semibold text-slate-900 mb-1">
+                Catálogo público — botão de WhatsApp
+              </h2>
+              <p className="text-xs text-slate-400 mb-4">
+                Texto do botão e mensagem que o cliente envia ao clicar na página pública do
+                item. Use <code className="bg-slate-100 px-1 rounded">{"{item}"}</code> para
+                inserir o nome do equipamento automaticamente.
+              </p>
+              <label className="flex items-center gap-2 cursor-pointer mb-4">
+                <input
+                  type="checkbox"
+                  checked={catalogoWppAtivo}
+                  onChange={(e) => setCatalogoWppAtivo(e.target.checked)}
+                  className="h-4 w-4 rounded"
+                />
+                <span className="text-sm text-slate-700">
+                  Mostrar o botão de WhatsApp no catálogo
+                </span>
+              </label>
+              {catalogoWppAtivo && (
+                <div className="space-y-3">
+                  <Input
+                    label="Texto do botão"
+                    value={form.catalogoWhatsappTexto}
+                    onChange={(e) => set("catalogoWhatsappTexto", e.target.value)}
+                    placeholder="Solicitar orçamento pelo WhatsApp"
+                  />
+                  <Textarea
+                    label="Mensagem enviada pelo cliente"
+                    value={form.catalogoWhatsappMensagem}
+                    onChange={(e) => set("catalogoWhatsappMensagem", e.target.value)}
+                    placeholder="Olá! Gostaria de um orçamento para: {item}"
+                    rows={2}
+                  />
+                  {!form.telefone && (
+                    <p className="text-xs text-amber-700 bg-amber-50 rounded-md px-2 py-1.5">
+                      ⚠️ Preencha o <strong>Telefone</strong> da empresa acima — o WhatsApp usa
+                      esse número.
+                    </p>
+                  )}
+                </div>
+              )}
             </section>
 
             <div className="flex justify-end">
