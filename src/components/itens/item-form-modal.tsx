@@ -119,6 +119,7 @@ export function ItemFormModal({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [arquivos, setArquivos] = useState<any[]>([]);
   const [linkArquivo, setLinkArquivo] = useState("");
+  const [nomeAnexo, setNomeAnexo] = useState("");
   const [enviandoArquivo, setEnviandoArquivo] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [precosMercado, setPrecosMercado] = useState<any | null>(null);
@@ -363,10 +364,12 @@ export function ItemFormModal({
     try {
       const fd = new FormData();
       fd.append("file", file);
+      if (nomeAnexo.trim()) fd.append("titulo", nomeAnexo.trim());
       const res = await fetch(`/api/itens/${form.id}/arquivos`, { method: "POST", body: fd });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);
       setArquivos((p) => [d, ...p]);
+      setNomeAnexo("");
       toast("Arquivo anexado ao item!", "success");
     } catch (e) {
       toast(e instanceof Error && e.message ? e.message : "Erro ao enviar.", "error");
@@ -382,12 +385,13 @@ export function ItemFormModal({
       const res = await fetch(`/api/itens/${form.id}/arquivos`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: linkArquivo.trim() }),
+        body: JSON.stringify({ url: linkArquivo.trim(), titulo: nomeAnexo.trim() || undefined }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);
       setArquivos((p) => [d, ...p]);
       setLinkArquivo("");
+      setNomeAnexo("");
       toast("Link anexado ao item!", "success");
     } catch (e) {
       toast(e instanceof Error && e.message ? e.message : "Erro ao anexar.", "error");
@@ -994,6 +998,12 @@ export function ItemFormModal({
                     ))}
                   </div>
                 )}
+                <Input
+                  value={nomeAnexo}
+                  onChange={(e) => setNomeAnexo(e.target.value)}
+                  placeholder="Nome do anexo (ex.: Manual do usuário) — vira o nome do link"
+                  className="mb-2"
+                />
                 <div className="flex flex-wrap gap-2 items-center">
                   <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200 bg-white text-slate-600 hover:border-blue-300 cursor-pointer">
                     {enviandoArquivo ? "Enviando..." : "📤 Enviar arquivo"}

@@ -91,7 +91,12 @@ export default async function CatalogoItemPage({
   const whatsappDigits = (empresa.telefone || "").replace(/\D/g, "");
   const mensagemWpp = (
     empresa.catalogoWhatsappMensagem || "Olá! Gostaria de um orçamento para: {item}"
-  ).replace(/\{item\}/g, item.nome);
+  )
+    .replace(/\{item\}/g, item.nome)
+    .replace(/\{marca\}/g, item.marca?.nome || "")
+    .replace(/\{modelo\}/g, item.modelo || "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
   const textoWpp =
     empresa.catalogoWhatsappTexto || "Solicitar orçamento pelo WhatsApp";
   const whatsappUrl =

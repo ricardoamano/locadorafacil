@@ -91,11 +91,12 @@ export async function POST(
     },
     select: { id: true },
   });
+  const tituloInformado = String(formData.get("titulo") || "").trim();
   const arq = await prisma.itemArquivo.create({
     data: {
       itemId: id,
       tipo: "ARQUIVO",
-      titulo: file.name || "arquivo",
+      titulo: tituloInformado || file.name || "arquivo",
       url: `/api/arquivos/${arquivo.id}`,
       arquivoId: arquivo.id,
       criadoPor: sessao.nome,

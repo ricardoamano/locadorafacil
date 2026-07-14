@@ -439,8 +439,11 @@ export default function EmpresaConfigPage() {
               </h2>
               <p className="text-xs text-slate-400 mb-4">
                 Texto do botão e mensagem que o cliente envia ao clicar na página pública do
-                item. Use <code className="bg-slate-100 px-1 rounded">{"{item}"}</code> para
-                inserir o nome do equipamento automaticamente.
+                item. Variáveis:{" "}
+                <code className="bg-slate-100 px-1 rounded">{"{item}"}</code>,{" "}
+                <code className="bg-slate-100 px-1 rounded">{"{marca}"}</code>,{" "}
+                <code className="bg-slate-100 px-1 rounded">{"{modelo}"}</code> — são
+                substituídas automaticamente (se o item não tiver marca/modelo, ficam vazias).
               </p>
               <label className="flex items-center gap-2 cursor-pointer mb-4">
                 <input
