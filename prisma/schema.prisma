@@ -63,6 +63,7 @@ model Company {
   iaInstrucoes       String?  // (legado) skill do gerador de propostas — migrada para iaSkills
   iaSkills           Json?    // skills nomeadas: [{id, nome, tipo, instrucoes}] tipo=PROPOSTA|ESCALA|GERAL
   tiposManutencao    Json?    // classificações de manutenção de veículos criadas pela empresa
+  perfisConfig       Json?    // rótulos dos perfis + módulos do perfil ADMIN (só superadmin edita)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

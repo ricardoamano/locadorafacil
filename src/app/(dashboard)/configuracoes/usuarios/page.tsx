@@ -43,6 +43,18 @@ export default function UsuariosPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<FormData>(empty());
   const [saving, setSaving] = useState(false);
+  const [rotulos, setRotulos] = useState({
+    SUPERADMIN: "Superadmin",
+    ADMIN: "Administrador",
+    USER: "Usuário",
+  });
+
+  useEffect(() => {
+    fetch("/api/empresa/perfis")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.config?.rotulos && setRotulos(d.config.rotulos))
+      .catch(() => {});
+  }, []);
 
   const fetchUsuarios = useCallback(async () => {
     setLoading(true);
@@ -212,10 +224,10 @@ export default function UsuariosPage() {
                           }
                         >
                           {u.role === "SUPERADMIN"
-                            ? "Superadmin"
+                            ? rotulos.SUPERADMIN
                             : u.role === "ADMIN"
-                              ? "Administrador"
-                              : "Usuário"}
+                              ? rotulos.ADMIN
+                              : rotulos.USER}
                         </Badge>
                         {u.isOwner && <Badge variant="success">Proprietário</Badge>}
                       </div>
@@ -303,9 +315,9 @@ export default function UsuariosPage() {
                   value={form.role}
                   onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))}
                   options={[
-                    { value: "USER", label: "Usuário (acesso restrito)" },
-                    { value: "ADMIN", label: "Administrador (tudo, menos Configurações)" },
-                    { value: "SUPERADMIN", label: "Superadmin (acesso total)" },
+                    { value: "USER", label: `${rotulos.USER} (acesso restrito)` },
+                    { value: "ADMIN", label: `${rotulos.ADMIN} (tudo, menos Configurações)` },
+                    { value: "SUPERADMIN", label: `${rotulos.SUPERADMIN} (acesso total)` },
                   ]}
                 />
               </div>

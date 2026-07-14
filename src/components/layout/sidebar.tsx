@@ -29,6 +29,7 @@ import {
   Share2,
   DatabaseBackup,
   History,
+  ShieldCheck,
   Sparkles,
   LifeBuoy,
   LogOut,
@@ -100,6 +101,7 @@ const navItems: NavEntry[] = [
     children: [
       { href: "/configuracoes/empresa", label: "Dados da Empresa", icon: Settings },
       { href: "/configuracoes/usuarios", label: "Usuários", icon: Users },
+      { href: "/configuracoes/perfis", label: "Perfis e Acessos", icon: ShieldCheck },
       { href: "/configuracoes/pagamentos", label: "Métodos de Pagamento", icon: DollarSign },
       { href: "/configuracoes/bancos", label: "Bancos", icon: DollarSign },
       { href: "/configuracoes/modelos-contratos", label: "Modelos de Contratos", icon: FileSignature },

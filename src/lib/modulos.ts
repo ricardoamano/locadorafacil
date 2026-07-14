@@ -101,7 +101,13 @@ export function podeAcessar(
   chave: string
 ): boolean {
   if (role === "SUPERADMIN") return true;
-  if (role === "ADMIN") return chave !== "configuracoes";
+  // Configurações é exclusivo do superadmin
+  if (chave === "configuracoes") return false;
+  if (role === "ADMIN") {
+    // ADMIN pode ter os módulos restringidos pelo superadmin (via token). Sem
+    // restrição configurada, acessa todos os módulos operacionais.
+    return modulos && modulos.length > 0 ? modulos.includes(chave) : true;
+  }
   const lista = modulos && modulos.length > 0 ? modulos : PADRAO_USER;
   return lista.includes(chave);
 }
