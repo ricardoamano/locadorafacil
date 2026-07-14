@@ -1,4 +1,5 @@
 import { Sidebar } from "@/components/layout/sidebar";
+import { AuditoriaAcesso } from "@/components/layout/auditoria-acesso";
 
 export default function DashboardLayout({
   children,
@@ -13,6 +14,7 @@ export default function DashboardLayout({
       >
         Pular para o conteúdo
       </a>
+      <AuditoriaAcesso />
       <Sidebar />
       <div id="conteudo" role="main" className="md:ml-60">
         {children}

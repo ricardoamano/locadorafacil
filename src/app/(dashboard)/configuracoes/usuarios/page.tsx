@@ -76,7 +76,7 @@ export default function UsuariosPage() {
       const payload: Record<string, unknown> = {
         name: form.name,
         role: form.role,
-        modulos: form.role === "ADMIN" ? undefined : form.modulos,
+        modulos: form.role === "USER" ? form.modulos : undefined,
       };
       if (!form.id) payload.email = form.email;
       if (form.password) payload.password = form.password;
@@ -202,8 +202,20 @@ export default function UsuariosPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <Badge variant={u.role === "ADMIN" ? "info" : "neutral"}>
-                          {u.role === "ADMIN" ? "Administrador" : "Usuário"}
+                        <Badge
+                          variant={
+                            u.role === "SUPERADMIN"
+                              ? "success"
+                              : u.role === "ADMIN"
+                                ? "info"
+                                : "neutral"
+                          }
+                        >
+                          {u.role === "SUPERADMIN"
+                            ? "Superadmin"
+                            : u.role === "ADMIN"
+                              ? "Administrador"
+                              : "Usuário"}
                         </Badge>
                         {u.isOwner && <Badge variant="success">Proprietário</Badge>}
                       </div>
@@ -291,18 +303,29 @@ export default function UsuariosPage() {
                   value={form.role}
                   onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))}
                   options={[
-                    { value: "USER", label: "Usuário" },
-                    { value: "ADMIN", label: "Administrador" },
+                    { value: "USER", label: "Usuário (acesso restrito)" },
+                    { value: "ADMIN", label: "Administrador (tudo, menos Configurações)" },
+                    { value: "SUPERADMIN", label: "Superadmin (acesso total)" },
                   ]}
                 />
               </div>
 
-              {form.role === "ADMIN" ? (
+              {form.role === "SUPERADMIN" ? (
+                <div className="rounded-lg border border-emerald-100 bg-emerald-50/60 p-3 text-sm text-emerald-800">
+                  <p className="font-medium">Superadmin tem acesso total.</p>
+                  <p className="text-xs text-emerald-700 mt-1">
+                    Inclui Configurações, gestão de usuários, dados da empresa, bancos, IA e
+                    backups.
+                  </p>
+                </div>
+              ) : form.role === "ADMIN" ? (
                 <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3 text-sm text-blue-800">
-                  <p className="font-medium">Administrador tem acesso total.</p>
+                  <p className="font-medium">
+                    Administrador acessa todos os módulos operacionais.
+                  </p>
                   <p className="text-xs text-blue-700 mt-1">
-                    Para liberar só alguns módulos deste usuário, mude o perfil acima para{" "}
-                    <strong>Usuário</strong> — os módulos aparecerão aqui para você marcar.
+                    Não acessa <strong>Configurações</strong> (usuários, empresa, bancos, IA). Para
+                    liberar só alguns módulos, use o perfil <strong>Usuário</strong>.
                   </p>
                 </div>
               ) : (

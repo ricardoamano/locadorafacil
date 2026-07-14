@@ -26,7 +26,7 @@ export async function PUT(req: NextRequest) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const u = session.user as SessionUser;
   if (!u.companyId) return NextResponse.json({ error: "No company" }, { status: 400 });
-  if (u.role !== "ADMIN")
+  if (u.role !== "ADMIN" && u.role !== "SUPERADMIN")
     return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
 
   const body = await req.json();

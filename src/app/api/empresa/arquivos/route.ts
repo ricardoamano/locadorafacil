@@ -12,7 +12,7 @@ async function getSessao(precisaAdmin: boolean) {
   if (!session?.user) return null;
   const u = session.user as SessionUser;
   if (!u.companyId) return null;
-  if (precisaAdmin && u.role !== "ADMIN") return "SEM_ADMIN" as const;
+  if (precisaAdmin && u.role !== "SUPERADMIN") return "SEM_ADMIN" as const;
   return { companyId: u.companyId, nome: u.name || null };
 }
 

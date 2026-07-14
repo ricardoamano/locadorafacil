@@ -11,7 +11,7 @@ async function getAdmin() {
   const session = await auth();
   if (!session?.user) return null;
   const u = session.user as SessionUser;
-  if (u.role !== "ADMIN" || !u.companyId) return null;
+  if (u.role !== "SUPERADMIN" || !u.companyId) return null;
   return { companyId: u.companyId, nome: u.name || null };
 }
 

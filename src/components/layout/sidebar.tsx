@@ -28,6 +28,7 @@ import {
   Bot,
   Share2,
   DatabaseBackup,
+  History,
   Sparkles,
   LifeBuoy,
   LogOut,
@@ -109,6 +110,7 @@ const navItems: NavEntry[] = [
       { href: "/configuracoes/backup", label: "Backup dos Dados", icon: DatabaseBackup },
       { href: "/configuracoes/ia", label: "Inteligência Artificial", icon: Sparkles },
       { href: "/configuracoes/menu", label: "Personalização do Menu", icon: Menu },
+      { href: "/configuracoes/logs", label: "Log de Acessos", icon: History },
     ],
   },
 ];
@@ -123,9 +125,12 @@ function podeVer(
   modulos: string[] | null,
   children?: NavChild[]
 ): boolean {
+  if (role === "SUPERADMIN") return true;
+  // Só o superadmin vê Configurações
+  if (key === "configuracoes") return false;
+  // Admin vê todos os módulos operacionais
   if (role === "ADMIN") return true;
   const lista = modulos && modulos.length > 0 ? modulos : PADRAO_USER_SIDEBAR;
-  if (key === "configuracoes") return false;
   if (children?.some((c) => c.moduleKey)) {
     return children.some((c) => !c.moduleKey || lista.includes(c.moduleKey));
   }
@@ -159,7 +164,7 @@ function aplicarConfig(
     if (!usados.has(item.key)) ordem.push(item);
   }
   return ordem.filter((i) => {
-    if (role !== "ADMIN") {
+    if (role !== "ADMIN" && role !== "SUPERADMIN") {
       let filhos = i.children;
       if (i.key === "cadastros" && filhos) {
         const lista = modulos && modulos.length > 0 ? modulos : PADRAO_USER_SIDEBAR;

@@ -31,7 +31,7 @@ export async function GET() {
 export async function POST() {
   const u = await getSessao();
   if (!u) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (u.role !== "ADMIN")
+  if (u.role !== "SUPERADMIN")
     return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
 
   const token = randomUUID().replace(/-/g, "");
@@ -46,7 +46,7 @@ export async function POST() {
 export async function DELETE() {
   const u = await getSessao();
   if (!u) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (u.role !== "ADMIN")
+  if (u.role !== "SUPERADMIN")
     return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
 
   await prisma.company.update({

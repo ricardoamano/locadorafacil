@@ -1062,3 +1062,19 @@ model AjudaConversa {
 
   @@index([companyId, userId])
 }
+
+// Log de auditoria: acessos a módulos, alterações e logins dos usuários.
+model AuditLog {
+  id        String   @id @default(cuid())
+  companyId String
+  userId    String?
+  userNome  String
+  userRole  String?
+  tipo      String   // ACESSO | ALTERACAO | LOGIN
+  modulo    String?
+  acao      String
+  detalhe   String?
+  createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
+}

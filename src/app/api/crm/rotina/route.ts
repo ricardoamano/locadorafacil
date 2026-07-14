@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
         },
       }),
       prisma.user.findMany({
-        where: { companyId: empresa.id, role: "ADMIN", ativo: true },
+        where: { companyId: empresa.id, role: { in: ["ADMIN", "SUPERADMIN"] }, ativo: true },
         select: { id: true },
       }),
     ]);

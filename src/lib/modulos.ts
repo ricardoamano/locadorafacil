@@ -83,12 +83,25 @@ export function moduloDaApi(pathname: string): string | null {
   return null;
 }
 
+// Perfis: SUPERADMIN (acesso total, inclui Configurações e gestão de usuários),
+// ADMIN (todos os módulos operacionais, mas NÃO as Configurações sensíveis),
+// USER (apenas os módulos concedidos).
+export function ehSuperadmin(role?: string | null): boolean {
+  return role === "SUPERADMIN";
+}
+
+// Tem algum poder de gestão (ADMIN ou SUPERADMIN)
+export function ehGestor(role?: string | null): boolean {
+  return role === "ADMIN" || role === "SUPERADMIN";
+}
+
 export function podeAcessar(
   modulos: string[] | null | undefined,
   role: string | undefined,
   chave: string
 ): boolean {
-  if (role === "ADMIN") return true;
+  if (role === "SUPERADMIN") return true;
+  if (role === "ADMIN") return chave !== "configuracoes";
   const lista = modulos && modulos.length > 0 ? modulos : PADRAO_USER;
   return lista.includes(chave);
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { vincularAcessorios } from "@/lib/acessorios";
 import { auth } from "@/lib/auth";
+import { auditar } from "@/lib/auditoria";
 import { calcularPrecos } from "@/lib/precos";
 import { slugify } from "@/lib/utils";
 import {
@@ -182,5 +183,12 @@ export async function DELETE(
   // Vínculo "é acessório de outro item" é só uma sugestão — remove junto.
   await prisma.itemAcessorio.deleteMany({ where: { acessorioId: id } });
   await prisma.item.delete({ where: { id } });
+  const sessao = await auth();
+  await auditar(sessao?.user as never, {
+    tipo: "ALTERACAO",
+    modulo: "ativos",
+    acao: "Excluiu item",
+    detalhe: `${existing.codigo || ""} ${existing.nome}`.trim(),
+  });
   return NextResponse.json({ success: true });
 }

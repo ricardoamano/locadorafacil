@@ -5,6 +5,7 @@ import { calcularPrecos } from "@/lib/precos";
 import { slugify } from "@/lib/utils";
 import { proximoCodigoItem, sincronizarUnidades } from "@/lib/unidades";
 import { vincularAcessorios } from "@/lib/acessorios";
+import { auditar } from "@/lib/auditoria";
 
 type SessionUser = { companyId?: string };
 
@@ -189,5 +190,11 @@ export async function POST(req: NextRequest) {
     acessoriosInfo = await vincularAcessorios(companyId, item.id, body.acessorios);
   }
 
+  await auditar(session.user as never, {
+    tipo: "ALTERACAO",
+    modulo: "ativos",
+    acao: "Cadastrou item",
+    detalhe: `${item.codigo || ""} ${item.nome}`.trim(),
+  });
   return NextResponse.json({ ...item, acessoriosInfo }, { status: 201 });
 }

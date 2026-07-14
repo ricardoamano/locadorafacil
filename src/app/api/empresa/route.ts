@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { auditar } from "@/lib/auditoria";
 import { slugify } from "@/lib/utils";
 
 type SessionUser = { companyId?: string; role?: string };
@@ -27,7 +28,7 @@ export async function PUT(req: NextRequest) {
     where: { email: session.user.email as string, companyId: user.companyId },
     select: { role: true },
   });
-  if (dbUser?.role !== "ADMIN")
+  if (dbUser?.role !== "SUPERADMIN")
     return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
 
   const b = await req.json();
@@ -116,6 +117,11 @@ export async function PUT(req: NextRequest) {
           }
         : {}),
     },
+  });
+  await auditar(session.user as never, {
+    tipo: "ALTERACAO",
+    modulo: "configuracoes",
+    acao: "Editou dados da empresa",
   });
   return NextResponse.json(empresa);
 }

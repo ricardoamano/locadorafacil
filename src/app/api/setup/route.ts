@@ -32,7 +32,7 @@ export async function POST(req: Request) {
         email: "admin@demo.com",
         name: "Administrador",
         password: hashedPassword,
-        role: "ADMIN",
+        role: "SUPERADMIN",
         companyId: company.id,
       },
     });

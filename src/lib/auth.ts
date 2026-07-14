@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
+import { auditar } from "@/lib/auditoria";
 import bcrypt from "bcryptjs";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -38,6 +39,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!isValid) return null;
 
         const perms = user.permissions as { modulos?: string[] } | null;
+        await auditar(
+          {
+            id: user.id,
+            companyId: user.companyId || undefined,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+          },
+          { tipo: "LOGIN", acao: "Entrou no sistema" }
+        );
         return {
           id: user.id,
           email: user.email,

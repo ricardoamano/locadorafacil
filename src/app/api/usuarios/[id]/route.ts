@@ -15,7 +15,7 @@ export async function PUT(
   if (!companyId) return NextResponse.json({ error: "No company" }, { status: 400 });
 
   const admin = await prisma.user.findFirst({
-    where: { email: session.user.email as string, companyId, role: "ADMIN", ativo: true },
+    where: { email: session.user.email as string, companyId, role: "SUPERADMIN", ativo: true },
   });
   if (!admin) return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
 
@@ -32,7 +32,7 @@ export async function PUT(
         { error: "O administrador principal não pode ser desativado" },
         { status: 400 }
       );
-    if (body.role && body.role !== "ADMIN")
+    if (body.role && body.role !== "SUPERADMIN")
       return NextResponse.json(
         { error: "O administrador principal não pode ser rebaixado" },
         { status: 400 }
@@ -47,7 +47,8 @@ export async function PUT(
 
   const data: Record<string, unknown> = {};
   if (body.name !== undefined) data.name = body.name;
-  if (body.role !== undefined) data.role = body.role === "ADMIN" ? "ADMIN" : "USER";
+  if (body.role !== undefined)
+    data.role = ["ADMIN", "SUPERADMIN"].includes(body.role) ? body.role : "USER";
   if (body.ativo !== undefined) data.ativo = !!body.ativo;
   if (body.modulos !== undefined) {
     data.permissions = Array.isArray(body.modulos) ? { modulos: body.modulos } : null;

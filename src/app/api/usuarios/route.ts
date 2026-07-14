@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { auditar } from "@/lib/auditoria";
 import bcrypt from "bcryptjs";
 
 type SessionUser = { companyId?: string };
 
 async function getAdmin(sessionEmail: string, companyId: string) {
   return prisma.user.findFirst({
-    where: { email: sessionEmail, companyId, role: "ADMIN", ativo: true },
+    where: { email: sessionEmail, companyId, role: "SUPERADMIN", ativo: true },
     select: { id: true, isOwner: true },
   });
 }
@@ -62,15 +63,21 @@ export async function POST(req: NextRequest) {
       name: body.name.trim(),
       email: body.email.trim().toLowerCase(),
       password: hashed,
-      role: body.role === "ADMIN" ? "ADMIN" : "USER",
+      role: ["ADMIN", "SUPERADMIN"].includes(body.role) ? body.role : "USER",
       ativo: true,
       permissions:
-        Array.isArray(body.modulos) && body.role !== "ADMIN"
+        Array.isArray(body.modulos) && body.role === "USER"
           ? { modulos: body.modulos }
           : undefined,
       companyId,
     },
     select: { id: true, name: true, email: true, role: true, ativo: true },
+  });
+  await auditar(session.user as never, {
+    tipo: "ALTERACAO",
+    modulo: "configuracoes",
+    acao: "Criou usuário",
+    detalhe: `${usuario.name} (${usuario.email}) — perfil ${usuario.role}`,
   });
   return NextResponse.json(usuario, { status: 201 });
 }

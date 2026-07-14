@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
           name: nome,
           email,
           password: hashed,
-          role: "ADMIN",
+          role: "SUPERADMIN",
           isOwner: true,
           ativo: true,
         },

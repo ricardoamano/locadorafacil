@@ -16,7 +16,7 @@ async function getAdmin() {
     where: { email: session.user.email as string, companyId: u.companyId },
     select: { role: true },
   });
-  return dbUser?.role === "ADMIN" ? u.companyId : null;
+  return dbUser?.role === "SUPERADMIN" ? u.companyId : null;
 }
 
 async function sincronizarPrincipal(companyId: string) {
