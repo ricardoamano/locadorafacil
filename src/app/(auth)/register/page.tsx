@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ClipboardList, Eye, EyeOff, User, Building2, ArrowRight } from "lucide-react";
+import { formatDoc, formatPhone } from "@/lib/utils";
 
 // Onboarding público: cria a empresa + o usuário admin e já entra no sistema.
 
@@ -188,7 +189,7 @@ export default function RegisterPage() {
                     </label>
                     <input
                       value={form.cnpj}
-                      onChange={(e) => set("cnpj", e.target.value)}
+                      onChange={(e) => set("cnpj", formatDoc(e.target.value))}
                       placeholder="(opcional)"
                       className={inputCls}
                     />
@@ -201,7 +202,7 @@ export default function RegisterPage() {
                     </label>
                     <input
                       value={form.telefone}
-                      onChange={(e) => set("telefone", e.target.value)}
+                      onChange={(e) => set("telefone", formatPhone(e.target.value))}
                       placeholder="(opcional)"
                       className={inputCls}
                     />

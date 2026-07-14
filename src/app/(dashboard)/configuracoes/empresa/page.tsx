@@ -8,7 +8,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { ImageUpload } from "@/components/ui/image-upload";
-import { fetchAddressByCEP, formatCEP, slugify } from "@/lib/utils";
+import { fetchAddressByCEP, formatCEP, formatDoc, formatPhone, slugify } from "@/lib/utils";
 import { Loader2, Building2, Landmark, ReceiptText, Hash, Paperclip, Trash2 } from "lucide-react";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -198,12 +198,12 @@ export default function EmpresaConfigPage() {
                   <Input label="Razão Social" value={form.razaoSocial} onChange={(e) => set("razaoSocial", e.target.value)} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <Input label="CNPJ ou CPF" value={form.cnpj} onChange={(e) => set("cnpj", e.target.value)} placeholder="00.000.000/0000-00" />
+                  <Input label="CNPJ ou CPF" value={form.cnpj} onChange={(e) => set("cnpj", formatDoc(e.target.value))} placeholder="00.000.000/0000-00" />
                   <Input label="Insc. Estadual" value={form.inscricaoEstadual} onChange={(e) => set("inscricaoEstadual", e.target.value)} />
                   <Input label="Insc. Municipal" value={form.inscricaoMunicipal} onChange={(e) => set("inscricaoMunicipal", e.target.value)} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <Input label="Telefone" value={form.telefone} onChange={(e) => set("telefone", e.target.value)} placeholder="(11) 99999-9999" />
+                  <Input label="Telefone" value={form.telefone} onChange={(e) => set("telefone", formatPhone(e.target.value))} placeholder="(11) 99999.9999" />
                   <Input label="E-mail" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="contato@empresa.com" />
                   <Input label="Site" value={form.site} onChange={(e) => set("site", e.target.value)} placeholder="https://..." />
                 </div>

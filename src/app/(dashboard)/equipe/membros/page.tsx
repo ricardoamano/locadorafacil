@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatPhone, formatRG, formatCPF } from "@/lib/utils";
 import { Plus, Pencil, Trash2, UserCheck, Copy, Star, X } from "lucide-react";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -575,18 +575,18 @@ export default function MembrosPage() {
                 <Input
                   label="Telefone"
                   value={form.telefone}
-                  onChange={(e) => setForm((p) => ({ ...p, telefone: e.target.value }))}
+                  onChange={(e) => setForm((p) => ({ ...p, telefone: formatPhone(e.target.value) }))}
                   placeholder="(11) 99999-9999"
                 />
                 <Input
                   label="RG"
                   value={form.rg}
-                  onChange={(e) => setForm((p) => ({ ...p, rg: e.target.value }))}
+                  onChange={(e) => setForm((p) => ({ ...p, rg: formatRG(e.target.value) }))}
                 />
                 <Input
                   label="CPF"
                   value={form.cpf}
-                  onChange={(e) => setForm((p) => ({ ...p, cpf: e.target.value }))}
+                  onChange={(e) => setForm((p) => ({ ...p, cpf: formatCPF(e.target.value) }))}
                   placeholder="000.000.000-00"
                 />
               </div>

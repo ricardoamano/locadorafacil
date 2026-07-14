@@ -11,7 +11,7 @@ import { useToast } from "@/components/ui/toast";
 import { LocalFormModal } from "@/components/locais/local-form-modal";
 import { ContactFormModal } from "@/components/contacts/contact-form-modal";
 import { ItemFormModal } from "@/components/itens/item-form-modal";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatPhone } from "@/lib/utils";
 import {
   ChevronDown,
   ChevronRight,
@@ -1123,7 +1123,7 @@ export function OrcamentoForm({
               <Input
                 label="Telefone"
                 value={novoContato.telefone}
-                onChange={(e) => setNovoContato((p) => ({ ...p, telefone: e.target.value }))}
+                onChange={(e) => setNovoContato((p) => ({ ...p, telefone: formatPhone(e.target.value) }))}
                 placeholder="(11) 99999-9999"
               />
             </div>

@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
+import { formatPhone } from "@/lib/utils";
 import { OsConferencia } from "./os-conferencia";
 import { OsEntrega } from "./os-entrega";
 import { OsNestor } from "./os-nestor";
@@ -721,11 +722,11 @@ export function OsDetail({
                     onChange={(ev) =>
                       setProdutores((prev) => {
                         const arr = [...prev];
-                        arr[i] = { ...arr[i], telefone: ev.target.value };
+                        arr[i] = { ...arr[i], telefone: formatPhone(ev.target.value) };
                         return arr;
                       })
                     }
-                    placeholder="(11) 99999-9999"
+                    placeholder="(11) 99999.9999"
                   />
                 </div>
                 <div className="col-span-3">

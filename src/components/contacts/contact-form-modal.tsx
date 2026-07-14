@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
-import { fetchAddressByCEP, formatCEP } from "@/lib/utils";
+import { fetchAddressByCEP, formatCEP, formatCNPJ, formatPhone } from "@/lib/utils";
 import { Plus, Trash2, Loader2, MapPin } from "lucide-react";
 
 interface SubContact {
@@ -260,7 +260,7 @@ export function ContactFormModal({
               <Input
                 label="CNPJ"
                 value={form.cnpj}
-                onChange={(e) => setField("cnpj", e.target.value)}
+                onChange={(e) => setField("cnpj", formatCNPJ(e.target.value))}
                 placeholder="00.000.000/0000-00"
               />
               <Input
@@ -462,9 +462,9 @@ export function ContactFormModal({
                     label="Telefone"
                     value={contact.telefone}
                     onChange={(e) =>
-                      updateSubContact(i, "telefone", e.target.value)
+                      updateSubContact(i, "telefone", formatPhone(e.target.value))
                     }
-                    placeholder="(11) 99999-9999"
+                    placeholder="(11) 99999.9999"
                   />
                   <Input
                     label="Email"
