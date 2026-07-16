@@ -348,7 +348,7 @@ export function Sidebar() {
       {/* Botão hamburguer — só mobile */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="md:hidden fixed left-3 top-3 z-40 h-9 w-9 rounded-lg bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-600"
+        className="md:hidden print:hidden fixed left-3 top-3 z-40 h-9 w-9 rounded-lg bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-600"
         aria-label="Abrir menu"
       >
         <Menu className="h-5 w-5" />

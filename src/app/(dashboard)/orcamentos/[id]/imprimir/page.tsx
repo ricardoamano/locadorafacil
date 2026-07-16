@@ -83,6 +83,16 @@ export default function ImprimirOrcamentoPage() {
     setTemplate(t);
     localStorage.setItem("orc_template", t);
   }
+  // Modo de valores: por item (coluna Subtotal) ou só o subtotal da sala
+  const [valores, setValores] = useState<"item" | "resumido">("item");
+  useEffect(() => {
+    const salvo = localStorage.getItem("orc_valores");
+    if (salvo === "item" || salvo === "resumido") setValores(salvo);
+  }, []);
+  function trocarValores(v: "item" | "resumido") {
+    setValores(v);
+    localStorage.setItem("orc_valores", v);
+  }
 
   useEffect(() => {
     if (!params?.id) return;
@@ -190,6 +200,26 @@ export default function ImprimirOrcamentoPage() {
               </button>
             ))}
           </div>
+          <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden h-9">
+            {(
+              [
+                { v: "item" as const, label: "Valor por item" },
+                { v: "resumido" as const, label: "Só subtotal da sala" },
+              ]
+            ).map((t) => (
+              <button
+                key={t.v}
+                onClick={() => trocarValores(t.v)}
+                className={`px-3 text-sm font-medium transition-colors ${
+                  valores === t.v
+                    ? "bg-slate-700 text-white"
+                    : "bg-white text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
           <button
             onClick={() => window.print()}
             className="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
@@ -283,8 +313,14 @@ export default function ImprimirOrcamentoPage() {
                       <th className="px-3 py-2 text-left font-bold w-28 rounded-l-sm">Categoria</th>
                       <th className="px-3 py-2 text-left font-bold">Item</th>
                       <th className="px-3 py-2 text-center font-bold w-24">Quantidade</th>
-                      <th className="px-3 py-2 text-center font-bold w-16">Diária</th>
-                      <th className="px-3 py-2 text-right font-bold w-24 rounded-r-sm">Subtotal</th>
+                      <th
+                        className={`px-3 py-2 text-center font-bold w-16 ${valores === "resumido" ? "rounded-r-sm" : ""}`}
+                      >
+                        Diária
+                      </th>
+                      {valores === "item" && (
+                        <th className="px-3 py-2 text-right font-bold w-24 rounded-r-sm">Subtotal</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -306,11 +342,13 @@ export default function ImprimirOrcamentoPage() {
                         <td className="px-3 py-2 text-center">
                           {i.item?.natureza === "SERVICO" ? "—" : i.diarias || 1}
                         </td>
-                        <td className="px-3 py-2 text-right">
-                          {fmtValor(
-                            (i.quantidade || 0) * (i.diarias || 1) * (i.valorUnitario || 0)
-                          )}
-                        </td>
+                        {valores === "item" && (
+                          <td className="px-3 py-2 text-right">
+                            {fmtValor(
+                              (i.quantidade || 0) * (i.diarias || 1) * (i.valorUnitario || 0)
+                            )}
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -405,7 +443,7 @@ export default function ImprimirOrcamentoPage() {
             <div className="flex flex-col min-h-[270mm] print:min-h-0">
             {/* Cabeçalho limpo: logo + número, com filete na cor da marca */}
             <div
-              className="px-[14mm] pt-8 pb-4 flex items-center justify-between"
+              className="px-[14mm] pt-2 pb-4 flex items-center justify-between"
               style={{ borderBottom: `3px solid ${cor1}` }}
             >
               <div>
@@ -527,7 +565,9 @@ export default function ImprimirOrcamentoPage() {
                           <th className="px-2 py-1.5 text-left font-bold">Item</th>
                           <th className="px-2 py-1.5 text-center font-bold w-20">Qtd</th>
                           <th className="px-2 py-1.5 text-center font-bold w-16">Diárias</th>
-                          <th className="px-2 py-1.5 text-right font-bold w-24">Subtotal</th>
+                          {valores === "item" && (
+                            <th className="px-2 py-1.5 text-right font-bold w-24">Subtotal</th>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
@@ -557,11 +597,13 @@ export default function ImprimirOrcamentoPage() {
                             <td className="px-2 py-1.5 text-center">
                               {i.item?.natureza === "SERVICO" ? "—" : i.diarias || 1}
                             </td>
-                            <td className="px-2 py-1.5 text-right font-medium">
-                              {fmtValor(
-                                (i.quantidade || 0) * (i.diarias || 1) * (i.valorUnitario || 0)
-                              )}
-                            </td>
+                            {valores === "item" && (
+                              <td className="px-2 py-1.5 text-right font-medium">
+                                {fmtValor(
+                                  (i.quantidade || 0) * (i.diarias || 1) * (i.valorUnitario || 0)
+                                )}
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
