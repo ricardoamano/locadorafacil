@@ -26,9 +26,20 @@ export async function GET() {
     if (empresa) empresaInfo = { nome: empresa.name, logoUrl: empresa.logoUrl };
   }
 
+  // Celular do vendedor: vem do perfil de membro vinculado ao usuário
+  let telefone: string | null = null;
+  if (session.user.email) {
+    const eu = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { membro: { select: { telefone: true } } },
+    });
+    telefone = eu?.membro?.telefone || null;
+  }
+
   return NextResponse.json({
     name: session.user.name,
     email: session.user.email,
+    telefone,
     role: u.role || "USER",
     isOwner: !!u.isOwner,
     modulos: u.modulos ?? null,

@@ -413,6 +413,13 @@ export default function ImprimirOrcamentoPage() {
                 <p className="text-[9.5px] text-slate-500">
                   Emitido em {fmtData(orc.createdAt)} · válido até {validade.toLocaleDateString("pt-BR")}
                 </p>
+                {me?.name && (
+                  <p className="text-[10px] text-slate-600 mt-1.5">
+                    <span className="font-semibold">Vendedor:</span> {me.name}
+                    {me.email ? ` · ${me.email}` : ""}
+                    {me.telefone ? ` · ${me.telefone}` : ""}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -446,7 +453,6 @@ export default function ImprimirOrcamentoPage() {
                       `Início: ${fmtData(orc.dataInicio)}`,
                       `Término: ${fmtData(orc.dataFim)}`,
                       orc.dataMontagem ? `Montagem: ${fmtData(orc.dataMontagem)}` : "",
-                      me?.name ? `Vendedor: ${me.name}` : "",
                     ],
                   },
                 ].map((c) => (
