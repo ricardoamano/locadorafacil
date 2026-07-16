@@ -119,7 +119,8 @@ export function EtiquetaQrModal({ open, onClose, item }: EtiquetaQrModalProps) {
     try {
       const blocos: string[] = [];
       for (const u of alvo) {
-        const url = `${window.location.origin}/ativos/itens?search=${encodeURIComponent(u.codigo)}`;
+        // QR aponta direto para a página da unidade (histórico, fotos, ações)
+        const url = `${window.location.origin}/u/${encodeURIComponent(u.codigo)}`;
         const qr = await QRCode.toDataURL(url, { width: 480, margin: 1 });
         blocos.push(`
           <div class="etiqueta">
@@ -198,9 +199,13 @@ export function EtiquetaQrModal({ open, onClose, item }: EtiquetaQrModalProps) {
                     className="h-4 w-4 rounded"
                     title="Incluir na impressão"
                   />
-                  <span className="font-mono text-sm font-medium text-slate-800 w-24 shrink-0">
+                  <a
+                    href={`/ativos/unidades/${u.id}`}
+                    className="font-mono text-sm font-medium text-blue-600 hover:underline w-24 shrink-0"
+                    title="Abrir a página da unidade (histórico, fotos, ações)"
+                  >
                     {u.codigo}
-                  </span>
+                  </a>
                   <span
                     className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${cfg.cls}`}
                   >
@@ -220,6 +225,13 @@ export function EtiquetaQrModal({ open, onClose, item }: EtiquetaQrModalProps) {
                     title="Próxima manutenção preventiva"
                   />
                   <span className="flex-1" />
+                  <a
+                    href={`/ativos/unidades/${u.id}`}
+                    className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg border border-blue-200 bg-blue-50 text-[11px] font-medium text-blue-700 hover:bg-blue-100 transition-colors shrink-0"
+                    title="Histórico, fotos, manutenção e baixa desta unidade"
+                  >
+                    Histórico / Ações
+                  </a>
                   {u.status === "EM_ESTOQUE" && (
                     <>
                       <button

@@ -642,6 +642,8 @@ model ItemUnidade {
   codigo    String   // código único da unidade na empresa (codigoItem-NN)
   status    String   @default("EM_ESTOQUE") // EM_ESTOQUE | NO_EVENTO | MANUTENCAO | BAIXADA
   proximaManutencao DateTime?
+  observacoes String?
+  fotos     Json     @default("[]")
   osId      String?  // OS em que a unidade está (quando NO_EVENTO)
   os        OrdemServico? @relation(fields: [osId], references: [id], onDelete: SetNull)
   companyId String
@@ -649,6 +651,7 @@ model ItemUnidade {
   updatedAt DateTime @updatedAt
 
   conferencias OsConferencia[]
+  eventos      UnidadeEvento[]
 
   @@unique([companyId, codigo])
   @@unique([itemId, numero])
@@ -1078,4 +1081,18 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([companyId, createdAt])
+}
+
+// Ocorrências manuais de uma unidade física: manutenção, baixa, avaria,
+// retorno ao estoque, observações. (Saídas/entradas vêm de OsConferencia.)
+model UnidadeEvento {
+  id        String      @id @default(cuid())
+  unidadeId String
+  unidade   ItemUnidade @relation(fields: [unidadeId], references: [id], onDelete: Cascade)
+  tipo      String      // MANUTENCAO | BAIXA | RETORNO_ESTOQUE | AVARIA | OBSERVACAO
+  descricao String?
+  autor     String?
+  createdAt DateTime    @default(now())
+
+  @@index([unidadeId, createdAt])
 }

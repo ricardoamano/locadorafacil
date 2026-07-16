@@ -83,5 +83,26 @@ export async function PUT(
         : {}),
     },
   });
+
+  // Alimenta o histórico individual da unidade
+  if (status && status !== unidade.status) {
+    const session = await auth();
+    const nome =
+      (session?.user as { name?: string | null; email?: string | null } | undefined)?.name ||
+      (session?.user as { email?: string | null } | undefined)?.email ||
+      null;
+    await prisma.unidadeEvento.create({
+      data: {
+        unidadeId: unidade.id,
+        tipo:
+          status === "MANUTENCAO"
+            ? "MANUTENCAO"
+            : status === "BAIXADA"
+              ? "BAIXA"
+              : "RETORNO_ESTOQUE",
+        autor: nome,
+      },
+    });
+  }
   return NextResponse.json(atualizada);
 }

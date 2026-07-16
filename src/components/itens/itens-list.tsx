@@ -460,7 +460,7 @@ export function ItensList() {
                         <button
                           onClick={() => setEtiquetaItem(item)}
                           className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                          title="Etiqueta QR code"
+                          title="Unidades: etiquetas QR, histórico, manutenção e baixa"
                         >
                           <QrCode className="h-4 w-4" />
                         </button>
