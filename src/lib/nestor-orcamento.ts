@@ -90,14 +90,19 @@ export interface RespostaNestor {
   erro?: string;
 }
 
+export interface MensagemChat {
+  role: "user" | "assistant";
+  content: string;
+}
+
 /**
- * Gera a resposta do assistente para uma mensagem recebida, usando o histórico
- * recente da conversa (desde o último RESET) como contexto.
+ * Núcleo do orçamento rápido: recebe a conversa pronta (qualquer canal —
+ * WhatsApp ou o chat dentro do app) e devolve a resposta da IA com o
+ * catálogo/preços reais da empresa no contexto.
  */
-export async function responderOrcamentoRapido(
+export async function gerarRespostaOrcamento(
   companyId: string,
-  telefone: string,
-  mensagem: string
+  conversa: MensagemChat[]
 ): Promise<RespostaNestor> {
   const empresa = await prisma.company.findUnique({
     where: { id: companyId },
@@ -121,19 +126,7 @@ export async function responderOrcamentoRapido(
         "⚠️ A inteligência do assistente ainda não está configurada (chave de IA da empresa ausente). Peça ao administrador para configurar em Configurações → Inteligência Artificial.",
     };
 
-  const [catalogo, historicoDb] = await Promise.all([
-    catalogoDaEmpresa(companyId),
-    prisma.nestorConversa.findMany({
-      where: { companyId, telefone },
-      orderBy: { createdAt: "desc" },
-      take: MAX_HISTORICO,
-    }),
-  ]);
-
-  // Histórico em ordem cronológica, cortado no último RESET ("nova conversa")
-  const cronologico = historicoDb.reverse();
-  const ultimoReset = cronologico.map((m) => m.papel).lastIndexOf("RESET");
-  const historico = cronologico.slice(ultimoReset + 1);
+  const catalogo = await catalogoDaEmpresa(companyId);
 
   const politica = [
     `Política de preços por período da empresa: semana = ${empresa.diasSemana} dias`,
@@ -151,18 +144,10 @@ export async function responderOrcamentoRapido(
 CATÁLOGO ATUAL (código | nome | preços | estoque):
 ${catalogo || "(catálogo vazio — avise que não há itens cadastrados)"}`;
 
-  const anteriores = historico
-    .filter((m) => m.papel === "USUARIO" || m.papel === "ASSISTENTE")
-    .map((m) => ({
-      role: m.papel === "USUARIO" ? ("user" as const) : ("assistant" as const),
-      content: m.texto,
-    }));
   // a primeira mensagem enviada à API precisa ser do usuário
-  while (anteriores.length > 0 && anteriores[0].role === "assistant") anteriores.shift();
-  const messages: { role: "user" | "assistant"; content: string }[] = [
-    ...anteriores,
-    { role: "user", content: mensagem },
-  ];
+  const messages = [...conversa];
+  while (messages.length > 0 && messages[0].role === "assistant") messages.shift();
+  if (messages.length === 0) return { texto: "", erro: "Conversa vazia" };
 
   try {
     const res = await ia.messages.create(
@@ -184,4 +169,40 @@ ${catalogo || "(catálogo vazio — avise que não há itens cadastrados)"}`;
   } catch (e) {
     return { texto: "", erro: e instanceof Error ? e.message : "Falha ao consultar a IA" };
   }
+}
+
+/**
+ * Versão do WhatsApp: monta a conversa a partir do histórico salvo do telefone
+ * (desde o último RESET) e delega ao núcleo.
+ */
+export async function responderOrcamentoRapido(
+  companyId: string,
+  telefone: string,
+  mensagem: string
+): Promise<RespostaNestor> {
+  const historicoDb = await prisma.nestorConversa.findMany({
+    where: { companyId, telefone },
+    orderBy: { createdAt: "desc" },
+    take: MAX_HISTORICO,
+  });
+
+  // Histórico em ordem cronológica, cortado no último RESET ("nova conversa")
+  const cronologico = historicoDb.reverse();
+  const ultimoReset = cronologico.map((m) => m.papel).lastIndexOf("RESET");
+  const historico = cronologico.slice(ultimoReset + 1);
+
+  // a mensagem atual já foi salva no banco pelo webhook — tira do histórico
+  const ultima = historico[historico.length - 1];
+  if (ultima && ultima.papel === "USUARIO" && ultima.texto === mensagem) historico.pop();
+
+  const conversa: MensagemChat[] = [
+    ...historico
+      .filter((m) => m.papel === "USUARIO" || m.papel === "ASSISTENTE")
+      .map((m) => ({
+        role: m.papel === "USUARIO" ? ("user" as const) : ("assistant" as const),
+        content: m.texto,
+      })),
+    { role: "user", content: mensagem },
+  ];
+  return gerarRespostaOrcamento(companyId, conversa);
 }

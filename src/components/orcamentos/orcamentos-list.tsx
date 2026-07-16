@@ -20,6 +20,7 @@ import {
   Printer,
   Share2,
   Kanban,
+  Zap,
 } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; variant: "success" | "warning" | "danger" | "info" | "neutral" }> = {
@@ -229,6 +230,12 @@ export function OrcamentosList() {
             ))}
           </select>
 
+          <Link href="/orcamentos/rapido">
+            <Button variant="outline">
+              <Zap className="h-4 w-4" />
+              Rápido
+            </Button>
+          </Link>
           <Link href="/orcamentos/funil">
             <Button variant="outline">
               <Kanban className="h-4 w-4" />
