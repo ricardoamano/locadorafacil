@@ -202,7 +202,12 @@ export default function ImprimirOrcamentoPage() {
 
       {/* Folha A4 — template Clássico */}
       {template === "classico" && (
-      <div className="mx-auto my-6 print:my-0 bg-white shadow print:shadow-none w-[210mm] min-h-[297mm] print:min-h-0 px-[14mm] py-[10mm] print:py-0 text-[10.5px] leading-snug text-slate-800 flex flex-col">
+      <div className="mx-auto my-6 print:my-0 bg-white shadow print:shadow-none w-[210mm] min-h-[297mm] print:min-h-0 px-[14mm] text-[10.5px] leading-snug text-slate-800">
+      <table className="folha-margens w-full">
+        <thead><tr><td /></tr></thead>
+        <tfoot><tr><td /></tr></tfoot>
+        <tbody><tr><td>
+        <div className="flex flex-col min-h-[270mm] print:min-h-0">
         <div className="flex-1">
           {/* Cabeçalho: logo + vendedor */}
           <div className="flex items-start justify-between pt-2">
@@ -380,6 +385,9 @@ export default function ImprimirOrcamentoPage() {
         <p className="text-right text-[8px] text-slate-400 mt-8">
           Desenvolvido por <span className="text-blue-600">{empresa?.name || "LocadoraFácil"}</span>
         </p>
+        </div>
+        </td></tr></tbody>
+      </table>
       </div>
       )}
 
@@ -389,7 +397,12 @@ export default function ImprimirOrcamentoPage() {
         const cor2 = empresa?.corSecundaria || cor1;
         const logoTopo = empresa?.logoUrlClara || null;
         return (
-          <div className="mx-auto my-6 print:my-0 bg-white shadow print:shadow-none w-[210mm] min-h-[297mm] print:min-h-0 text-[10.5px] leading-snug text-slate-800 flex flex-col overflow-hidden">
+          <div className="mx-auto my-6 print:my-0 bg-white shadow print:shadow-none w-[210mm] min-h-[297mm] print:min-h-0 text-[10.5px] leading-snug text-slate-800 overflow-hidden">
+          <table className="folha-margens w-full">
+            <thead><tr><td /></tr></thead>
+            <tfoot><tr><td /></tr></tfoot>
+            <tbody><tr><td>
+            <div className="flex flex-col min-h-[270mm] print:min-h-0">
             {/* Cabeçalho limpo: logo + número, com filete na cor da marca */}
             <div
               className="px-[14mm] pt-8 pb-4 flex items-center justify-between"
@@ -647,6 +660,9 @@ export default function ImprimirOrcamentoPage() {
                 {[empresa?.telefone, empresa?.email, empresa?.site].filter(Boolean).join(" · ")}
               </span>
             </div>
+            </div>
+            </td></tr></tbody>
+          </table>
           </div>
         );
       })()}
@@ -661,11 +677,17 @@ export default function ImprimirOrcamentoPage() {
           main {
             padding: 0 !important;
           }
-          /* Margem vertical em TODAS as páginas (quebras respiram no topo/rodapé);
-             a lateral vem do padding do container */
           @page {
             size: A4;
-            margin: 12mm 0;
+            margin: 0;
+          }
+          /* Margem vertical repetida em TODAS as páginas: o espaçador fica num
+             thead/tfoot de tabela, que o navegador repete a cada página */
+          .folha-margens > thead > tr > td {
+            height: 12mm;
+          }
+          .folha-margens > tfoot > tr > td {
+            height: 10mm;
           }
           /* Orçamentos grandes: linha nunca corta ao meio; cabeçalho da tabela
              repete em cada página */
