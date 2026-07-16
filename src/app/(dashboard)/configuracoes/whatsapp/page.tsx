@@ -50,6 +50,10 @@ export default function ConfigWhatsappPage() {
   const [semAcesso, setSemAcesso] = useState(false);
   const [verifyToken, setVerifyToken] = useState("");
   const [numeros, setNumeros] = useState<{ nome: string; telefone: string }[]>([]);
+  const [evoUrl, setEvoUrl] = useState("");
+  const [evoInstance, setEvoInstance] = useState("");
+  const [evoApiKey, setEvoApiKey] = useState("");
+  const [evoKeyConfigurada, setEvoKeyConfigurada] = useState(false);
 
   useEffect(() => {
     fetch("/api/empresa/whatsapp")
@@ -71,6 +75,9 @@ export default function ConfigWhatsappPage() {
         setPadrao(d.templatesPadrao || {});
         setVerifyToken(d.verifyToken || "");
         setNumeros(Array.isArray(d.nestorNumeros) ? d.nestorNumeros : []);
+        setEvoUrl(d.evolutionUrl || "");
+        setEvoInstance(d.evolutionInstance || "");
+        setEvoKeyConfigurada(Boolean(d.evolutionApiKeyConfigurada));
       })
       .catch(() => {});
   }, []);
@@ -89,6 +96,9 @@ export default function ConfigWhatsappPage() {
           templates,
           verifyToken,
           nestorNumeros: numeros,
+          evolutionUrl: evoUrl,
+          evolutionInstance: evoInstance,
+          evolutionApiKey: evoApiKey || undefined,
           testarPara: comTeste ? testarPara : undefined,
         }),
       });
@@ -294,8 +304,72 @@ export default function ConfigWhatsappPage() {
           </div>
         </div>
 
+        {/* Conexão via Evolution API (QR code) */}
+        <div className="rounded-lg border border-emerald-100 bg-emerald-50/50 p-4 space-y-3">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900">
+              Opção A — Evolution API (QR code) · recomendada
+            </h3>
+            <p className="text-xs text-slate-500">
+              Conecta o número escaneando um QR code (como WhatsApp Web). O número continua no
+              celular e o assistente funciona até em grupos (chame pelo nome:
+              &quot;{nomeExibicao}, 4 TVs e 2 notebooks...&quot;).
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="URL do servidor Evolution"
+              value={evoUrl}
+              onChange={(e) => setEvoUrl(e.target.value)}
+              placeholder="https://evo.suaempresa.com"
+            />
+            <Input
+              label="Nome da instância"
+              value={evoInstance}
+              onChange={(e) => setEvoInstance(e.target.value)}
+              placeholder="nestor"
+            />
+          </div>
+          <Input
+            label={
+              evoKeyConfigurada
+                ? "API key (já configurada — preencha só para trocar)"
+                : "API key (global ou da instância)"
+            }
+            type="password"
+            value={evoApiKey}
+            onChange={(e) => setEvoApiKey(e.target.value)}
+            placeholder={evoKeyConfigurada ? "••••••••••••" : "Chave da Evolution"}
+          />
+          <div className="text-xs text-slate-500 space-y-1">
+            <p className="font-semibold text-slate-600">Na Evolution, configure o webhook da instância:</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 truncate rounded-lg bg-white border border-slate-200 px-2 py-2 text-[11px] text-slate-600">
+                {typeof window !== "undefined"
+                  ? `${window.location.origin}/api/nestor/evolution?token=${verifyToken || "GERE-O-TOKEN-ACIMA"}`
+                  : "/api/nestor/evolution?token=..."}
+              </code>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(
+                    `${window.location.origin}/api/nestor/evolution?token=${verifyToken}`
+                  );
+                  toast("URL do webhook copiada!", "success");
+                }}
+                className="p-2 rounded-lg border border-slate-200 hover:border-emerald-300 text-slate-500"
+                title="Copiar URL"
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <p>
+              Ative apenas o evento <code className="bg-white border border-slate-200 rounded px-1">MESSAGES_UPSERT</code>.
+            </p>
+          </div>
+        </div>
+
         <div className="rounded-lg bg-violet-50 border border-violet-100 p-3 text-xs text-violet-900 space-y-1">
-          <p className="font-semibold">Como ativar (uma única vez, no painel da Meta):</p>
+          <p className="font-semibold">Opção B — API oficial da Meta (uma única vez, no painel da Meta):</p>
           <p>1. Gere o token acima e clique em <strong>Salvar</strong> no fim da página.</p>
           <p>
             2. Em developers.facebook.com → seu app → WhatsApp → <strong>Configuração</strong> →

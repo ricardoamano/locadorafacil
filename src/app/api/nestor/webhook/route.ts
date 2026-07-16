@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { enviarWhatsapp, normalizarTelefone, ASSISTENTE_PADRAO } from "@/lib/nestor";
+import { identificarRemetente, auditarRemetente } from "@/lib/nestor-auth";
 import { responderOrcamentoRapido } from "@/lib/nestor-orcamento";
 
 // NESTOR — webhook de RECEBIMENTO do WhatsApp (Cloud API / Meta).
@@ -25,48 +26,6 @@ export async function GET(req: NextRequest) {
     if (empresa) return new NextResponse(challenge, { status: 200 });
   }
   return new NextResponse("Forbidden", { status: 403 });
-}
-
-// ── Comparação de telefones BR tolerante ao 9º dígito ────────────────────────
-// A Meta às vezes entrega números antigos sem o 9 (55 11 8 dígitos). Comparamos
-// por DDD + últimos 8 dígitos para casar com o cadastro em qualquer formato.
-function chaveTelefone(telefone: string | null | undefined): string | null {
-  const norm = normalizarTelefone(telefone);
-  if (!norm) return null;
-  const semPais = norm.slice(2); // remove o 55
-  const ddd = semPais.slice(0, 2);
-  const numero = semPais.slice(2);
-  return `${ddd}${numero.slice(-8)}`;
-}
-
-interface Autorizado {
-  nome: string;
-  userId: string | null;
-}
-
-/** Remetente é membro da equipe (com telefone) ou está na lista de números extras. */
-async function identificarRemetente(
-  companyId: string,
-  de: string,
-  numerosExtras: unknown
-): Promise<Autorizado | null> {
-  const chaveDe = chaveTelefone(de);
-  if (!chaveDe) return null;
-
-  const membros = await prisma.membro.findMany({
-    where: { companyId, telefone: { not: null } },
-    select: { nome: true, telefone: true, userId: true },
-  });
-  const membro = membros.find((m) => chaveTelefone(m.telefone) === chaveDe);
-  if (membro) return { nome: membro.nome, userId: membro.userId };
-
-  if (Array.isArray(numerosExtras)) {
-    const extra = (numerosExtras as { nome?: string; telefone?: string }[]).find(
-      (n) => chaveTelefone(n?.telefone) === chaveDe
-    );
-    if (extra) return { nome: extra.nome?.trim() || "Autorizado", userId: null };
-  }
-  return null;
 }
 
 // Tipos mínimos do payload da Cloud API
@@ -190,24 +149,7 @@ export async function POST(req: NextRequest) {
       if (erroEnvio) console.error("NESTOR webhook: falha ao responder:", erroEnvio);
 
       // Auditoria como o usuário vinculado ao membro (ex.: Ricardo Amano)
-      if (remetente.userId) {
-        const user = await prisma.user.findUnique({
-          where: { id: remetente.userId },
-          select: { id: true, name: true, email: true, role: true },
-        });
-        if (user) {
-          const { auditar } = await import("@/lib/auditoria");
-          await auditar(
-            { ...user, companyId: empresa.id },
-            {
-              tipo: "ACESSO",
-              modulo: "orcamentos",
-              acao: `Orçamento rápido via WhatsApp (${assistente})`,
-              detalhe: texto.slice(0, 300),
-            }
-          );
-        }
-      }
+      await auditarRemetente(empresa.id, remetente, assistente, texto);
     }
   }
 

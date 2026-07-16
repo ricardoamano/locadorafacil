@@ -61,6 +61,56 @@ export async function enviarWhatsapp(
   }
 }
 
+// ── Evolution API (conexão via QR code — número segue no celular) ────────────
+
+export interface EvolutionConfig {
+  evolutionUrl: string | null;
+  evolutionApiKey: string | null;
+  evolutionInstance: string | null;
+}
+
+export function evolutionConfigurado(c: EvolutionConfig | null | undefined): boolean {
+  return Boolean(c?.evolutionUrl && c?.evolutionApiKey && c?.evolutionInstance);
+}
+
+/**
+ * Envia texto pela Evolution API. `destino` pode ser um número (55...) ou um
+ * JID completo (inclusive de grupo, ...@g.us). Retorna erro legível ou null.
+ */
+export async function enviarEvolution(
+  config: EvolutionConfig,
+  destino: string,
+  mensagem: string
+): Promise<string | null> {
+  if (!evolutionConfigurado(config)) return "Evolution API não configurada";
+  const base = config.evolutionUrl!.replace(/\/$/, "");
+  const url = `${base}/message/sendText/${encodeURIComponent(config.evolutionInstance!)}`;
+  const headers = { apikey: config.evolutionApiKey!, "Content-Type": "application/json" };
+  try {
+    // Formato da Evolution v2; se o servidor for v1, repete no formato antigo
+    let res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ number: destino, text: mensagem }),
+    });
+    if (res.status === 400) {
+      res = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ number: destino, textMessage: { text: mensagem } }),
+      });
+    }
+    if (res.ok) return null;
+    const data = await res.json().catch(() => null);
+    const detalhe =
+      (data as { response?: { message?: unknown }; message?: unknown })?.response?.message ||
+      (data as { message?: unknown })?.message;
+    return detalhe ? JSON.stringify(detalhe).slice(0, 300) : `Erro ${res.status} ao enviar`;
+  } catch (e) {
+    return e instanceof Error ? e.message : "Falha de conexão com a Evolution API";
+  }
+}
+
 // ── Templates editáveis ───────────────────────────────────────────────────────
 
 export type TipoTemplate = "ESCALA" | "ALTERACAO" | "LEMBRETE";

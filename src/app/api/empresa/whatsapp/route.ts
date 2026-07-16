@@ -37,6 +37,9 @@ export async function GET() {
       whatsappTemplates: true,
       whatsappVerifyToken: true,
       nestorNumeros: true,
+      evolutionUrl: true,
+      evolutionApiKey: true,
+      evolutionInstance: true,
     },
   });
   return NextResponse.json({
@@ -50,6 +53,9 @@ export async function GET() {
     templatesPadrao: TEMPLATES_PADRAO,
     verifyToken: c?.whatsappVerifyToken || "",
     nestorNumeros: Array.isArray(c?.nestorNumeros) ? c.nestorNumeros : [],
+    evolutionUrl: c?.evolutionUrl || "",
+    evolutionInstance: c?.evolutionInstance || "",
+    evolutionApiKeyConfigurada: Boolean(c?.evolutionApiKey),
   });
 }
 
@@ -68,7 +74,15 @@ export async function POST(req: NextRequest) {
       testarPara?: string;
       verifyToken?: string;
       nestorNumeros?: { nome?: string; telefone?: string }[];
+      evolutionUrl?: string;
+      evolutionInstance?: string;
+      evolutionApiKey?: string;
     };
+  const { evolutionUrl, evolutionInstance, evolutionApiKey } = body as {
+    evolutionUrl?: string;
+    evolutionInstance?: string;
+    evolutionApiKey?: string;
+  };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data: any = {
@@ -81,6 +95,11 @@ export async function POST(req: NextRequest) {
   else if (token?.trim()) data.whatsappToken = token.trim();
 
   if (verifyToken !== undefined) data.whatsappVerifyToken = verifyToken.trim() || null;
+  if (evolutionUrl !== undefined) data.evolutionUrl = evolutionUrl.trim().replace(/\/$/, "") || null;
+  if (evolutionInstance !== undefined) data.evolutionInstance = evolutionInstance.trim() || null;
+  // apikey vazia = manter a atual; "REMOVER" = apagar
+  if (evolutionApiKey === "REMOVER") data.evolutionApiKey = null;
+  else if (evolutionApiKey?.trim()) data.evolutionApiKey = evolutionApiKey.trim();
   if (nestorNumeros !== undefined) {
     const lista = (Array.isArray(nestorNumeros) ? nestorNumeros : [])
       .map((n) => ({ nome: n?.nome?.trim() || "", telefone: n?.telefone?.trim() || "" }))
