@@ -1096,3 +1096,59 @@ model UnidadeEvento {
 
   @@index([unidadeId, createdAt])
 }
+
+// ── Visita Técnica ─────────────────────────────────────────────────────────────
+// Registro em campo (mobile-first): fotos/vídeos/arquivos com descrições e
+// comentários. Compartilhável por link público onde visitantes identificados
+// (nome + e-mail/celular) também comentam.
+
+model VisitaTecnica {
+  id          String   @id @default(cuid())
+  companyId   String
+  titulo      String
+  localNome   String?
+  data        DateTime?
+  observacoes String?
+  publicToken String   @unique
+  criadoPor   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  midias      VisitaMidia[]
+  comentarios VisitaComentario[]
+
+  @@index([companyId])
+}
+
+model VisitaMidia {
+  id        String        @id @default(cuid())
+  visitaId  String
+  visita    VisitaTecnica @relation(fields: [visitaId], references: [id], onDelete: Cascade)
+  tipo      String        // FOTO | VIDEO | ARQUIVO
+  url       String
+  arquivoId String?
+  nome      String?
+  descricao String?
+  ordem     Int           @default(0)
+  criadoPor String?
+  createdAt DateTime      @default(now())
+
+  comentarios VisitaComentario[]
+
+  @@index([visitaId])
+}
+
+model VisitaComentario {
+  id           String        @id @default(cuid())
+  visitaId     String
+  visita       VisitaTecnica @relation(fields: [visitaId], references: [id], onDelete: Cascade)
+  midiaId      String?
+  midia        VisitaMidia?  @relation(fields: [midiaId], references: [id], onDelete: Cascade)
+  autorNome    String
+  autorContato String?       // e-mail ou celular (identificação no link público)
+  interno      Boolean       @default(false)
+  texto        String
+  createdAt    DateTime      @default(now())
+
+  @@index([visitaId])
+}
