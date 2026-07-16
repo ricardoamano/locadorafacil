@@ -23,6 +23,7 @@ const campos = [
   "name","razaoSocial","cnpj","inscricaoEstadual","inscricaoMunicipal",
   "cep","rua","numero","bairro","complemento","cidade","estado",
   "telefone","email","site","logoUrl",
+  "logoUrlClara","logoUrlIcone","corPrimaria","corSecundaria",
   "responsavel","naturezaOperacao","observacaoFatura",
   "orcamentoNumeroInicial","faturaNumeroInicial",
   "catalogoWhatsappTexto","catalogoWhatsappMensagem",
@@ -232,6 +233,56 @@ export default function EmpresaConfigPage() {
                     renomear a empresa, os links antigos do catálogo mudam.
                   </p>
                 </div>
+              </div>
+            </section>
+
+            {/* Identidade visual — cores e versões do logo */}
+            <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+              <h2 className="text-sm font-semibold text-slate-900 mb-1">Identidade Visual</h2>
+              <p className="text-xs text-slate-400 mb-4">
+                Cores da marca e versões do logo — usadas no template Moderno do orçamento e nos
+                documentos.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                {(
+                  [
+                    { campo: "corPrimaria" as const, rotulo: "Cor primária", padrao: "#4b2a66" },
+                    { campo: "corSecundaria" as const, rotulo: "Cor secundária", padrao: "#7c5a99" },
+                  ]
+                ).map((c) => (
+                  <div key={c.campo}>
+                    <label className="text-sm font-medium text-slate-700 block mb-1">
+                      {c.rotulo}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={form[c.campo] || c.padrao}
+                        onChange={(e) => set(c.campo, e.target.value)}
+                        className="h-9 w-12 rounded-lg border border-slate-200 cursor-pointer"
+                      />
+                      <Input
+                        value={form[c.campo]}
+                        onChange={(e) => set(c.campo, e.target.value)}
+                        placeholder={c.padrao}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <ImageUpload
+                  label="Logo — versão clara/branca"
+                  value={form.logoUrlClara}
+                  onChange={(url) => set("logoUrlClara", url)}
+                  hint="Para fundos coloridos (ex.: faixa do template Moderno). PNG com fundo transparente."
+                />
+                <ImageUpload
+                  label="Logo — símbolo / ícone"
+                  value={form.logoUrlIcone}
+                  onChange={(url) => set("logoUrlIcone", url)}
+                  hint="Versão quadrada/reduzida da marca (opcional)."
+                />
               </div>
             </section>
 

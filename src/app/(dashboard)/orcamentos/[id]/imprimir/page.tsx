@@ -72,6 +72,17 @@ export default function ImprimirOrcamentoPage() {
   const [empresa, setEmpresa] = useState<any | null>(null);
   const [me, setMe] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  // Dois templates: Clássico (referência original) e Moderno (cores da marca).
+  // A escolha fica lembrada no navegador.
+  const [template, setTemplate] = useState<"classico" | "moderno">("classico");
+  useEffect(() => {
+    const salvo = localStorage.getItem("orc_template");
+    if (salvo === "moderno" || salvo === "classico") setTemplate(salvo);
+  }, []);
+  function trocarTemplate(t: "classico" | "moderno") {
+    setTemplate(t);
+    localStorage.setItem("orc_template", t);
+  }
 
   useEffect(() => {
     if (!params?.id) return;
@@ -158,16 +169,39 @@ export default function ImprimirOrcamentoPage() {
         <p className="text-sm font-medium text-slate-700">
           Orçamento #{orc.numero} — visualização de impressão
         </p>
-        <button
-          onClick={() => window.print()}
-          className="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
-        >
-          <Printer className="h-4 w-4" />
-          Imprimir / Salvar PDF
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden h-9">
+            {(
+              [
+                { v: "classico" as const, label: "Clássico" },
+                { v: "moderno" as const, label: "Moderno" },
+              ]
+            ).map((t) => (
+              <button
+                key={t.v}
+                onClick={() => trocarTemplate(t.v)}
+                className={`px-3 text-sm font-medium transition-colors ${
+                  template === t.v
+                    ? "bg-blue-600 text-white"
+                    : "bg-white text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+          >
+            <Printer className="h-4 w-4" />
+            Imprimir / Salvar PDF
+          </button>
+        </div>
       </div>
 
-      {/* Folha A4 */}
+      {/* Folha A4 — template Clássico */}
+      {template === "classico" && (
       <div className="mx-auto my-6 print:my-0 bg-white shadow print:shadow-none w-[210mm] min-h-[297mm] px-[14mm] py-[10mm] text-[10.5px] leading-snug text-slate-800 flex flex-col">
         <div className="flex-1">
           {/* Cabeçalho: logo + vendedor */}
@@ -347,6 +381,259 @@ export default function ImprimirOrcamentoPage() {
           Desenvolvido por <span className="text-blue-600">{empresa?.name || "LocadoraFácil"}</span>
         </p>
       </div>
+      )}
+
+      {/* Folha A4 — template Moderno (cores da marca) */}
+      {template === "moderno" && (() => {
+        const cor1 = empresa?.corPrimaria || ROXO;
+        const cor2 = empresa?.corSecundaria || cor1;
+        const logoTopo = empresa?.logoUrlClara || null;
+        return (
+          <div className="mx-auto my-6 print:my-0 bg-white shadow print:shadow-none w-[210mm] min-h-[297mm] text-[10.5px] leading-snug text-slate-800 flex flex-col overflow-hidden">
+            {/* Faixa superior com a cor da marca */}
+            <div
+              className="px-[14mm] py-6 flex items-center justify-between"
+              style={{ backgroundColor: cor1, WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}
+            >
+              <div>
+                {logoTopo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={logoTopo} alt={empresa?.name || ""} className="h-14 w-auto object-contain" />
+                ) : empresa?.logoUrl ? (
+                  // Sem versão clara: logo original dentro de um cartão branco
+                  <div className="bg-white rounded-lg px-3 py-1.5 inline-block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={empresa.logoUrl} alt={empresa?.name || ""} className="h-11 w-auto object-contain" />
+                  </div>
+                ) : (
+                  <p className="text-[20px] font-bold text-white">{empresa?.name}</p>
+                )}
+              </div>
+              <div className="text-right text-white">
+                <p className="text-[9px] uppercase tracking-[0.25em] opacity-80">Orçamento</p>
+                <p className="text-[24px] font-bold leading-tight">#{orc.numero}</p>
+                <p className="text-[9px] opacity-80">
+                  Emitido em {fmtData(orc.createdAt)} · válido até {validade.toLocaleDateString("pt-BR")}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex-1 px-[14mm] py-6">
+              {/* Cartões de informação */}
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  {
+                    titulo: "Cliente",
+                    linhas: [
+                      nomeClientes,
+                      contato?.nome ? `Contato: ${contato.nome}` : "",
+                      contato?.telefone || "",
+                      contato?.email || "",
+                      orc.cliente2 && contato2?.nome
+                        ? `Contato 2: ${contato2.nome}${contato2.telefone ? ` — ${contato2.telefone}` : ""}`
+                        : "",
+                    ],
+                  },
+                  {
+                    titulo: "Evento",
+                    linhas: [
+                      orc.eventoNome || "—",
+                      orc.local?.nome || "",
+                      enderecoLocal,
+                    ],
+                  },
+                  {
+                    titulo: "Período",
+                    linhas: [
+                      `Início: ${fmtData(orc.dataInicio)}`,
+                      `Término: ${fmtData(orc.dataFim)}`,
+                      orc.dataMontagem ? `Montagem: ${fmtData(orc.dataMontagem)}` : "",
+                      me?.name ? `Vendedor: ${me.name}` : "",
+                    ],
+                  },
+                ].map((c) => (
+                  <div key={c.titulo} className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                    <p
+                      className="text-[8.5px] font-bold uppercase tracking-[0.15em] mb-1.5"
+                      style={{ color: cor2 }}
+                    >
+                      {c.titulo}
+                    </p>
+                    {c.linhas.filter(Boolean).map((l, i) => (
+                      <p key={i} className={i === 0 ? "font-semibold text-[11px]" : "text-slate-600"}>
+                        {l}
+                      </p>
+                    ))}
+                  </div>
+                ))}
+              </div>
+
+              {/* Salas */}
+              {salas.map((sala: any, si: number) => {
+                const subtotalSala = (sala.itens || []).reduce(
+                  (a: number, i: any) =>
+                    a + (i.quantidade || 0) * (i.diarias || 1) * (i.valorUnitario || 0),
+                  0
+                );
+                const wattsSala = (sala.itens || []).reduce(
+                  (a: number, i: any) => a + (i.quantidade || 0) * (i.item?.watts || 0),
+                  0
+                );
+                return (
+                  <div key={si} className="mt-6" style={{ breakInside: "avoid" }}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span
+                        className="h-4 w-1 rounded-full"
+                        style={{ backgroundColor: cor1, WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}
+                      />
+                      <p className="text-[13px] font-bold text-slate-900">{sala.nome}</p>
+                    </div>
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr
+                          className="text-[9px] uppercase tracking-wider"
+                          style={{ color: cor1, borderBottom: `2px solid ${cor1}` }}
+                        >
+                          <th className="px-2 py-1.5 text-left font-bold w-28">Categoria</th>
+                          <th className="px-2 py-1.5 text-left font-bold">Item</th>
+                          <th className="px-2 py-1.5 text-center font-bold w-20">Qtd</th>
+                          <th className="px-2 py-1.5 text-center font-bold w-16">Diárias</th>
+                          <th className="px-2 py-1.5 text-right font-bold w-24">Subtotal</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(sala.itens || []).map((i: any, ii: number) => (
+                          <tr
+                            key={ii}
+                            className={ii % 2 === 1 ? "bg-slate-50" : ""}
+                            style={
+                              ii % 2 === 1
+                                ? { WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }
+                                : undefined
+                            }
+                          >
+                            <td className="px-2 py-1.5 text-[9px] text-slate-400">
+                              {i.item?.categoria?.nome || "N/A"}
+                            </td>
+                            <td className="px-2 py-1.5">
+                              <span className="font-medium">{i.item?.nome}</span>
+                              {(i.descricaoComercial || i.item?.descricaoComercial) && (
+                                <span className="text-slate-500">
+                                  {" — "}
+                                  {i.descricaoComercial || i.item?.descricaoComercial}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-2 py-1.5 text-center">{i.quantidade}</td>
+                            <td className="px-2 py-1.5 text-center">
+                              {i.item?.natureza === "SERVICO" ? "—" : i.diarias || 1}
+                            </td>
+                            <td className="px-2 py-1.5 text-right font-medium">
+                              {fmtValor(
+                                (i.quantidade || 0) * (i.diarias || 1) * (i.valorUnitario || 0)
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="flex items-end justify-between mt-1.5">
+                      <p className="text-[8px] text-slate-400">
+                        {wattsSala > 0
+                          ? `Consumo estimado: ${wattsSala.toLocaleString("pt-BR")} W (${(wattsSala / 800).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kVA)`
+                          : ""}
+                      </p>
+                      <p
+                        className="text-[11px] font-bold rounded-full px-3 py-0.5"
+                        style={{
+                          backgroundColor: `${cor1}14`,
+                          color: cor1,
+                          WebkitPrintColorAdjust: "exact",
+                          printColorAdjust: "exact",
+                        }}
+                      >
+                        Subtotal {sala.nome}: {fmtValor(subtotalSala)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Totais */}
+              <div className="flex justify-end mt-8" style={{ breakInside: "avoid" }}>
+                <div className="w-80 rounded-xl border border-slate-100 overflow-hidden">
+                  <div className="px-4 py-2 flex items-center justify-between text-slate-600">
+                    <span>Total dos itens</span>
+                    <span>{fmtValor(bruto)}</span>
+                  </div>
+                  {descontoValor > 0 && (
+                    <div className="px-4 py-2 flex items-center justify-between text-slate-600 border-t border-slate-100">
+                      <span>
+                        Desconto{orc.descontoTipo === "percentual" ? ` (${desconto}%)` : ""}
+                      </span>
+                      <span>− {fmtValor(descontoValor)}</span>
+                    </div>
+                  )}
+                  <div
+                    className="px-4 py-2.5 flex items-center justify-between text-white"
+                    style={{ backgroundColor: cor1, WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}
+                  >
+                    <span className="font-bold text-[13px]">TOTAL</span>
+                    <span className="font-bold text-[15px]">{fmtValor(total)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {totalKva > 0 && (
+                <p className="mt-3 text-[9px] text-slate-500">
+                  Carga elétrica total estimada:{" "}
+                  <span className="font-bold text-slate-700">
+                    {totalKva.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kVA
+                  </span>{" "}
+                  (kVA × quantidade dos equipamentos)
+                </p>
+              )}
+
+              {/* Observações + Pagamento */}
+              <div className="grid grid-cols-2 gap-4 mt-6" style={{ breakInside: "avoid" }}>
+                <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                  <p
+                    className="text-[8.5px] font-bold uppercase tracking-[0.15em] mb-1"
+                    style={{ color: cor2 }}
+                  >
+                    Observações
+                  </p>
+                  <p className="whitespace-pre-wrap text-slate-600">
+                    {orc.observacoes || "—"}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                  <p
+                    className="text-[8.5px] font-bold uppercase tracking-[0.15em] mb-1"
+                    style={{ color: cor2 }}
+                  >
+                    Forma de pagamento
+                  </p>
+                  <p className="text-slate-600">
+                    {[orc.formaPagamento, orc.condicoes].filter(Boolean).join(" — ") || "a definir"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Rodapé com contatos */}
+            <div
+              className="px-[14mm] py-3 flex items-center justify-between text-white text-[8.5px]"
+              style={{ backgroundColor: cor1, WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}
+            >
+              <span className="font-semibold">{empresa?.name}</span>
+              <span className="opacity-90">
+                {[empresa?.telefone, empresa?.email, empresa?.site].filter(Boolean).join(" · ")}
+              </span>
+            </div>
+          </div>
+        );
+      })()}
 
       <style jsx global>{`
         @media print {

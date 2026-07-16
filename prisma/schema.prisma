@@ -27,6 +27,11 @@ model Company {
   email              String?
   site               String?
   logoUrl            String?
+  // Identidade visual: cores da marca + versões do logo
+  corPrimaria        String?  // hex, ex.: #4b2a66
+  corSecundaria      String?
+  logoUrlClara       String?  // versão clara/branca (fundos coloridos)
+  logoUrlIcone       String?  // símbolo/ícone quadrado
   banco              String?
   agencia            String?
   conta              String?
