@@ -58,6 +58,8 @@ model Company {
   whatsappPhoneId    String?  // Phone Number ID da Cloud API (Meta)
   whatsappToken      String?  // token de acesso permanente da Cloud API
   whatsappTemplates  Json?    // textos das mensagens (ESCALA/ALTERACAO/LEMBRETE) editáveis pelo admin
+  whatsappVerifyToken String? // token de verificação do webhook (recebimento de mensagens)
+  nestorNumeros      Json?    // telefones extras autorizados a pedir orçamento rápido ao assistente
   osPublicaConfig    Json?    // seções visíveis na OS pública (decisão do admin, por empresa)
   // Catálogo público: botão de WhatsApp (texto, mensagem e se aparece)
   catalogoWhatsappAtivo    Boolean @default(true)
@@ -581,6 +583,20 @@ model MensagemWhatsapp {
   erro      String?
   enviadoPor String?      // nome do usuário (ou "NESTOR" nos automáticos)
   createdAt DateTime      @default(now())
+}
+
+// NESTOR — conversa do orçamento rápido (mensagens recebidas e respostas da IA)
+model NestorConversa {
+  id        String   @id @default(cuid())
+  companyId String
+  telefone  String   // remetente normalizado (55DDDNÚMERO)
+  papel     String   // USUARIO | ASSISTENTE | RESET (marca de "nova conversa")
+  texto     String
+  wamid     String?  @unique // id da mensagem na Meta (evita reprocessar reentregas)
+  autorNome String?
+  createdAt DateTime @default(now())
+
+  @@index([companyId, telefone, createdAt])
 }
 
 // Item lançado direto na OS (fora do orçamento): esquecido pelo comercial ou acessório operacional

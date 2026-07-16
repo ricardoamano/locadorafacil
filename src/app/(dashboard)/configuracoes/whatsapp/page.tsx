@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
-import { Bot, Send, RotateCcw } from "lucide-react";
+import { Bot, Send, RotateCcw, Sparkles, Copy, Plus, Trash2 } from "lucide-react";
 
 // Configuração do assistente de WhatsApp da empresa (nome, credenciais e textos)
 
@@ -48,6 +48,8 @@ export default function ConfigWhatsappPage() {
   const [testarPara, setTestarPara] = useState("");
   const [saving, setSaving] = useState(false);
   const [semAcesso, setSemAcesso] = useState(false);
+  const [verifyToken, setVerifyToken] = useState("");
+  const [numeros, setNumeros] = useState<{ nome: string; telefone: string }[]>([]);
 
   useEffect(() => {
     fetch("/api/empresa/whatsapp")
@@ -67,6 +69,8 @@ export default function ConfigWhatsappPage() {
         setConfigurado(d.configurado);
         setTemplates(d.templates || {});
         setPadrao(d.templatesPadrao || {});
+        setVerifyToken(d.verifyToken || "");
+        setNumeros(Array.isArray(d.nestorNumeros) ? d.nestorNumeros : []);
       })
       .catch(() => {});
   }, []);
@@ -83,6 +87,8 @@ export default function ConfigWhatsappPage() {
           phoneId,
           token: token || undefined,
           templates,
+          verifyToken,
+          nestorNumeros: numeros,
           testarPara: comTeste ? testarPara : undefined,
         }),
       });
@@ -179,6 +185,129 @@ export default function ConfigWhatsappPage() {
           <p>2. Copie o <strong>Phone Number ID</strong> do número do assistente</p>
           <p>3. Gere um <strong>token permanente</strong> em Configurações do app → Usuários do sistema</p>
           <p className="pt-1">Cada empresa usa o próprio número e o próprio nome — o sistema é multiempresa.</p>
+        </div>
+      </div>
+
+      {/* Orçamento rápido pela conversa (webhook de recebimento) */}
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 space-y-4">
+        <div className="flex items-start gap-2">
+          <Sparkles className="h-4 w-4 text-violet-600 mt-0.5" />
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">
+              Orçamento rápido pelo WhatsApp (IA)
+            </h2>
+            <p className="text-xs text-slate-400">
+              Mande o briefing do cliente para o número do {nomeExibicao} e receba de volta um
+              orçamento pronto, com quantidades e valores consultados direto do seu catálogo.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <Input
+              label="Token de verificação do webhook"
+              value={verifyToken}
+              onChange={(e) => setVerifyToken(e.target.value)}
+              placeholder="Clique em gerar →"
+            />
+            <button
+              onClick={() =>
+                setVerifyToken(
+                  Array.from(crypto.getRandomValues(new Uint8Array(16)))
+                    .map((b) => b.toString(16).padStart(2, "0"))
+                    .join("")
+                )
+              }
+              className="mt-1 text-xs text-violet-600 hover:underline"
+            >
+              Gerar token aleatório
+            </button>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1.5">
+              URL do webhook (cole no painel da Meta)
+            </label>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 truncate rounded-lg bg-slate-50 border border-slate-200 px-2 py-2 text-[11px] text-slate-600">
+                {typeof window !== "undefined" ? `${window.location.origin}/api/nestor/webhook` : "/api/nestor/webhook"}
+              </code>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/api/nestor/webhook`);
+                  toast("URL copiada!", "success");
+                }}
+                className="p-2 rounded-lg border border-slate-200 hover:border-violet-300 text-slate-500"
+                title="Copiar URL"
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-medium text-slate-500">
+              Números autorizados extras (além dos membros da equipe com telefone cadastrado)
+            </label>
+            <button
+              onClick={() => setNumeros((p) => [...p, { nome: "", telefone: "" }])}
+              className="inline-flex items-center gap-1 text-xs text-violet-600 hover:underline"
+            >
+              <Plus className="h-3 w-3" /> Adicionar número
+            </button>
+          </div>
+          {numeros.length === 0 && (
+            <p className="text-xs text-slate-400">
+              Membros da equipe com telefone cadastrado já são autorizados automaticamente.
+            </p>
+          )}
+          <div className="space-y-2">
+            {numeros.map((n, i) => (
+              <div key={i} className="flex gap-2">
+                <Input
+                  value={n.nome}
+                  onChange={(e) =>
+                    setNumeros((p) => p.map((x, j) => (j === i ? { ...x, nome: e.target.value } : x)))
+                  }
+                  placeholder="Nome"
+                />
+                <Input
+                  value={n.telefone}
+                  onChange={(e) =>
+                    setNumeros((p) =>
+                      p.map((x, j) => (j === i ? { ...x, telefone: e.target.value } : x))
+                    )
+                  }
+                  placeholder="(11) 99999.9999"
+                />
+                <button
+                  onClick={() => setNumeros((p) => p.filter((_, j) => j !== i))}
+                  className="p-2 text-slate-400 hover:text-red-500"
+                  title="Remover"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-violet-50 border border-violet-100 p-3 text-xs text-violet-900 space-y-1">
+          <p className="font-semibold">Como ativar (uma única vez, no painel da Meta):</p>
+          <p>1. Gere o token acima e clique em <strong>Salvar</strong> no fim da página.</p>
+          <p>
+            2. Em developers.facebook.com → seu app → WhatsApp → <strong>Configuração</strong> →
+            Webhook: cole a URL e o token de verificação e clique em <strong>Verificar e salvar</strong>.
+          </p>
+          <p>
+            3. Em <strong>Campos do webhook</strong>, assine o campo <code>messages</code>.
+          </p>
+          <p>
+            4. Pronto: mande o briefing por WhatsApp para o número do {nomeExibicao} e receba o
+            orçamento. Mande &quot;limpar&quot; para começar uma conversa nova.
+          </p>
         </div>
       </div>
 

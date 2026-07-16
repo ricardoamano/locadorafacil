@@ -35,6 +35,8 @@ export async function GET() {
       whatsappPhoneId: true,
       whatsappToken: true,
       whatsappTemplates: true,
+      whatsappVerifyToken: true,
+      nestorNumeros: true,
     },
   });
   return NextResponse.json({
@@ -46,6 +48,8 @@ export async function GET() {
     configurado: nestorConfigurado(c),
     templates: templatesDaEmpresa(c?.whatsappTemplates),
     templatesPadrao: TEMPLATES_PADRAO,
+    verifyToken: c?.whatsappVerifyToken || "",
+    nestorNumeros: Array.isArray(c?.nestorNumeros) ? c.nestorNumeros : [],
   });
 }
 
@@ -54,14 +58,17 @@ export async function POST(req: NextRequest) {
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { assistente, numero, phoneId, token, templates, testarPara } = body as {
-    assistente?: string;
-    numero?: string;
-    phoneId?: string;
-    token?: string;
-    templates?: { ESCALA?: string; ALTERACAO?: string; LEMBRETE?: string };
-    testarPara?: string;
-  };
+  const { assistente, numero, phoneId, token, templates, testarPara, verifyToken, nestorNumeros } =
+    body as {
+      assistente?: string;
+      numero?: string;
+      phoneId?: string;
+      token?: string;
+      templates?: { ESCALA?: string; ALTERACAO?: string; LEMBRETE?: string };
+      testarPara?: string;
+      verifyToken?: string;
+      nestorNumeros?: { nome?: string; telefone?: string }[];
+    };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data: any = {
@@ -72,6 +79,14 @@ export async function POST(req: NextRequest) {
   // token vazio = manter o atual; "REMOVER" = apagar
   if (token === "REMOVER") data.whatsappToken = null;
   else if (token?.trim()) data.whatsappToken = token.trim();
+
+  if (verifyToken !== undefined) data.whatsappVerifyToken = verifyToken.trim() || null;
+  if (nestorNumeros !== undefined) {
+    const lista = (Array.isArray(nestorNumeros) ? nestorNumeros : [])
+      .map((n) => ({ nome: n?.nome?.trim() || "", telefone: n?.telefone?.trim() || "" }))
+      .filter((n) => n.telefone);
+    data.nestorNumeros = lista.length > 0 ? lista : null;
+  }
 
   if (templates) {
     // Texto igual ao padrão não é salvo (segue acompanhando futuras melhorias do padrão)
