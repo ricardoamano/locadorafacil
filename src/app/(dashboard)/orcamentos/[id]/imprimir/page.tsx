@@ -468,7 +468,9 @@ export default function ImprimirOrcamentoPage() {
                   <p className="text-[10px] text-slate-600 mt-1.5">
                     <span className="font-semibold">Vendedor:</span> {me.name}
                     {me.email ? ` · ${me.email}` : ""}
-                    {me.telefone ? ` · ${me.telefone}` : ""}
+                    {me.telefone || empresa?.telefone
+                      ? ` · ${me.telefone || empresa?.telefone}`
+                      : ""}
                   </p>
                 )}
               </div>
@@ -483,8 +485,8 @@ export default function ImprimirOrcamentoPage() {
                     linhas: [
                       nomeClientes,
                       contato?.nome ? `Contato: ${contato.nome}` : "",
-                      contato?.telefone || "",
-                      contato?.email || "",
+                      contato?.telefone ? `Telefone: ${contato.telefone}` : "",
+                      contato?.email ? `E-mail: ${contato.email}` : "",
                       orc.cliente2 && contato2?.nome
                         ? `Contato 2: ${contato2.nome}${contato2.telefone ? ` — ${contato2.telefone}` : ""}`
                         : "",
@@ -501,15 +503,15 @@ export default function ImprimirOrcamentoPage() {
                   {
                     titulo: "Período",
                     linhas: [
+                      orc.dataMontagem ? `Montagem: ${fmtData(orc.dataMontagem)}` : "",
                       `Início: ${fmtData(orc.dataInicio)}`,
                       `Término: ${fmtData(orc.dataFim)}`,
-                      orc.dataMontagem ? `Montagem: ${fmtData(orc.dataMontagem)}` : "",
                     ],
                   },
                 ].map((c) => (
                   <div key={c.titulo} className="rounded-xl bg-slate-50 border border-slate-100 p-3.5">
                     <p
-                      className="text-[9.5px] font-bold uppercase tracking-[0.15em] mb-1.5"
+                      className="text-[10px] font-bold uppercase tracking-[0.15em] mb-1.5"
                       style={{ color: cor2 }}
                     >
                       {c.titulo}
@@ -519,8 +521,8 @@ export default function ImprimirOrcamentoPage() {
                         key={i}
                         className={
                           i === 0
-                            ? "font-semibold text-[12.5px] leading-snug"
-                            : "text-[11px] text-slate-600 leading-relaxed"
+                            ? "font-semibold text-[13px] leading-snug"
+                            : "text-[12px] text-slate-600 leading-relaxed"
                         }
                       >
                         {l}
@@ -615,7 +617,7 @@ export default function ImprimirOrcamentoPage() {
                           : ""}
                       </p>
                       <p
-                        className="text-[11px] font-bold rounded-full px-3 py-0.5"
+                        className="text-[13px] font-bold rounded-full px-4 py-1"
                         style={{
                           backgroundColor: `${cor1}14`,
                           color: cor1,
