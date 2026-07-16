@@ -54,6 +54,14 @@ export default function ConfigWhatsappPage() {
   const [evoInstance, setEvoInstance] = useState("");
   const [evoApiKey, setEvoApiKey] = useState("");
   const [evoKeyConfigurada, setEvoKeyConfigurada] = useState(false);
+  const [ativando, setAtivando] = useState(false);
+  const [evoStatus, setEvoStatus] = useState<{
+    conexao: string | null;
+    webhookConfigurado: boolean;
+    webhookErro: string | null;
+    conexaoErro: string | null;
+    teste: { ok: boolean; erro: string | null } | null;
+  } | null>(null);
 
   useEffect(() => {
     fetch("/api/empresa/whatsapp")
@@ -116,6 +124,30 @@ export default function ConfigWhatsappPage() {
       toast(e instanceof Error && e.message ? e.message : "Erro ao salvar.", "error");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function ativarEvolution() {
+    setAtivando(true);
+    setEvoStatus(null);
+    try {
+      // Salva a configuração atual antes de ativar
+      await salvar(false);
+      const res = await fetch("/api/nestor/evolution/ativar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ testarPara: testarPara || undefined }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Falha ao ativar");
+      setEvoStatus(d);
+      if (d.conexao === "open" && d.webhookConfigurado)
+        toast("Conectado e recebimento ativado! ✅", "success");
+      else toast("Ativação concluída — veja os detalhes abaixo.", "info");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Erro ao ativar.", "error");
+    } finally {
+      setAtivando(false);
     }
   }
 
@@ -363,9 +395,50 @@ export default function ConfigWhatsappPage() {
               </button>
             </div>
             <p>
-              Ative apenas o evento <code className="bg-white border border-slate-200 rounded px-1">MESSAGES_UPSERT</code>.
+              Não precisa configurar nada no painel da Evolution — o botão abaixo faz isso sozinho
+              (confere a conexão e registra o webhook do evento{" "}
+              <code className="bg-white border border-slate-200 rounded px-1">MESSAGES_UPSERT</code>).
             </p>
           </div>
+
+          <div className="flex flex-wrap items-end gap-3 pt-1">
+            <div className="flex-1 min-w-44">
+              <Input
+                label="Enviar teste para (opcional)"
+                value={testarPara}
+                onChange={(e) => setTestarPara(e.target.value)}
+                placeholder="(11) 99999.9999"
+              />
+            </div>
+            <Button onClick={ativarEvolution} loading={ativando}>
+              <Send className="h-4 w-4" />
+              Testar conexão e ativar
+            </Button>
+          </div>
+
+          {evoStatus && (
+            <div className="rounded-lg border border-slate-200 bg-white p-3 text-xs space-y-1.5">
+              <p className={evoStatus.conexao === "open" ? "text-emerald-700" : "text-amber-700"}>
+                {evoStatus.conexao === "open"
+                  ? "✅ Número conectado ao WhatsApp"
+                  : `⚠️ Conexão: ${evoStatus.conexao || "desconhecida"}${
+                      evoStatus.conexaoErro ? ` (${evoStatus.conexaoErro})` : ""
+                    } — abra o Manager da Evolution e escaneie o QR code do número.`}
+              </p>
+              <p className={evoStatus.webhookConfigurado ? "text-emerald-700" : "text-red-600"}>
+                {evoStatus.webhookConfigurado
+                  ? "✅ Recebimento de mensagens ativado (webhook configurado)"
+                  : `❌ Webhook: ${evoStatus.webhookErro || "falhou"}`}
+              </p>
+              {evoStatus.teste && (
+                <p className={evoStatus.teste.ok ? "text-emerald-700" : "text-red-600"}>
+                  {evoStatus.teste.ok
+                    ? "✅ Mensagem de teste enviada — confira o WhatsApp"
+                    : `❌ Teste: ${evoStatus.teste.erro}`}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="rounded-lg bg-violet-50 border border-violet-100 p-3 text-xs text-violet-900 space-y-1">

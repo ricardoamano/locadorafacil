@@ -111,6 +111,70 @@ export async function enviarEvolution(
   }
 }
 
+/** Estado da conexão da instância (open = conectada ao WhatsApp). */
+export async function evolutionEstado(
+  config: EvolutionConfig
+): Promise<{ state: string | null; erro: string | null }> {
+  if (!evolutionConfigurado(config)) return { state: null, erro: "Evolution API não configurada" };
+  const base = config.evolutionUrl!.replace(/\/$/, "");
+  const url = `${base}/instance/connectionState/${encodeURIComponent(config.evolutionInstance!)}`;
+  try {
+    const res = await fetch(url, { headers: { apikey: config.evolutionApiKey! } });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      const m =
+        (data as { response?: { message?: unknown }; message?: unknown })?.response?.message ||
+        (data as { message?: unknown })?.message;
+      return { state: null, erro: m ? JSON.stringify(m).slice(0, 300) : `Erro ${res.status}` };
+    }
+    const state =
+      (data as { instance?: { state?: string }; state?: string })?.instance?.state ||
+      (data as { state?: string })?.state ||
+      null;
+    return { state, erro: null };
+  } catch (e) {
+    return { state: null, erro: e instanceof Error ? e.message : "Falha de conexão" };
+  }
+}
+
+/** Configura (ou atualiza) o webhook da instância para receber as mensagens. */
+export async function evolutionSetWebhook(
+  config: EvolutionConfig,
+  webhookUrl: string
+): Promise<string | null> {
+  if (!evolutionConfigurado(config)) return "Evolution API não configurada";
+  const base = config.evolutionUrl!.replace(/\/$/, "");
+  const endpoint = `${base}/webhook/set/${encodeURIComponent(config.evolutionInstance!)}`;
+  const headers = { apikey: config.evolutionApiKey!, "Content-Type": "application/json" };
+  const eventos = ["MESSAGES_UPSERT"];
+  try {
+    // Formato Evolution v2
+    let res = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        webhook: { enabled: true, url: webhookUrl, webhookByEvents: false, base64: false, events: eventos },
+      }),
+    });
+    // Formato Evolution v1 (fallback)
+    if (res.status === 400 || res.status === 404) {
+      res = await fetch(endpoint, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ url: webhookUrl, webhook_by_events: false, events: eventos }),
+      });
+    }
+    if (res.ok) return null;
+    const data = await res.json().catch(() => null);
+    const m =
+      (data as { response?: { message?: unknown }; message?: unknown })?.response?.message ||
+      (data as { message?: unknown })?.message;
+    return m ? JSON.stringify(m).slice(0, 300) : `Erro ${res.status} ao configurar webhook`;
+  } catch (e) {
+    return e instanceof Error ? e.message : "Falha de conexão com a Evolution API";
+  }
+}
+
 // ── Templates editáveis ───────────────────────────────────────────────────────
 
 export type TipoTemplate = "ESCALA" | "ALTERACAO" | "LEMBRETE";
