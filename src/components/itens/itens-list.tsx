@@ -37,7 +37,7 @@ interface Item {
   valorAluguel: number;
   tipo: string;
   quantidade: number;
-  unidades?: { status: string }[];
+  unidades?: { id: string; codigo: string; numero: number; status: string }[];
   emCatalogo: boolean;
   publicado?: boolean;
   slug?: string | null;
@@ -321,8 +321,8 @@ export function ItensList() {
                     : null;
                 const qtdAcessorios = item.acessoriosBase?.length || 0;
                 return (
+                <React.Fragment key={item.id}>
                 <tr
-                  key={item.id}
                   className={`transition-colors ${
                     base
                       ? "bg-amber-50/50 hover:bg-amber-50 border-l-2 border-amber-300"
@@ -482,6 +482,51 @@ export function ItensList() {
                     </div>
                   </td>
                 </tr>
+
+                {/* Visão Estoque: uma linha clicável por unidade física */}
+                {!soCatalogo &&
+                  (item.unidades || []).map((u) => {
+                    const stU =
+                      u.status === "EM_ESTOQUE"
+                        ? { txt: "Em estoque", cls: "bg-emerald-50 text-emerald-700" }
+                        : u.status === "NO_EVENTO"
+                          ? { txt: "No evento", cls: "bg-blue-50 text-blue-700" }
+                          : u.status === "MANUTENCAO"
+                            ? { txt: "Manutenção", cls: "bg-amber-50 text-amber-700" }
+                            : { txt: "Baixada", cls: "bg-red-50 text-red-600" };
+                    return (
+                      <tr
+                        key={u.id}
+                        onClick={() => (window.location.href = `/ativos/unidades/${u.id}`)}
+                        className="cursor-pointer bg-slate-50/40 hover:bg-blue-50/60 transition-colors"
+                        title="Abrir histórico individual desta unidade"
+                      >
+                        <td className="px-4 py-1.5 pl-8">
+                          <span className="text-xs font-mono font-medium text-blue-600">
+                            ↳ {u.codigo}
+                          </span>
+                        </td>
+                        <td className="px-4 py-1.5" colSpan={3}>
+                          <span className="text-xs text-slate-500">
+                            {item.nome} — unidade {String(u.numero).padStart(2, "0")}
+                          </span>
+                        </td>
+                        <td className="px-4 py-1.5 text-center" colSpan={2}>
+                          <span
+                            className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${stU.cls}`}
+                          >
+                            {stU.txt}
+                          </span>
+                        </td>
+                        <td className="px-4 py-1.5 text-right" colSpan={2}>
+                          <span className="text-[11px] text-blue-600 font-medium">
+                            histórico →
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </React.Fragment>
                 );
               })}
             </tbody>

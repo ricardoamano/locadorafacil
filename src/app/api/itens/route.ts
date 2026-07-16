@@ -53,8 +53,11 @@ export async function GET(req: NextRequest) {
         },
         // Acessórios (itens reais) que pertencem a ESTE item — só para o contador
         acessoriosBase: { select: { acessorioId: true } },
-        // Disponibilidade em tempo real calculada pelas unidades serializadas
-        unidades: { select: { status: true } },
+        // Disponibilidade em tempo real + linhas individuais na visão Estoque
+        unidades: {
+          select: { id: true, codigo: true, numero: true, status: true },
+          orderBy: { numero: "asc" },
+        },
       },
       orderBy: { nome: "asc" },
       skip,
