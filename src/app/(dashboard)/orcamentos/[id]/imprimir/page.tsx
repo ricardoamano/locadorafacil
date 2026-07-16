@@ -390,29 +390,27 @@ export default function ImprimirOrcamentoPage() {
         const logoTopo = empresa?.logoUrlClara || null;
         return (
           <div className="mx-auto my-6 print:my-0 bg-white shadow print:shadow-none w-[210mm] min-h-[297mm] text-[10.5px] leading-snug text-slate-800 flex flex-col overflow-hidden">
-            {/* Faixa superior com a cor da marca */}
+            {/* Cabeçalho limpo: logo + número, com filete na cor da marca */}
             <div
-              className="px-[14mm] py-6 flex items-center justify-between"
-              style={{ backgroundColor: cor1, WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}
+              className="px-[14mm] pt-8 pb-4 flex items-center justify-between"
+              style={{ borderBottom: `3px solid ${cor1}` }}
             >
               <div>
-                {logoTopo ? (
+                {empresa?.logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logoTopo} alt={empresa?.name || ""} className="h-14 w-auto object-contain" />
-                ) : empresa?.logoUrl ? (
-                  // Sem versão clara: logo original dentro de um cartão branco
-                  <div className="bg-white rounded-lg px-3 py-1.5 inline-block">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={empresa.logoUrl} alt={empresa?.name || ""} className="h-11 w-auto object-contain" />
-                  </div>
+                  <img src={empresa.logoUrl} alt={empresa?.name || ""} className="h-16 w-auto object-contain" />
                 ) : (
-                  <p className="text-[20px] font-bold text-white">{empresa?.name}</p>
+                  <p className="text-[20px] font-bold" style={{ color: cor1 }}>
+                    {empresa?.name}
+                  </p>
                 )}
               </div>
-              <div className="text-right text-white">
-                <p className="text-[9px] uppercase tracking-[0.25em] opacity-80">Orçamento</p>
-                <p className="text-[24px] font-bold leading-tight">#{orc.numero}</p>
-                <p className="text-[9px] opacity-80">
+              <div className="text-right">
+                <p className="text-[9px] uppercase tracking-[0.25em] text-slate-400">Orçamento</p>
+                <p className="text-[26px] font-bold leading-tight" style={{ color: cor1 }}>
+                  #{orc.numero}
+                </p>
+                <p className="text-[9.5px] text-slate-500">
                   Emitido em {fmtData(orc.createdAt)} · válido até {validade.toLocaleDateString("pt-BR")}
                 </p>
               </div>
@@ -452,15 +450,22 @@ export default function ImprimirOrcamentoPage() {
                     ],
                   },
                 ].map((c) => (
-                  <div key={c.titulo} className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                  <div key={c.titulo} className="rounded-xl bg-slate-50 border border-slate-100 p-3.5">
                     <p
-                      className="text-[8.5px] font-bold uppercase tracking-[0.15em] mb-1.5"
+                      className="text-[9.5px] font-bold uppercase tracking-[0.15em] mb-1.5"
                       style={{ color: cor2 }}
                     >
                       {c.titulo}
                     </p>
                     {c.linhas.filter(Boolean).map((l, i) => (
-                      <p key={i} className={i === 0 ? "font-semibold text-[11px]" : "text-slate-600"}>
+                      <p
+                        key={i}
+                        className={
+                          i === 0
+                            ? "font-semibold text-[12.5px] leading-snug"
+                            : "text-[11px] text-slate-600 leading-relaxed"
+                        }
+                      >
                         {l}
                       </p>
                     ))}
@@ -480,8 +485,13 @@ export default function ImprimirOrcamentoPage() {
                   0
                 );
                 return (
-                  <div key={si} className="mt-6" style={{ breakInside: "avoid" }}>
-                    <div className="flex items-center gap-2 mb-2">
+                  // Salas grandes quebram entre linhas (o cabeçalho da tabela
+                  // repete em cada página); só o título não fica órfão no fim.
+                  <div key={si} className="mt-6">
+                    <div
+                      className="flex items-center gap-2 mb-2"
+                      style={{ breakInside: "avoid", breakAfter: "avoid" }}
+                    >
                       <span
                         className="h-4 w-1 rounded-full"
                         style={{ backgroundColor: cor1, WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}
@@ -537,7 +547,7 @@ export default function ImprimirOrcamentoPage() {
                         ))}
                       </tbody>
                     </table>
-                    <div className="flex items-end justify-between mt-1.5">
+                    <div className="flex items-end justify-between mt-1.5" style={{ breakInside: "avoid" }}>
                       <p className="text-[8px] text-slate-400">
                         {wattsSala > 0
                           ? `Consumo estimado: ${wattsSala.toLocaleString("pt-BR")} W (${(wattsSala / 800).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kVA)`
@@ -648,6 +658,14 @@ export default function ImprimirOrcamentoPage() {
           @page {
             size: A4;
             margin: 0;
+          }
+          /* Orçamentos grandes: linha nunca corta ao meio; cabeçalho da tabela
+             repete em cada página */
+          tr {
+            break-inside: avoid;
+          }
+          thead {
+            display: table-header-group;
           }
         }
       `}</style>
