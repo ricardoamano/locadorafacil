@@ -835,10 +835,36 @@ model Transacao {
   observacao      String?
   notaFiscal      Boolean   @default(false)
   status          String    @default("PENDENTE")
+  conciliadaEm    DateTime? // quando foi casada com uma linha do extrato bancário
   companyId       String
   company         Company   @relation(fields: [companyId], references: [id])
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  extratoLinhas ExtratoLinha[]
+}
+
+// Conciliação bancária: linha do extrato importado (OFX) aguardando revisão.
+// Nada entra no fluxo de caixa sem aprovação — cada linha vira CONCILIADA
+// (casada com transação existente), CRIADA (gerou transação nova) ou IGNORADA.
+model ExtratoLinha {
+  id           String     @id @default(cuid())
+  companyId    String
+  bancoId      String?
+  banco        Banco?     @relation(fields: [bancoId], references: [id], onDelete: SetNull)
+  arquivoNome  String?
+  fitid        String     // id único do lançamento no banco (FITID do OFX) — trava reimportação
+  data         DateTime
+  valor        Float      // positivo = crédito (receita), negativo = débito (despesa)
+  descricao    String
+  status       String     @default("PENDENTE") // PENDENTE | CONCILIADA | CRIADA | IGNORADA
+  transacaoId  String?
+  transacao    Transacao? @relation(fields: [transacaoId], references: [id], onDelete: SetNull)
+  importadoPor String?
+  createdAt    DateTime   @default(now())
+
+  @@unique([companyId, fitid])
+  @@index([companyId, status])
 }
 
 model Fatura {
@@ -1049,7 +1075,8 @@ model Banco {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  transacoes Transacao[]
+  transacoes    Transacao[]
+  extratoLinhas ExtratoLinha[]
 }
 
 model ModeloContrato {

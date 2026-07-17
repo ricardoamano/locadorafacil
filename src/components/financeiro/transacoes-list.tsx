@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -479,6 +480,13 @@ export function TransacoesList() {
             <Download className="h-4 w-4" />
             CSV
           </Button>
+
+          <Link href="/financeiro/conciliacao">
+            <Button variant="outline" title="Importar extrato do banco (OFX) e conciliar">
+              <Landmark className="h-4 w-4" />
+              Conciliação
+            </Button>
+          </Link>
 
           <Button variant="outline" onClick={() => setShowSaldo((s) => !s)}>
             <Wallet className="h-4 w-4" />
