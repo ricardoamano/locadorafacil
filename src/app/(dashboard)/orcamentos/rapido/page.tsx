@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import { Zap, Send, Copy, RotateCcw, MessageCircle } from "lucide-react";
+import { Zap, Send, Copy, RotateCcw, MessageCircle, FileText } from "lucide-react";
 
 // Orçamento Rápido — chat com o assistente da empresa (mesma IA do WhatsApp).
 // Digite o briefing do cliente e receba o texto pronto com quantidades e
@@ -36,6 +36,7 @@ export default function OrcamentoRapidoPage() {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [formalizando, setFormalizando] = useState(false);
   const fimRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -78,6 +79,34 @@ export default function OrcamentoRapidoPage() {
       setTexto(briefing);
     } finally {
       setEnviando(false);
+    }
+  }
+
+  async function formalizar() {
+    if (formalizando || msgs.length === 0) return;
+    setFormalizando(true);
+    try {
+      const res = await fetch("/api/orcamentos/rapido/formalizar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mensagens: msgs }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Erro ao formalizar");
+      const avisos = Array.isArray(d.avisos) && d.avisos.length ? `\n⚠️ ${d.avisos.join("\n⚠️ ")}` : "";
+      persistir([
+        ...msgs,
+        {
+          role: "assistant",
+          content: `✅ *Orçamento #${d.numero} criado no sistema!*\n${d.qtdItens} ${d.qtdItens === 1 ? "item" : "itens"} · Total: ${Number(d.total).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}${avisos}`,
+        },
+      ]);
+      toast(`Orçamento #${d.numero} criado! Abrindo...`, "success");
+      window.open(`/orcamentos/${d.id}`, "_blank");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Erro ao formalizar.", "error");
+    } finally {
+      setFormalizando(false);
     }
   }
 
@@ -156,6 +185,16 @@ export default function OrcamentoRapidoPage() {
                   >
                     <MessageCircle className="h-3 w-3" /> Enviar no WhatsApp
                   </button>
+                  {i === msgs.length - 1 && (
+                    <button
+                      onClick={formalizar}
+                      disabled={formalizando}
+                      className="inline-flex items-center gap-1 text-xs text-violet-600 hover:text-violet-700 font-medium disabled:opacity-50"
+                    >
+                      <FileText className="h-3 w-3" />
+                      {formalizando ? "Criando..." : "Criar orçamento oficial"}
+                    </button>
+                  )}
                 </div>
               )}
             </div>

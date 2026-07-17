@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { enviarEvolution, ASSISTENTE_PADRAO } from "@/lib/nestor";
 import { identificarRemetente, auditarRemetente } from "@/lib/nestor-auth";
-import { responderOrcamentoRapido } from "@/lib/nestor-orcamento";
+import { responderOrcamentoRapido, conversaDesdeReset } from "@/lib/nestor-orcamento";
+import { formalizarOrcamento } from "@/lib/nestor-formalizar";
+
+const APP_URL = (process.env.NEXTAUTH_URL || "https://locadorafacil.app").replace(/\/$/, "");
+
+function moeda(v: number): string {
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
 
 // NESTOR — webhook da Evolution API (conexão por QR code).
 // Configure na Evolution: webhook = https://SEU-DOMINIO/api/nestor/evolution?token=TOKEN
@@ -126,6 +133,38 @@ export async function POST(req: NextRequest) {
         key.remoteJid,
         `🤖 *${assistente}*\n\nConversa reiniciada! Me manda o briefing do próximo orçamento. 🚀`
       );
+      continue;
+    }
+
+    // "formalizar" → cria o orçamento oficial no sistema a partir da conversa
+    if (/\bformalizar?\b|or[çc]amento (formal|oficial)|criar or[çc]amento|gerar or[çc]amento/i.test(texto)) {
+      const conversa = await conversaDesdeReset(empresa.id, chaveConversa);
+      // remove o próprio comando do fim da conversa
+      if (conversa.length && conversa[conversa.length - 1].content === texto) conversa.pop();
+      const r = await formalizarOrcamento(empresa.id, conversa, `WhatsApp — ${remetente.nome}`);
+      const corpoF = r.ok
+        ? [
+            `🤖 *${assistente}*`,
+            "",
+            `✅ *Orçamento #${r.numero} criado!*`,
+            `${r.qtdItens} ${r.qtdItens === 1 ? "item" : "itens"} · Total: *${moeda(r.total)}*`,
+            "",
+            `✏️ Editar: ${APP_URL}/orcamentos/${r.id}`,
+            `🖨️ Imprimir/PDF: ${APP_URL}/orcamentos/${r.id}/imprimir`,
+            ...(r.avisos.length ? ["", "⚠️ " + r.avisos.join("\n⚠️ ")] : []),
+          ].join("\n")
+        : `🤖 *${assistente}*\n\n⚠️ ${r.erro}`;
+      await prisma.nestorConversa.create({
+        data: {
+          companyId: empresa.id,
+          telefone: chaveConversa,
+          papel: "ASSISTENTE",
+          texto: corpoF,
+          autorNome: assistente,
+        },
+      });
+      await enviarEvolution(empresa, key.remoteJid, corpoF);
+      await auditarRemetente(empresa.id, remetente, assistente, `Formalizou orçamento via WhatsApp`);
       continue;
     }
 

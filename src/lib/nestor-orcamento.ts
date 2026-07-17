@@ -82,7 +82,8 @@ Regras:
 - Cite os itens pelo nome comercial (sem o código entre colchetes), mas use o código internamente para não confundir itens parecidos.
 - ${politica}
 - Se a mensagem for só uma dúvida (preço de um item, disponibilidade), responda objetivamente sem montar orçamento completo.
-- No máximo 1 pergunta de esclarecimento, e somente se for impossível montar o orçamento sem ela.`;
+- No máximo 1 pergunta de esclarecimento, e somente se for impossível montar o orçamento sem ela.
+- Depois de montar um orçamento, termine com a linha: _Para criar o orçamento oficial no sistema, responda *formalizar*._`;
 }
 
 export interface RespostaNestor {
@@ -171,6 +172,27 @@ ${catalogo || "(catálogo vazio — avise que não há itens cadastrados)"}`;
   }
 }
 
+/** Histórico salvo de um telefone/grupo (desde o último RESET), como conversa. */
+export async function conversaDesdeReset(
+  companyId: string,
+  telefone: string
+): Promise<MensagemChat[]> {
+  const historicoDb = await prisma.nestorConversa.findMany({
+    where: { companyId, telefone },
+    orderBy: { createdAt: "desc" },
+    take: MAX_HISTORICO,
+  });
+  const cronologico = historicoDb.reverse();
+  const ultimoReset = cronologico.map((m) => m.papel).lastIndexOf("RESET");
+  return cronologico
+    .slice(ultimoReset + 1)
+    .filter((m) => m.papel === "USUARIO" || m.papel === "ASSISTENTE")
+    .map((m) => ({
+      role: m.papel === "USUARIO" ? ("user" as const) : ("assistant" as const),
+      content: m.texto,
+    }));
+}
+
 /**
  * Versão do WhatsApp: monta a conversa a partir do histórico salvo do telefone
  * (desde o último RESET) e delega ao núcleo.
@@ -180,29 +202,11 @@ export async function responderOrcamentoRapido(
   telefone: string,
   mensagem: string
 ): Promise<RespostaNestor> {
-  const historicoDb = await prisma.nestorConversa.findMany({
-    where: { companyId, telefone },
-    orderBy: { createdAt: "desc" },
-    take: MAX_HISTORICO,
-  });
-
-  // Histórico em ordem cronológica, cortado no último RESET ("nova conversa")
-  const cronologico = historicoDb.reverse();
-  const ultimoReset = cronologico.map((m) => m.papel).lastIndexOf("RESET");
-  const historico = cronologico.slice(ultimoReset + 1);
+  const historico = await conversaDesdeReset(companyId, telefone);
 
   // a mensagem atual já foi salva no banco pelo webhook — tira do histórico
   const ultima = historico[historico.length - 1];
-  if (ultima && ultima.papel === "USUARIO" && ultima.texto === mensagem) historico.pop();
+  if (ultima && ultima.role === "user" && ultima.content === mensagem) historico.pop();
 
-  const conversa: MensagemChat[] = [
-    ...historico
-      .filter((m) => m.papel === "USUARIO" || m.papel === "ASSISTENTE")
-      .map((m) => ({
-        role: m.papel === "USUARIO" ? ("user" as const) : ("assistant" as const),
-        content: m.texto,
-      })),
-    { role: "user", content: mensagem },
-  ];
-  return gerarRespostaOrcamento(companyId, conversa);
+  return gerarRespostaOrcamento(companyId, [...historico, { role: "user", content: mensagem }]);
 }
