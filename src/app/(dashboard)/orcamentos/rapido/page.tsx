@@ -73,6 +73,10 @@ export default function OrcamentoRapidoPage() {
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "Erro ao gerar");
       persistir([...novas, { role: "assistant", content: d.texto }]);
+      if (d.orcamentoId) {
+        toast("Orçamento criado! Abrindo...", "success");
+        window.open(`/orcamentos/${d.orcamentoId}`, "_blank");
+      }
     } catch (e) {
       toast(e instanceof Error ? e.message : "Erro ao gerar o orçamento.", "error");
       persistir(novas.slice(0, -1));
@@ -93,6 +97,11 @@ export default function OrcamentoRapidoPage() {
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "Erro ao formalizar");
+      if (d.pendente) {
+        // Assistente quer confirmar cliente/evento/datas antes de criar
+        persistir([...msgs, { role: "assistant", content: d.texto }]);
+        return;
+      }
       const avisos = Array.isArray(d.avisos) && d.avisos.length ? `\n⚠️ ${d.avisos.join("\n⚠️ ")}` : "";
       persistir([
         ...msgs,

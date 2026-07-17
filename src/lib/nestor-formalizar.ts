@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { clienteIa, extrairJson, MODELO_PROPOSTA } from "@/lib/ia";
-import type { MensagemChat } from "@/lib/nestor-orcamento";
+import { conversaDesdeReset, type MensagemChat } from "@/lib/nestor-orcamento";
 
 // Formalização do orçamento rápido: transforma a conversa com o assistente em
 // um Orcamento de verdade no sistema (numeração oficial, sala e itens do
@@ -16,6 +16,7 @@ interface ItemExtraido {
 interface Extracao {
   eventoNome?: string;
   clienteNome?: string;
+  dataMontagem?: string;
   dataInicio?: string;
   dataFim?: string;
   observacoes?: string;
@@ -24,7 +25,11 @@ interface Extracao {
 
 export type ResultadoFormalizar =
   | { ok: true; id: string; numero: number; total: number; qtdItens: number; avisos: string[] }
-  | { ok: false; erro: string };
+  | { ok: false; pendente: true; texto: string }
+  | { ok: false; pendente?: false; erro: string };
+
+/** Frase-marca do questionário — identifica que a próxima resposta completa os dados. */
+export const MARCA_PERGUNTAS = "Antes de criar o orçamento oficial";
 
 /** Pede à IA a estrutura final do orçamento discutido na conversa. */
 async function extrairEstrutura(
@@ -47,7 +52,7 @@ async function extrairEstrutura(
   const system = `Você extrai a versão FINAL do orçamento discutido em uma conversa (o último estado, com todos os ajustes pedidos).
 
 Responda SOMENTE com um JSON neste formato, sem comentários:
-{"eventoNome": string|null, "clienteNome": string|null, "dataInicio": "YYYY-MM-DD"|null, "dataFim": "YYYY-MM-DD"|null, "observacoes": string|null, "itens": [{"codigo": string, "quantidade": number, "diarias": number, "valorUnitario": number}]}
+{"eventoNome": string|null, "clienteNome": string|null, "dataMontagem": "YYYY-MM-DD"|null, "dataInicio": "YYYY-MM-DD"|null, "dataFim": "YYYY-MM-DD"|null, "observacoes": string|null, "itens": [{"codigo": string, "quantidade": number, "diarias": number, "valorUnitario": number}]}
 
 Regras:
 - Use APENAS códigos existentes no catálogo abaixo. Item pedido que não existe no catálogo: não invente — deixe fora e cite em "observacoes".
@@ -123,10 +128,51 @@ async function resolverCliente(companyId: string, nome: string | null | undefine
   return { ...novo, criado: true };
 }
 
+/** Monta o questionário dos dados que faltam (uma rodada só, antes de criar). */
+async function perguntasPendentes(companyId: string, ext: Extracao): Promise<string | null> {
+  const perguntas: string[] = [];
+
+  const nomeCliente = ext.clienteNome?.trim();
+  if (!nomeCliente) {
+    perguntas.push("👤 *Cliente:* quem é o cliente? (nome da empresa ou pessoa)");
+  } else {
+    const existe = await prisma.contact.findFirst({
+      where: {
+        companyId,
+        type: "CLIENTE",
+        OR: [
+          { nomeFantasia: { contains: nomeCliente, mode: "insensitive" } },
+          { razaoSocial: { contains: nomeCliente, mode: "insensitive" } },
+        ],
+      },
+      select: { id: true },
+    });
+    if (!existe)
+      perguntas.push(
+        `👤 *Cliente:* não achei "${nomeCliente}" no cadastro — crio esse cliente novo? (confirma ou me passa o nome certo)`
+      );
+  }
+  if (!ext.eventoNome?.trim()) perguntas.push("🎪 *Evento:* qual o nome do evento?");
+  if (!ext.dataInicio)
+    perguntas.push("📅 *Datas:* quando começa e termina? (e a montagem, se já souber)");
+
+  if (perguntas.length === 0) return null;
+  return [
+    `📋 ${MARCA_PERGUNTAS}, me confirma ${perguntas.length === 1 ? "uma coisa" : "umas coisas"}:`,
+    "",
+    ...perguntas,
+    "",
+    "Responde o que tiver (pode ser tudo numa mensagem só).",
+    "Sem tempo agora? Manda *criar assim mesmo* que eu deixo em branco pra completar depois.",
+    "Para desistir, manda *cancelar*.",
+  ].join("\n");
+}
+
 export async function formalizarOrcamento(
   companyId: string,
   conversa: MensagemChat[],
-  criadoVia: string
+  criadoVia: string,
+  opts?: { perguntarSeFaltar?: boolean }
 ): Promise<ResultadoFormalizar> {
   if (conversa.length === 0) return { ok: false, erro: "Ainda não há conversa para formalizar." };
 
@@ -136,6 +182,12 @@ export async function formalizarOrcamento(
       ok: false,
       erro: "Não consegui identificar os itens do orçamento na conversa. Monte o orçamento primeiro e depois peça para formalizar.",
     };
+
+  // Uma rodada de perguntas antes de criar (cliente, evento, datas)
+  if (opts?.perguntarSeFaltar) {
+    const perguntas = await perguntasPendentes(companyId, ext);
+    if (perguntas) return { ok: false, pendente: true, texto: perguntas };
+  }
 
   const avisos: string[] = [];
 
@@ -209,6 +261,7 @@ export async function formalizarOrcamento(
       clienteId: cliente.id,
       status: "PENDENTE",
       eventoNome: ext.eventoNome?.trim() || null,
+      dataMontagem: parseData(ext.dataMontagem),
       dataInicio: parseData(ext.dataInicio),
       dataFim: parseData(ext.dataFim),
       observacoes: ext.observacoes?.trim() || null,
@@ -223,4 +276,64 @@ export async function formalizarOrcamento(
   });
 
   return { ok: true, id: orc.id, numero: orc.numero, total: orc.total, qtdItens: linhas.length, avisos };
+}
+
+// ── Comando "formalizar" nos webhooks de WhatsApp ────────────────────────────
+
+const REGEX_FORMALIZAR =
+  /\bformalizar?\b|or[çc]amento (formal|oficial)|criar or[çc]amento|gerar or[çc]amento/i;
+const REGEX_CRIAR_ASSIM = /assim mesmo|em branco|sem (dados|informa)|pode criar|cria logo/i;
+
+function moeda(v: number): string {
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+/**
+ * Decide e executa o fluxo de formalização para uma mensagem recebida.
+ * Retorna o texto a responder, ou null quando a mensagem não é sobre isso
+ * (segue o fluxo normal de orçamento rápido).
+ */
+export async function tratarComandoFormalizar(
+  companyId: string,
+  chaveConversa: string,
+  texto: string,
+  assistente: string,
+  criadoVia: string,
+  appUrl: string
+): Promise<string | null> {
+  const conversa = await conversaDesdeReset(companyId, chaveConversa);
+
+  // A resposta ao questionário também entra no fluxo (sem precisar repetir "formalizar")
+  const ultimaAssistente = [...conversa].reverse().find((m) => m.role === "assistant");
+  const respondendoPerguntas = Boolean(ultimaAssistente?.content.includes(MARCA_PERGUNTAS));
+  const pediuFormalizar = REGEX_FORMALIZAR.test(texto);
+  if (!pediuFormalizar && !respondendoPerguntas) return null;
+
+  if (respondendoPerguntas && /^\s*cancelar?\s*$/i.test(texto))
+    return `🤖 *${assistente}*\n\n👍 Beleza, cancelei a criação. O orçamento rápido continua aqui na conversa se mudar de ideia.`;
+
+  // Só pergunta os dados uma vez; depois cria com o que tiver
+  const perguntarSeFaltar = !respondendoPerguntas && !REGEX_CRIAR_ASSIM.test(texto);
+
+  // remove o comando puro do fim da conversa (não agrega ao conteúdo)
+  if (conversa.length && conversa[conversa.length - 1].content === texto && pediuFormalizar && texto.trim().split(/\s+/).length <= 3)
+    conversa.pop();
+
+  const r = await formalizarOrcamento(companyId, conversa.length ? conversa : [{ role: "user", content: texto }], criadoVia, {
+    perguntarSeFaltar,
+  });
+
+  if (!r.ok && "pendente" in r && r.pendente) return `🤖 *${assistente}*\n\n${r.texto}`;
+  if (!r.ok) return `🤖 *${assistente}*\n\n⚠️ ${(r as { erro: string }).erro}`;
+
+  return [
+    `🤖 *${assistente}*`,
+    "",
+    `✅ *Orçamento #${r.numero} criado!*`,
+    `${r.qtdItens} ${r.qtdItens === 1 ? "item" : "itens"} · Total: *${moeda(r.total)}*`,
+    "",
+    `✏️ Editar: ${appUrl}/orcamentos/${r.id}`,
+    `🖨️ Imprimir/PDF: ${appUrl}/orcamentos/${r.id}/imprimir`,
+    ...(r.avisos.length ? ["", "⚠️ " + r.avisos.join("\n⚠️ ")] : []),
+  ].join("\n");
 }

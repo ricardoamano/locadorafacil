@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { auditar } from "@/lib/auditoria";
-import { formalizarOrcamento } from "@/lib/nestor-formalizar";
+import { formalizarOrcamento, MARCA_PERGUNTAS } from "@/lib/nestor-formalizar";
 import type { MensagemChat } from "@/lib/nestor-orcamento";
 
 // Transforma a conversa do Orçamento Rápido em um orçamento oficial do sistema.
@@ -24,8 +24,19 @@ export async function POST(req: NextRequest) {
     .slice(-16)
     .map((m) => ({ role: m.role as "user" | "assistant", content: m.content!.trim() }));
 
-  const r = await formalizarOrcamento(u.companyId, conversa, `app — ${u.name || "usuário"}`);
-  if (!r.ok) return NextResponse.json({ error: r.erro }, { status: 400 });
+  // Pergunta cliente/evento/datas uma vez; se o questionário já apareceu na
+  // conversa (ou o usuário pediu para criar em branco), cria com o que tiver.
+  const jaPerguntou = conversa.some(
+    (m) => m.role === "assistant" && m.content.includes(MARCA_PERGUNTAS)
+  );
+  const criarAssim = body?.criarAssimMesmo === true;
+
+  const r = await formalizarOrcamento(u.companyId, conversa, `app — ${u.name || "usuário"}`, {
+    perguntarSeFaltar: !jaPerguntou && !criarAssim,
+  });
+  if (!r.ok && "pendente" in r && r.pendente)
+    return NextResponse.json({ pendente: true, texto: r.texto });
+  if (!r.ok) return NextResponse.json({ error: (r as { erro: string }).erro }, { status: 400 });
 
   await auditar(session.user as never, {
     tipo: "ALTERACAO",
