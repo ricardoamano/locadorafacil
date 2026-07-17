@@ -16,6 +16,9 @@ interface ItemExtraido {
 interface Extracao {
   eventoNome?: string;
   clienteNome?: string;
+  cliente2Nome?: string;
+  contatoNome?: string;
+  contatoTelefone?: string;
   dataMontagem?: string;
   dataInicio?: string;
   dataFim?: string;
@@ -52,7 +55,13 @@ async function extrairEstrutura(
   const system = `Você extrai a versão FINAL do orçamento discutido em uma conversa (o último estado, com todos os ajustes pedidos).
 
 Responda SOMENTE com um JSON neste formato, sem comentários:
-{"eventoNome": string|null, "clienteNome": string|null, "dataMontagem": "YYYY-MM-DD"|null, "dataInicio": "YYYY-MM-DD"|null, "dataFim": "YYYY-MM-DD"|null, "observacoes": string|null, "itens": [{"codigo": string, "quantidade": number, "diarias": number, "valorUnitario": number}]}
+{"eventoNome": string|null, "clienteNome": string|null, "cliente2Nome": string|null, "contatoNome": string|null, "contatoTelefone": string|null, "dataMontagem": "YYYY-MM-DD"|null, "dataInicio": "YYYY-MM-DD"|null, "dataFim": "YYYY-MM-DD"|null, "observacoes": string|null, "itens": [{"codigo": string, "quantidade": number, "diarias": number, "valorUnitario": number}]}
+
+Definições:
+- clienteNome = a EMPRESA/pessoa cliente principal (quem contrata).
+- cliente2Nome = segundo cliente/agência envolvida, se citada (ex.: "o cliente 2 é a Stone").
+- contatoNome = a PESSOA de contato dentro do cliente (ex.: "o contato é Fabio Zonta"). Nunca confunda a pessoa de contato com o cliente.
+- contatoTelefone = telefone da pessoa de contato, se citado.
 
 Regras:
 - Use APENAS códigos existentes no catálogo abaixo. Item pedido que não existe no catálogo: não invente — deixe fora e cite em "observacoes".
@@ -128,6 +137,20 @@ async function resolverCliente(companyId: string, nome: string | null | undefine
   return { ...novo, criado: true };
 }
 
+async function buscarCliente(companyId: string, nome: string) {
+  return prisma.contact.findFirst({
+    where: {
+      companyId,
+      type: "CLIENTE",
+      OR: [
+        { nomeFantasia: { contains: nome, mode: "insensitive" } },
+        { razaoSocial: { contains: nome, mode: "insensitive" } },
+      ],
+    },
+    select: { id: true, nomeFantasia: true },
+  });
+}
+
 /** Monta o questionário dos dados que faltam (uma rodada só, antes de criar). */
 async function perguntasPendentes(companyId: string, ext: Extracao): Promise<string | null> {
   const perguntas: string[] = [];
@@ -135,23 +158,34 @@ async function perguntasPendentes(companyId: string, ext: Extracao): Promise<str
   const nomeCliente = ext.clienteNome?.trim();
   if (!nomeCliente) {
     perguntas.push("👤 *Cliente:* quem é o cliente? (nome da empresa ou pessoa)");
-  } else {
-    const existe = await prisma.contact.findFirst({
-      where: {
-        companyId,
-        type: "CLIENTE",
-        OR: [
-          { nomeFantasia: { contains: nomeCliente, mode: "insensitive" } },
-          { razaoSocial: { contains: nomeCliente, mode: "insensitive" } },
-        ],
-      },
-      select: { id: true },
-    });
-    if (!existe)
-      perguntas.push(
-        `👤 *Cliente:* não achei "${nomeCliente}" no cadastro — crio esse cliente novo? (confirma ou me passa o nome certo)`
-      );
+  } else if (!(await buscarCliente(companyId, nomeCliente))) {
+    perguntas.push(
+      `👤 *Cliente:* não encontrei "${nomeCliente}" no cadastro — quer que eu crie esse cliente? (confirma ou me passa o nome certo)`
+    );
   }
+
+  const nomeCliente2 = ext.cliente2Nome?.trim();
+  if (nomeCliente2 && !(await buscarCliente(companyId, nomeCliente2))) {
+    perguntas.push(
+      `👥 *Cliente 2:* não encontrei "${nomeCliente2}" no cadastro — quer que eu crie esse cliente? (confirma ou me passa o nome certo)`
+    );
+  }
+
+  const nomeContato = ext.contatoNome?.trim();
+  if (nomeContato && nomeCliente) {
+    const cli = await buscarCliente(companyId, nomeCliente);
+    if (cli) {
+      const sub = await prisma.subContact.findFirst({
+        where: { contactId: cli.id, nome: { contains: nomeContato, mode: "insensitive" } },
+        select: { id: true },
+      });
+      if (!sub)
+        perguntas.push(
+          `📇 *Contato:* "${nomeContato}" ainda não existe no cliente ${cli.nomeFantasia} — crio esse contato? (se tiver, me passa telefone/e-mail dele)`
+        );
+    }
+  }
+
   if (!ext.eventoNome?.trim()) perguntas.push("🎪 *Evento:* qual o nome do evento?");
   if (!ext.dataInicio)
     perguntas.push("📅 *Datas:* quando começa e termina? (e a montagem, se já souber)");
@@ -233,6 +267,38 @@ export async function formalizarOrcamento(
   if (cliente.criado) avisos.push(`Cliente "${cliente.nomeFantasia}" foi criado — complete o cadastro depois.`);
   else if (!ext.clienteNome) avisos.push(`Sem cliente na conversa — usei "${cliente.nomeFantasia}".`);
 
+  // Cliente 2 (agência), somente se citado
+  let cliente2Id: string | null = null;
+  if (ext.cliente2Nome?.trim()) {
+    const c2 = await resolverCliente(companyId, ext.cliente2Nome);
+    cliente2Id = c2.id;
+    if (c2.criado) avisos.push(`Cliente 2 "${c2.nomeFantasia}" foi criado — complete o cadastro depois.`);
+  }
+
+  // Pessoa de contato dentro do cliente principal
+  let contatoId: string | null = null;
+  if (ext.contatoNome?.trim()) {
+    const nomeContato = ext.contatoNome.trim();
+    const sub = await prisma.subContact.findFirst({
+      where: { contactId: cliente.id, nome: { contains: nomeContato, mode: "insensitive" } },
+      select: { id: true },
+    });
+    if (sub) {
+      contatoId = sub.id;
+    } else {
+      const novo = await prisma.subContact.create({
+        data: {
+          contactId: cliente.id,
+          nome: nomeContato,
+          telefone: ext.contatoTelefone?.trim() || null,
+        },
+        select: { id: true },
+      });
+      contatoId = novo.id;
+      avisos.push(`Contato "${nomeContato}" criado no cliente ${cliente.nomeFantasia}.`);
+    }
+  }
+
   const total = linhas.reduce((a, l) => a + l.subtotal, 0);
 
   // Numeração oficial (mesma regra do módulo de orçamentos)
@@ -259,6 +325,8 @@ export async function formalizarOrcamento(
     data: {
       numero,
       clienteId: cliente.id,
+      cliente2Id,
+      contatoId,
       status: "PENDENTE",
       eventoNome: ext.eventoNome?.trim() || null,
       dataMontagem: parseData(ext.dataMontagem),
