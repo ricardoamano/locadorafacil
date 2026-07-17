@@ -346,6 +346,202 @@ export async function formalizarOrcamento(
   return { ok: true, id: orc.id, numero: orc.numero, total: orc.total, qtdItens: linhas.length, avisos };
 }
 
+// ── Atualização de orçamento já formalizado ─────────────────────────────────
+
+export const MARCA_QUAL_ORCAMENTO = "Qual orçamento você quer atualizar";
+
+/**
+ * Aplica na base as mudanças pedidas na conversa sobre um orçamento já criado.
+ * Só mexe no que a conversa realmente definiu e responde com o que mudou de fato.
+ */
+async function atualizarOrcamento(
+  companyId: string,
+  numero: number,
+  conversa: MensagemChat[],
+  appUrl: string
+): Promise<string> {
+  const orc = await prisma.orcamento.findFirst({
+    where: { companyId, numero },
+    include: { salas: { select: { id: true } } },
+  });
+  if (!orc) return `⚠️ Não achei o orçamento #${numero} aqui no sistema. Confere o número?`;
+  if (orc.status !== "PENDENTE")
+    return `⚠️ O orçamento #${numero} está com status ${orc.status} — por segurança eu não altero orçamento que já saiu de Pendente. Edite no sistema: ${appUrl}/orcamentos/${orc.id}`;
+
+  const ext = await extrairEstrutura(companyId, conversa);
+  if (!ext)
+    return "⚠️ Não consegui entender as alterações. Me diz de novo o que mudar (itens, datas, cliente...).";
+
+  const mudancas: string[] = [];
+  const avisos: string[] = [];
+  const dados: Record<string, unknown> = {};
+
+  if (ext.eventoNome?.trim() && ext.eventoNome.trim() !== orc.eventoNome) {
+    dados.eventoNome = ext.eventoNome.trim();
+    mudancas.push(`Evento: ${ext.eventoNome.trim()}`);
+  }
+  const parseData = (s?: string) => {
+    if (!s) return null;
+    const d = new Date(`${s}T12:00:00`);
+    return isNaN(d.getTime()) ? null : d;
+  };
+  const dm = parseData(ext.dataMontagem);
+  const di = parseData(ext.dataInicio);
+  const df = parseData(ext.dataFim);
+  if (dm) {
+    dados.dataMontagem = dm;
+    mudancas.push(`Montagem: ${dm.toLocaleDateString("pt-BR")}`);
+  }
+  if (di) {
+    dados.dataInicio = di;
+    mudancas.push(`Início: ${di.toLocaleDateString("pt-BR")}`);
+  }
+  if (df) {
+    dados.dataFim = df;
+    mudancas.push(`Término: ${df.toLocaleDateString("pt-BR")}`);
+  }
+  if (ext.observacoes?.trim() && ext.observacoes.trim() !== orc.observacoes) {
+    dados.observacoes = ext.observacoes.trim();
+    mudancas.push("Observações atualizadas");
+  }
+
+  if (ext.clienteNome?.trim()) {
+    const c = await resolverCliente(companyId, ext.clienteNome);
+    if (c.id !== orc.clienteId) {
+      dados.clienteId = c.id;
+      mudancas.push(`Cliente: ${c.nomeFantasia}${c.criado ? " (criado)" : ""}`);
+    }
+  }
+  if (ext.cliente2Nome?.trim()) {
+    const c2 = await resolverCliente(companyId, ext.cliente2Nome);
+    if (c2.id !== orc.cliente2Id) {
+      dados.cliente2Id = c2.id;
+      mudancas.push(`Cliente 2: ${c2.nomeFantasia}${c2.criado ? " (criado)" : ""}`);
+    }
+  }
+  if (ext.contatoNome?.trim()) {
+    const clienteId = (dados.clienteId as string) || orc.clienteId;
+    const nomeContato = ext.contatoNome.trim();
+    let sub = await prisma.subContact.findFirst({
+      where: { contactId: clienteId, nome: { contains: nomeContato, mode: "insensitive" } },
+      select: { id: true },
+    });
+    if (!sub) {
+      sub = await prisma.subContact.create({
+        data: { contactId: clienteId, nome: nomeContato, telefone: ext.contatoTelefone?.trim() || null },
+        select: { id: true },
+      });
+      mudancas.push(`Contato "${nomeContato}" criado`);
+    }
+    if (sub.id !== orc.contatoId) {
+      dados.contatoId = sub.id;
+      if (!mudancas.some((m) => m.startsWith("Contato"))) mudancas.push(`Contato: ${nomeContato}`);
+    }
+  }
+
+  // Itens: substitui apenas quando o orçamento tem a estrutura simples do
+  // orçamento rápido (1 sala) — com várias salas, a edição é pelo sistema.
+  let totalNovo = orc.total;
+  if (Array.isArray(ext.itens) && ext.itens.length > 0) {
+    if (orc.salas.length <= 1) {
+      const codigos = ext.itens.map((i) => i.codigo).filter(Boolean) as string[];
+      const doBanco = await prisma.item.findMany({
+        where: { companyId, codigo: { in: codigos } },
+        select: { id: true, codigo: true, valorAluguel: true },
+      });
+      const porCodigo = new Map(doBanco.map((i) => [i.codigo, i]));
+      const linhas = ext.itens
+        .map((i) => {
+          const item = i.codigo ? porCodigo.get(i.codigo) : undefined;
+          if (!item) {
+            if (i.codigo) avisos.push(`Item "${i.codigo}" não encontrado — ficou fora.`);
+            return null;
+          }
+          const quantidade = Math.max(1, Math.round(Number(i.quantidade) || 1));
+          const diarias = Math.max(1, Math.round(Number(i.diarias) || 1));
+          const valorUnitario =
+            Number(i.valorUnitario) > 0 ? Number(i.valorUnitario) : item.valorAluguel;
+          return { itemId: item.id, quantidade, diarias, valorUnitario, subtotal: quantidade * diarias * valorUnitario };
+        })
+        .filter(Boolean) as { itemId: string; quantidade: number; diarias: number; valorUnitario: number; subtotal: number }[];
+
+      if (linhas.length > 0) {
+        totalNovo = linhas.reduce((a, l) => a + l.subtotal, 0);
+        await prisma.$transaction([
+          prisma.sala.deleteMany({ where: { orcamentoId: orc.id } }),
+          prisma.orcamento.update({
+            where: { id: orc.id },
+            data: {
+              ...dados,
+              total: totalNovo,
+              salas: { create: [{ nome: (dados.eventoNome as string) || orc.eventoNome || "Itens", itens: { create: linhas } }] },
+            },
+          }),
+        ]);
+        mudancas.push(`Itens: ${linhas.length} ${linhas.length === 1 ? "linha" : "linhas"} · Total ${moeda(totalNovo)}`);
+      } else if (Object.keys(dados).length > 0) {
+        await prisma.orcamento.update({ where: { id: orc.id }, data: dados });
+      }
+    } else {
+      avisos.push("Este orçamento tem várias salas — itens só pelo sistema; atualizei apenas os dados gerais.");
+      if (Object.keys(dados).length > 0)
+        await prisma.orcamento.update({ where: { id: orc.id }, data: dados });
+    }
+  } else if (Object.keys(dados).length > 0) {
+    await prisma.orcamento.update({ where: { id: orc.id }, data: dados });
+  }
+
+  if (mudancas.length === 0)
+    return `🤔 Não identifiquei nenhuma mudança nova para o orçamento #${numero}. Me diz exatamente o que alterar (ex.: "muda o evento para X", "início dia 22/08", "troca para 3 TVs").`;
+
+  return [
+    `✅ *Orçamento #${numero} atualizado de verdade no sistema:*`,
+    ...mudancas.map((m) => `• ${m}`),
+    "",
+    `✏️ Conferir: ${appUrl}/orcamentos/${orc.id}`,
+    ...(avisos.length ? ["", "⚠️ " + avisos.join("\n⚠️ ")] : []),
+  ].join("\n");
+}
+
+/**
+ * Detecta pedido de alteração de um orçamento já formalizado na conversa.
+ * Pergunta o número quando não dá para saber qual é. Retorna a resposta, ou
+ * null quando a mensagem não é sobre atualização.
+ */
+export async function tratarComandoAtualizar(
+  companyId: string,
+  conversa: MensagemChat[],
+  texto: string,
+  assistente: string,
+  appUrl: string
+): Promise<string | null> {
+  const ultimaAssistente = [...conversa].reverse().find((m) => m.role === "assistant");
+  const respondendoQual = Boolean(ultimaAssistente?.content.includes(MARCA_QUAL_ORCAMENTO));
+
+  const pediuExplicito = /atualizar?\s+(o\s+)?or[çc]amento/i.test(texto);
+  const intencaoMudanca =
+    /\b(atualiza|altera|corrig|muda|mude|troca|troque|acrescenta|adiciona|remove|tira|inclui|coloca|aumenta|diminui|ajusta)\w*/i.test(
+      texto
+    );
+  // O nº do último orçamento criado/atualizado nesta conversa
+  const criadosNaConversa = conversa
+    .filter((m) => m.role === "assistant")
+    .flatMap((m) => [...m.content.matchAll(/Or[çc]amento #(\d+) (criado|atualizado)/gi)].map((x) => Number(x[1])));
+  const ultimoCriado = criadosNaConversa[criadosNaConversa.length - 1] || null;
+
+  const aplicavel = pediuExplicito || respondendoQual || (ultimoCriado !== null && intencaoMudanca);
+  if (!aplicavel) return null;
+
+  // Número alvo: citado na mensagem > último criado na conversa > perguntar
+  const numeroNaMensagem = texto.match(/#\s*(\d{1,6})\b/) || (respondendoQual ? texto.match(/\b(\d{1,6})\b/) : null);
+  const numero = numeroNaMensagem ? Number(numeroNaMensagem[1]) : ultimoCriado;
+  if (!numero)
+    return `🤖 *${assistente}*\n\n${MARCA_QUAL_ORCAMENTO}? Me manda o número (ex.: *#57*) junto com o que mudar.`;
+
+  const resultado = await atualizarOrcamento(companyId, numero, conversa, appUrl);
+  return `🤖 *${assistente}*\n\n${resultado}`;
+}
+
 // ── Comando "formalizar" nos webhooks de WhatsApp ────────────────────────────
 
 const REGEX_FORMALIZAR =

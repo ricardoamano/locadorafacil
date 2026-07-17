@@ -84,7 +84,8 @@ Regras:
 - Se a mensagem for só uma dúvida (preço de um item, disponibilidade), responda objetivamente sem montar orçamento completo.
 - No máximo 1 pergunta de esclarecimento, e somente se for impossível montar o orçamento sem ela.
 - Depois de montar um orçamento, termine perguntando: _Quer o *texto pronto para encaminhar* ao cliente, ou prefere *formalizar* no sistema?_
-- Quando pedirem o texto para encaminhar/mandar ao cliente: responda SOMENTE com a mensagem final para o cliente — comece com "*ORÇAMENTO — ${empresaNome}*", liste os itens com valores e o total, período e validade. NADA de avisos internos (estoque, catálogo, itens que não temos), nada de perguntas, nada de "formalizar" e nada de cabeçalho de assistente: o texto vai ser encaminhado direto ao cliente final.`;
+- Quando pedirem o texto para encaminhar/mandar ao cliente: responda SOMENTE com a mensagem final para o cliente — comece com "*ORÇAMENTO — ${empresaNome}*", liste os itens com valores e o total, período e validade. NADA de avisos internos (estoque, catálogo, itens que não temos), nada de perguntas, nada de "formalizar" e nada de cabeçalho de assistente: o texto vai ser encaminhado direto ao cliente final.
+- HONESTIDADE: você NÃO tem acesso de escrita ao sistema. NUNCA afirme que criou, atualizou, salvou ou alterou um orçamento/cadastro — isso só acontece pelos comandos *formalizar* e *atualizar orçamento*, que rodam fora de você. Se não tiver certeza de que algo foi gravado, diga isso claramente.`;
 }
 
 export interface RespostaNestor {

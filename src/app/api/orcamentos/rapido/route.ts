@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { auditar } from "@/lib/auditoria";
 import { gerarRespostaOrcamento, type MensagemChat } from "@/lib/nestor-orcamento";
-import { formalizarOrcamento, MARCA_PERGUNTAS } from "@/lib/nestor-formalizar";
+import { formalizarOrcamento, MARCA_PERGUNTAS, tratarComandoAtualizar } from "@/lib/nestor-formalizar";
 
 // Orçamento rápido dentro do app: chat com a mesma IA do assistente de
 // WhatsApp, consultando itens, estoque e diárias reais do catálogo.
@@ -58,6 +58,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       texto: `⚠️ ${"erro" in r ? r.erro : "Não consegui criar o orçamento."}`,
     });
+  }
+
+  // Pedido de alteração de um orçamento já formalizado → grava de verdade
+  const atualizacao = await tratarComandoAtualizar(
+    companyId,
+    conversa,
+    conversa[conversa.length - 1].content,
+    "Assistente",
+    ""
+  );
+  if (atualizacao) {
+    await auditar(session.user as never, {
+      tipo: "ALTERACAO",
+      modulo: "orcamentos",
+      acao: "Atualizou orçamento pelo chat rápido",
+    });
+    return NextResponse.json({ texto: atualizacao.replace(/^🤖 \*Assistente\*\n\n/, "") });
   }
 
   const resposta = await gerarRespostaOrcamento(companyId, conversa);

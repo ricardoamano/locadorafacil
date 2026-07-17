@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { enviarEvolution, ASSISTENTE_PADRAO } from "@/lib/nestor";
 import { identificarRemetente, auditarRemetente } from "@/lib/nestor-auth";
-import { responderOrcamentoRapido } from "@/lib/nestor-orcamento";
-import { tratarComandoFormalizar } from "@/lib/nestor-formalizar";
+import { responderOrcamentoRapido, conversaDesdeReset } from "@/lib/nestor-orcamento";
+import { tratarComandoFormalizar, tratarComandoAtualizar } from "@/lib/nestor-formalizar";
 
 const APP_URL = (process.env.NEXTAUTH_URL || "https://locadorafacil.app").replace(/\/$/, "");
 
@@ -153,6 +153,23 @@ export async function POST(req: NextRequest) {
       });
       await enviarEvolution(empresa, key.remoteJid, corpoF);
       await auditarRemetente(empresa.id, remetente, assistente, "Formalização de orçamento via WhatsApp");
+      continue;
+    }
+
+    // Alteração de orçamento já formalizado nesta conversa → grava de verdade
+    const corpoA = await tratarComandoAtualizar(
+      empresa.id,
+      await conversaDesdeReset(empresa.id, chaveConversa),
+      texto,
+      assistente,
+      APP_URL
+    );
+    if (corpoA) {
+      await prisma.nestorConversa.create({
+        data: { companyId: empresa.id, telefone: chaveConversa, papel: "ASSISTENTE", texto: corpoA, autorNome: assistente },
+      });
+      await enviarEvolution(empresa, key.remoteJid, corpoA);
+      await auditarRemetente(empresa.id, remetente, assistente, "Atualização de orçamento via WhatsApp");
       continue;
     }
 
