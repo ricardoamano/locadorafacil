@@ -49,9 +49,39 @@ export async function PUT(
 
   const fatura = await prisma.$transaction(async (tx) => {
     await tx.faturaItem.deleteMany({ where: { faturaId: id } });
+
+    // Trocou o CNPJ emissor antes de emitir? A fatura muda de sequência e
+    // ganha o próximo número da nova sequência (cada emissora conta à parte).
+    const novaEmissoraId =
+      body.emissoraId !== undefined ? body.emissoraId || null : existing.emissoraId;
+    let novoNumero: number | undefined;
+    if (novaEmissoraId !== existing.emissoraId) {
+      const last = await tx.fatura.findFirst({
+        where: { companyId, emissoraId: novaEmissoraId, NOT: { id } },
+        orderBy: { numero: "desc" },
+        select: { numero: true },
+      });
+      let piso = 1;
+      if (novaEmissoraId) {
+        const em = await tx.empresaEmissora.findFirst({
+          where: { id: novaEmissoraId, companyId },
+          select: { faturaNumeroInicial: true },
+        });
+        piso = em?.faturaNumeroInicial || 1;
+      } else {
+        const empresaNum = await tx.company.findUnique({
+          where: { id: companyId },
+          select: { faturaNumeroInicial: true },
+        });
+        piso = empresaNum?.faturaNumeroInicial || 1;
+      }
+      novoNumero = Math.max((last?.numero || 0) + 1, piso);
+    }
+
     const atualizada = await tx.fatura.update({
       where: { id },
       data: {
+        ...(novoNumero !== undefined ? { numero: novoNumero } : {}),
         isPostoServico:
           body.tipoDestinatario === "POSTO" || !!body.isPostoServico,
         tipoDestinatario:

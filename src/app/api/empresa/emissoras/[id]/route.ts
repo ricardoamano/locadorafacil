@@ -52,6 +52,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (b[k] !== undefined) data[k] = String(b[k] ?? "").trim() || null;
   if (b.bancoId !== undefined) data.bancoId = (b.bancoId as string)?.trim() || null;
   if (b.ativo !== undefined) data.ativo = !!b.ativo;
+  if (b.faturaNumeroInicial !== undefined)
+    data.faturaNumeroInicial =
+      b.faturaNumeroInicial === "" || b.faturaNumeroInicial == null
+        ? null
+        : Math.max(1, Number(b.faturaNumeroInicial) || 1);
   if (data.nome === null) delete data.nome;
 
   const emissora = await prisma.empresaEmissora.update({ where: { id }, data });

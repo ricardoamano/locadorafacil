@@ -39,6 +39,7 @@ interface Emissora {
   conta: string | null;
   pix: string | null;
   bancoId: string | null;
+  faturaNumeroInicial: number | null;
   ativo: boolean;
   bancoRef?: { nome: string } | null;
   _count?: { faturas: number };
@@ -270,6 +271,18 @@ export default function EmissorasPage() {
                 <Input label="Conta" value={form.conta || ""} onChange={(e) => setF("conta", e.target.value)} />
                 <Input label="PIX" value={form.pix || ""} onChange={(e) => setF("pix", e.target.value)} />
               </div>
+              <Input
+                label="Número inicial das faturas (sequência própria)"
+                type="number"
+                value={form.faturaNumeroInicial ?? ""}
+                onChange={(e) =>
+                  setF(
+                    "faturaNumeroInicial",
+                    e.target.value === "" ? null : Number(e.target.value)
+                  )
+                }
+                placeholder="Vazio = começa do 1"
+              />
               <Select
                 label="Conta no financeiro (o recebimento entra nela)"
                 value={form.bancoId || ""}

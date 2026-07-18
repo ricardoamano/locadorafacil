@@ -91,8 +91,9 @@ export async function POST(req: NextRequest) {
     if (eventos.length === 0) return { vazio: true as const };
 
     const valor = eventos.reduce((s, e) => s + (e.total || 0), 0);
+    // Sequência da empresa principal (faturas de emissoras contam à parte)
     const last = await tx.fatura.findFirst({
-      where: { companyId: sessao.companyId },
+      where: { companyId: sessao.companyId, emissoraId: null },
       orderBy: { numero: "desc" },
       select: { numero: true },
     });

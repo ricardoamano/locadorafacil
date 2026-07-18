@@ -1110,6 +1110,7 @@ model EmpresaEmissora {
   pix                String?
   bancoId            String?
   bancoRef           Banco?   @relation(fields: [bancoId], references: [id], onDelete: SetNull)
+  faturaNumeroInicial Int?    // piso da numeração própria desta emissora (migração)
   ativo              Boolean  @default(true)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt

@@ -80,11 +80,16 @@ export async function POST(req: NextRequest) {
   const usuario = session.user.email || session.user.name || "desconhecido";
 
   // Fatura por outro CNPJ do grupo: valida a emissora e captura a conta dela
-  let emissora: { id: string; nome: string; bancoId: string | null } | null = null;
+  let emissora: {
+    id: string;
+    nome: string;
+    bancoId: string | null;
+    faturaNumeroInicial: number | null;
+  } | null = null;
   if (body.emissoraId) {
     emissora = await prisma.empresaEmissora.findFirst({
       where: { id: body.emissoraId, companyId, ativo: true },
-      select: { id: true, nome: true, bancoId: true },
+      select: { id: true, nome: true, bancoId: true, faturaNumeroInicial: true },
     });
     if (!emissora)
       return NextResponse.json({ error: "Empresa emissora inválida" }, { status: 400 });
@@ -92,16 +97,24 @@ export async function POST(req: NextRequest) {
 
   // Numeração sequencial + criação de itens + receita (emissão direta) em transação
   const fatura = await prisma.$transaction(async (tx) => {
+    // Cada CNPJ tem a própria sequência: a principal conta as faturas sem
+    // emissora; cada emissora conta só as dela (com piso configurável).
     const last = await tx.fatura.findFirst({
-      where: { companyId },
+      where: { companyId, emissoraId: emissora?.id || null },
       orderBy: { numero: "desc" },
       select: { numero: true },
     });
-    const empresaNum = await tx.company.findUnique({
-      where: { id: companyId },
-      select: { faturaNumeroInicial: true },
-    });
-    const numero = Math.max((last?.numero || 0) + 1, empresaNum?.faturaNumeroInicial || 1);
+    let piso = 1;
+    if (emissora) {
+      piso = emissora.faturaNumeroInicial || 1;
+    } else {
+      const empresaNum = await tx.company.findUnique({
+        where: { id: companyId },
+        select: { faturaNumeroInicial: true },
+      });
+      piso = empresaNum?.faturaNumeroInicial || 1;
+    }
+    const numero = Math.max((last?.numero || 0) + 1, piso);
 
     const nova = await tx.fatura.create({
       data: {

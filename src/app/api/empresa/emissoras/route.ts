@@ -38,6 +38,11 @@ function dadosDoBody(b: Record<string, unknown>) {
     if (b[k] !== undefined) data[k] = String(b[k] ?? "").trim() || null;
   if (b.bancoId !== undefined) data.bancoId = (b.bancoId as string)?.trim() || null;
   if (b.ativo !== undefined) data.ativo = !!b.ativo;
+  if (b.faturaNumeroInicial !== undefined)
+    data.faturaNumeroInicial =
+      b.faturaNumeroInicial === "" || b.faturaNumeroInicial == null
+        ? null
+        : Math.max(1, Number(b.faturaNumeroInicial) || 1);
   return data;
 }
 
