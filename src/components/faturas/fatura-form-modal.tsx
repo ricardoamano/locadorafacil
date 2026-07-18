@@ -50,6 +50,7 @@ interface FaturaFormData {
   id?: string;
   numero?: number;
   tipoDestinatario: string;
+  emissoraId: string;
   orcamentoId: string;
   clienteId: string;
   clienteNome: string;
@@ -86,6 +87,7 @@ function precoDoPeriodo(item: ItemOpt | undefined, periodo: string): number {
 function emptyForm(): FaturaFormData {
   return {
     tipoDestinatario: "CLIENTE",
+    emissoraId: "",
     orcamentoId: "",
     clienteId: "",
     clienteNome: "",
@@ -117,6 +119,7 @@ export function FaturaFormModal({
   const [orcamentos, setOrcamentos] = useState<OrcamentoOpt[]>([]);
   const [postos, setPostos] = useState<PostoOpt[]>([]);
   const [itensCatalogo, setItensCatalogo] = useState<ItemOpt[]>([]);
+  const [emissoras, setEmissoras] = useState<{ id: string; nome: string; cnpj: string | null }[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -126,6 +129,7 @@ export function FaturaFormModal({
           ...emptyForm(),
           ...initial,
           tipoDestinatario: initial.tipoDestinatario || "CLIENTE",
+          emissoraId: initial.emissoraId || "",
           orcamentoId: initial.orcamentoId || "",
           clienteId: initial.clienteId || "",
           mesRef: initial.mesRef || "",
@@ -159,6 +163,14 @@ export function FaturaFormModal({
         .then((r) => r.json())
         .then((d) => setItensCatalogo(d.itens || []))
         .catch(() => setItensCatalogo([]));
+      fetch("/api/empresa/emissoras")
+        .then((r) => (r.ok ? r.json() : { emissoras: [] }))
+        .then((d) =>
+          setEmissoras(
+            (d.emissoras || []).filter((e: { ativo?: boolean }) => e.ativo !== false)
+          )
+        )
+        .catch(() => setEmissoras([]));
     }
   }, [open, initial]);
 
@@ -273,6 +285,30 @@ export function FaturaFormModal({
           </p>
         )}
         <div className={`space-y-4 ${emitida ? "opacity-60 pointer-events-none" : ""}`}>
+          {/* Empresa emissora — faturar por outro CNPJ do grupo */}
+          {emissoras.length > 0 && (
+            <div>
+              <Select
+                label="Emitir por"
+                value={form.emissoraId}
+                onChange={(e) => setField("emissoraId", e.target.value)}
+                options={[
+                  { value: "", label: "Empresa principal (padrão)" },
+                  ...emissoras.map((em) => ({
+                    value: em.id,
+                    label: `${em.nome}${em.cnpj ? ` — ${em.cnpj}` : ""}`,
+                  })),
+                ]}
+              />
+              {form.emissoraId && (
+                <p className="text-xs text-violet-600 mt-1">
+                  O recibo sai com os dados/logo dessa empresa e o recebimento entra na conta dela
+                  no fluxo de caixa.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Destinatário */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Select

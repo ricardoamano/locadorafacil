@@ -17,7 +17,7 @@ export async function GET(
   const { id } = await params;
   const fatura = await prisma.fatura.findFirst({
     where: { id, companyId },
-    include: { cliente: true, orcamento: { select: { numero: true } } },
+    include: { cliente: true, orcamento: { select: { numero: true } }, emissora: true },
   });
   if (!fatura) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -49,7 +49,7 @@ export async function POST(
   const { id } = await params;
   const fatura = await prisma.fatura.findFirst({
     where: { id, companyId },
-    include: { cliente: true, orcamento: { select: { numero: true } } },
+    include: { cliente: true, orcamento: { select: { numero: true } }, emissora: true },
   });
   if (!fatura) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -77,7 +77,31 @@ export async function POST(
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-function buildDados(fatura: any, empresa: any) {
+function buildDados(fatura: any, empresaPrincipal: any) {
+  // Fatura por outro CNPJ do grupo: a empresa emissora assina o documento
+  // (razão social, CNPJ, endereço, logo e dados bancários dela)
+  const em = fatura.emissora;
+  const empresa = em
+    ? {
+        name: em.nome,
+        razaoSocial: em.razaoSocial || em.nome,
+        cnpj: em.cnpj,
+        rua: em.rua,
+        numero: em.numero,
+        bairro: em.bairro,
+        cidade: em.cidade,
+        estado: em.estado,
+        cep: em.cep,
+        logoUrl: em.logoUrl,
+        naturezaOperacao: em.naturezaOperacao,
+        banco: em.banco,
+        agencia: em.agencia,
+        conta: em.conta,
+        pix: em.pix,
+        observacaoFatura: em.observacaoFatura,
+      }
+    : empresaPrincipal;
+
   const enderecoEmpresa = [
     empresa?.rua && `${empresa.rua}${empresa.numero ? `, ${empresa.numero}` : ""}`,
     empresa?.bairro,

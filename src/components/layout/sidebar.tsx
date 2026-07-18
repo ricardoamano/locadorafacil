@@ -36,6 +36,7 @@ import {
   LogOut,
   BarChart3,
   PhoneCall,
+  Landmark,
 } from "lucide-react";
 import React from "react";
 import { signOut } from "next-auth/react";
@@ -102,6 +103,7 @@ const navItems: NavEntry[] = [
     icon: Settings,
     children: [
       { href: "/configuracoes/empresa", label: "Dados da Empresa", icon: Settings },
+      { href: "/configuracoes/emissoras", label: "Empresas Emissoras", icon: Landmark },
       { href: "/configuracoes/usuarios", label: "Usuários", icon: Users },
       { href: "/configuracoes/perfis", label: "Perfis e Acessos", icon: ShieldCheck },
       { href: "/configuracoes/pagamentos", label: "Métodos de Pagamento", icon: DollarSign },

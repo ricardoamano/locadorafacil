@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         orcamento: { select: { id: true, numero: true } },
+        emissora: { select: { id: true, nome: true } },
         itens: true,
       },
       orderBy: { numero: "desc" },
@@ -78,6 +79,17 @@ export async function POST(req: NextRequest) {
   const origem = body.orcamentoId ? "ORCAMENTO" : "DIRETA";
   const usuario = session.user.email || session.user.name || "desconhecido";
 
+  // Fatura por outro CNPJ do grupo: valida a emissora e captura a conta dela
+  let emissora: { id: string; nome: string; bancoId: string | null } | null = null;
+  if (body.emissoraId) {
+    emissora = await prisma.empresaEmissora.findFirst({
+      where: { id: body.emissoraId, companyId, ativo: true },
+      select: { id: true, nome: true, bancoId: true },
+    });
+    if (!emissora)
+      return NextResponse.json({ error: "Empresa emissora inválida" }, { status: 400 });
+  }
+
   // Numeração sequencial + criação de itens + receita (emissão direta) em transação
   const fatura = await prisma.$transaction(async (tx) => {
     const last = await tx.fatura.findFirst({
@@ -98,6 +110,7 @@ export async function POST(req: NextRequest) {
           body.tipoDestinatario === "POSTO" || !!body.isPostoServico,
         tipoDestinatario: body.tipoDestinatario === "POSTO" ? "POSTO" : "CLIENTE",
         origem,
+        emissoraId: emissora?.id || null,
         justificativa: body.justificativa || null,
         orcamentoId: body.orcamentoId || null,
         clienteId: body.clienteId || null,
@@ -137,14 +150,32 @@ export async function POST(req: NextRequest) {
             tipo: "RECEITA",
             faturaId: nova.id,
             valor,
+            // dinheiro entra na conta da emissora quando a fatura é de outro CNPJ
+            bancoId: emissora?.bancoId || null,
             observacao: `Gerada automaticamente na emissão direta da fatura #${numero} por ${usuario}${
-              body.justificativa ? ` — Justificativa: ${body.justificativa}` : ""
-            }`,
+              emissora ? ` — Emitida por ${emissora.nome}` : ""
+            }${body.justificativa ? ` — Justificativa: ${body.justificativa}` : ""}`,
             status: "PENDENTE",
             companyId,
           },
         });
       }
+    }
+
+    // Fatura de orçamento emitida por outro CNPJ: aponta a receita da aprovação
+    // (ainda sem banco definido) para a conta da emissora e vincula à fatura
+    if (origem === "ORCAMENTO" && emissora) {
+      await tx.transacao.updateMany({
+        where: {
+          companyId,
+          orcamentoId: body.orcamentoId,
+          faturaId: null,
+          conciliadaEm: null,
+          bancoId: null,
+          tipo: "RECEITA",
+        },
+        data: { bancoId: emissora.bancoId, faturaId: nova.id },
+      });
     }
 
     return nova;

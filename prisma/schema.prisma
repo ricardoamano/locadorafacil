@@ -877,6 +877,8 @@ model Fatura {
   origem           String    @default("ORCAMENTO")
   justificativa    String?
   isPostoServico Boolean   @default(false)
+  emissoraId     String?   // outro CNPJ do grupo assinando a fatura (null = empresa principal)
+  emissora       EmpresaEmissora? @relation(fields: [emissoraId], references: [id])
   orcamentoId    String?
   orcamento      Orcamento? @relation(fields: [orcamentoId], references: [id])
   clienteId      String?
@@ -1077,6 +1079,44 @@ model Banco {
 
   transacoes    Transacao[]
   extratoLinhas ExtratoLinha[]
+  emissoras     EmpresaEmissora[]
+}
+
+// Empresa emissora: outro CNPJ do grupo que pode assinar faturas/recibos.
+// O orçamento continua na empresa principal; só a emissão (e a conta que
+// recebe) muda. bancoId liga ao banco do financeiro para o fluxo de caixa.
+model EmpresaEmissora {
+  id                 String   @id @default(cuid())
+  companyId          String
+  nome               String   // nome fantasia / apelido no seletor
+  razaoSocial        String?
+  cnpj               String?
+  inscricaoEstadual  String?
+  inscricaoMunicipal String?
+  cep                String?
+  rua                String?
+  numero             String?
+  bairro             String?
+  cidade             String?
+  estado             String?
+  telefone           String?
+  email              String?
+  logoUrl            String?
+  naturezaOperacao   String?
+  observacaoFatura   String?
+  banco              String?
+  agencia            String?
+  conta              String?
+  pix                String?
+  bancoId            String?
+  bancoRef           Banco?   @relation(fields: [bancoId], references: [id], onDelete: SetNull)
+  ativo              Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  faturas Fatura[]
+
+  @@index([companyId])
 }
 
 model ModeloContrato {

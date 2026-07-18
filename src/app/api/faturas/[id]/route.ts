@@ -57,6 +57,7 @@ export async function PUT(
         tipoDestinatario:
           body.tipoDestinatario === "POSTO" ? "POSTO" : "CLIENTE",
         justificativa: body.justificativa || null,
+        ...(body.emissoraId !== undefined ? { emissoraId: body.emissoraId || null } : {}),
         orcamentoId: body.orcamentoId || null,
         clienteId: body.clienteId || null,
         clienteNome: body.clienteNome,

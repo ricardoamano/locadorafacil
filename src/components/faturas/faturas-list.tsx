@@ -24,6 +24,7 @@ interface Fatura {
   numero: number;
   isPostoServico: boolean;
   clienteNome: string;
+  emissora?: { id: string; nome: string } | null;
   mesRef: string;
   dataEmissao: string;
   dataVencimento: string;
@@ -208,6 +209,11 @@ export function FaturasList() {
                       </p>
                       {f.isPostoServico && (
                         <Badge variant="info">Posto de Serviço</Badge>
+                      )}
+                      {f.emissora && (
+                        <p className="text-[11px] text-violet-600">
+                          Emitida por {f.emissora.nome}
+                        </p>
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-500">
