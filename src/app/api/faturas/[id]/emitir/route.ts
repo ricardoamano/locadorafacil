@@ -150,7 +150,8 @@ function buildDados(fatura: any, empresaPrincipal: any, contaPrincipal?: any) {
     isPostoServico: fatura.isPostoServico,
     orcamentoNumero: fatura.orcamento?.numero ?? null,
     empresa: {
-      nome: empresa?.name || "",
+      // Nome impresso no recibo: registro legal (nomeFatura) quando difere do comercial
+      nome: em ? empresa?.name || "" : empresaPrincipal?.nomeFatura || empresa?.name || "",
       razaoSocial: empresa?.razaoSocial || empresa?.name || "",
       cnpj: empresa?.cnpj || "",
       endereco: enderecoEmpresa,

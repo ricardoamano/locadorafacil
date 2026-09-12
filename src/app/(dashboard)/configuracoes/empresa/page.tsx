@@ -20,7 +20,7 @@ const estadoOptions = [
 ].map((e) => ({ value: e, label: e }));
 
 const campos = [
-  "name","razaoSocial","cnpj","inscricaoEstadual","inscricaoMunicipal",
+  "name","nomeFatura","razaoSocial","cnpj","inscricaoEstadual","inscricaoMunicipal",
   "cep","rua","numero","bairro","complemento","cidade","estado",
   "telefone","email","site","logoUrl",
   "logoUrlClara","logoUrlIcone","corPrimaria","corSecundaria",
@@ -199,6 +199,12 @@ export default function EmpresaConfigPage() {
                   <Input label="Nome Fantasia *" value={form.name} onChange={(e) => set("name", e.target.value)} />
                   <Input label="Razão Social" value={form.razaoSocial} onChange={(e) => set("razaoSocial", e.target.value)} />
                 </div>
+                <Input
+                  label="Nome no recibo/fatura (registro legal) — vazio = usa o Nome Fantasia"
+                  value={form.nomeFatura}
+                  onChange={(e) => set("nomeFatura", e.target.value)}
+                  placeholder="Ex.: Neostore Soluções para Eventos"
+                />
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <Input label="CNPJ ou CPF" value={form.cnpj} onChange={(e) => set("cnpj", formatDoc(e.target.value))} placeholder="00.000.000/0000-00" />
                   <Input label="Insc. Estadual" value={form.inscricaoEstadual} onChange={(e) => set("inscricaoEstadual", e.target.value)} />

@@ -64,6 +64,7 @@ export async function PUT(req: NextRequest) {
     data: {
       ...(b.name?.trim() ? { name: b.name } : {}),
       ...(slugFinal ? { slug: slugFinal } : {}),
+      ...campoTexto("nomeFatura"),
       ...campoTexto("razaoSocial"),
       ...campoTexto("cnpj"),
       ...campoTexto("inscricaoEstadual"),
