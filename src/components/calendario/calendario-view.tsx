@@ -46,14 +46,16 @@ interface Evento {
   dataInicio: string | null;
   dataFim: string | null;
   cliente: { nomeFantasia: string };
-  agendaSoMarcos?: boolean; // marcado no orçamento: locação longa, só início/fim
+  agendaSoMarcos?: boolean; // legado
+  agendaModo?: "TODOS" | "MARCOS" | "DATAS"; // escolhido no orçamento
+  agendaDatas?: string[] | null; // "YYYY-MM-DD" quando DATAS
   os?: { horarioMontagem: string | null; horarioDesmontagem: string | null } | null;
 }
 
 // Modo de exibição: todos os dias do evento, ou só os marcos
 // (montagem · 1º dia · último dia · desmontagem)
 type Modo = "todos" | "marcos";
-type Marco = "montagem" | "inicio" | "fim" | "unico" | "desmontagem";
+type Marco = "montagem" | "inicio" | "fim" | "unico" | "desmontagem" | "dia";
 interface Chip {
   ev: Evento;
   marco?: Marco;
@@ -64,6 +66,7 @@ const MARCO_LABEL: Record<Marco, { icone: string; label: string }> = {
   fim: { icone: "⏹", label: "Último dia" },
   unico: { icone: "●", label: "Evento" },
   desmontagem: { icone: "📦", label: "Desmontagem" },
+  dia: { icone: "📍", label: "Dia escolhido" },
 };
 const CHAVE_MODO = "calendario.modo";
 
@@ -144,8 +147,16 @@ export function CalendarioView() {
       const ini = soDia(ev.dataInicio);
       const fim = ev.dataFim ? soDia(ev.dataFim) : ini;
 
+      // Datas escolhidas à mão no orçamento: só elas, em qualquer modo
+      if (ev.agendaModo === "DATAS") {
+        for (const s of ev.agendaDatas || []) {
+          const [a, m, dd] = s.split("-").map(Number);
+          if (a && m && dd) poe(new Date(a, m - 1, dd), { ev, marco: "dia" });
+        }
+        continue;
+      }
       // O orçamento pode pedir "só início e fim" por conta própria (locações longas)
-      if (modo === "marcos" || ev.agendaSoMarcos) {
+      if (modo === "marcos" || ev.agendaModo === "MARCOS" || ev.agendaSoMarcos) {
         const montagem = ev.dataMontagem || ev.os?.horarioMontagem;
         const desmontagem = ev.os?.horarioDesmontagem;
         if (montagem) {

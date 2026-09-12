@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { normalizarAgendaModo, normalizarAgendaDatas } from "@/lib/agenda-orcamento";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
@@ -168,7 +169,13 @@ export async function PUT(
         descontoTipo: body.descontoTipo || "valor",
         total,
         projetoEspecial: ehProjeto,
-        ...(body.agendaSoMarcos !== undefined ? { agendaSoMarcos: Boolean(body.agendaSoMarcos) } : {}),
+        ...(body.agendaModo !== undefined
+          ? {
+              agendaModo: normalizarAgendaModo(body.agendaModo),
+              agendaDatas:
+                normalizarAgendaModo(body.agendaModo) === "DATAS" ? normalizarAgendaDatas(body.agendaDatas) : [],
+            }
+          : {}),
         ...(ehProjeto && body.conteudoProjeto !== undefined
           ? { conteudoProjeto: body.conteudoProjeto || null }
           : {}),

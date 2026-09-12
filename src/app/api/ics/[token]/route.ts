@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { normalizarAgendaDatas, dataLocal } from "@/lib/agenda-orcamento";
 
 // Feed iCal privado da empresa — assinado no Google Agenda por URL.
 // Cada empresa tem seu próprio token (multiempresa), revogável em Configurações.
@@ -85,9 +86,15 @@ export async function GET(
         "END:VEVENT"
       );
 
-    // Locação longa marcada "só início e fim": dois eventos de 1 dia em vez de
-    // um bloco ocupando semanas/meses da agenda
-    if (orc.agendaSoMarcos && icsDate(inicio) !== icsDate(fim)) {
+    const soMarcos = orc.agendaModo === "MARCOS" || orc.agendaSoMarcos;
+    if (orc.agendaModo === "DATAS") {
+      // Datas escolhidas à mão: um evento de 1 dia para cada
+      for (const s of normalizarAgendaDatas(orc.agendaDatas)) {
+        const d = dataLocal(s);
+        evento(`dia-${s}`, d, d, titulo);
+      }
+    } else if (soMarcos && icsDate(inicio) !== icsDate(fim)) {
+      // Locação longa "só início e fim": dois eventos de 1 dia em vez de um bloco de meses
       evento("orc", inicio, inicio, `▶ Início · ${titulo}`);
       evento("orc-fim", fim, fim, `⏹ Fim · ${titulo}`);
     } else {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { normalizarAgendaModo, normalizarAgendaDatas } from "@/lib/agenda-orcamento";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
@@ -140,7 +141,8 @@ export async function POST(req: NextRequest) {
       descontoTipo: body.descontoTipo || "valor",
       total,
       projetoEspecial: ehProjeto,
-      agendaSoMarcos: Boolean(body.agendaSoMarcos),
+      agendaModo: normalizarAgendaModo(body.agendaModo),
+      agendaDatas: normalizarAgendaModo(body.agendaModo) === "DATAS" ? normalizarAgendaDatas(body.agendaDatas) : [],
       conteudoProjeto: ehProjeto ? body.conteudoProjeto || null : null,
       valorProjeto,
       companyId,

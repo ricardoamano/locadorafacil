@@ -79,7 +79,8 @@ export interface OrcamentoFormValue {
   dataMontagem: string;
   dataInicio: string;
   dataFim: string;
-  agendaSoMarcos: boolean;
+  agendaModo: "TODOS" | "MARCOS" | "DATAS";
+  agendaDatas: string[];
   observacoes: string;
   obsInternas: string;
   formaPagamento: string;
@@ -118,7 +119,8 @@ function emptyValue(): OrcamentoFormValue {
     dataMontagem: "",
     dataInicio: "",
     dataFim: "",
-    agendaSoMarcos: false,
+    agendaModo: "TODOS",
+    agendaDatas: [],
     observacoes: "",
     obsInternas: "",
     formaPagamento: "",
@@ -293,7 +295,13 @@ export function OrcamentoForm({
         dataMontagem: initial.dataMontagem ? initial.dataMontagem.slice(0, 10) : "",
         dataInicio: initial.dataInicio ? initial.dataInicio.slice(0, 10) : "",
         dataFim: initial.dataFim ? initial.dataFim.slice(0, 10) : "",
-        agendaSoMarcos: Boolean(initial.agendaSoMarcos),
+        agendaModo:
+          initial.agendaModo === "MARCOS" || initial.agendaModo === "DATAS"
+            ? initial.agendaModo
+            : initial.agendaSoMarcos
+              ? "MARCOS"
+              : "TODOS",
+        agendaDatas: Array.isArray(initial.agendaDatas) ? initial.agendaDatas.map(String) : [],
         observacoes: initial.observacoes || "",
         obsInternas: initial.obsInternas || "",
         formaPagamento: initial.formaPagamento || "",
@@ -318,6 +326,33 @@ export function OrcamentoForm({
 
   function set<K extends keyof OrcamentoFormValue>(key: K, value: OrcamentoFormValue[K]) {
     setForm((p) => ({ ...p, [key]: value }));
+  }
+
+  // Agenda em "datas específicas": lista de dias escolhidos à mão
+  const [novaDataAgenda, setNovaDataAgenda] = useState("");
+  function adicionarDataAgenda() {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(novaDataAgenda)) return;
+    if (!form.agendaDatas.includes(novaDataAgenda))
+      set("agendaDatas", [...form.agendaDatas, novaDataAgenda].sort());
+    setNovaDataAgenda("");
+  }
+  function preencherDatasDoPeriodo() {
+    const [a1, m1, d1] = form.dataInicio.split("-").map(Number);
+    const [a2, m2, d2] = form.dataFim.split("-").map(Number);
+    const d = new Date(a1, m1 - 1, d1, 12);
+    const fim = new Date(a2, m2 - 1, d2, 12);
+    const datas: string[] = [];
+    for (let g = 0; d <= fim && g < 366; g++) {
+      datas.push(
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+      );
+      d.setDate(d.getDate() + 1);
+    }
+    set("agendaDatas", datas);
+  }
+  function formatarDataCurta(ymd: string) {
+    const [a, m, d] = ymd.split("-");
+    return `${d}/${m}/${a.slice(2)}`;
   }
 
   function toggle(key: string) {
@@ -778,21 +813,90 @@ export function OrcamentoForm({
               </Button>
             </div>
           </div>
-          {/* Locações longas (meses): na agenda só o 1º e o último dia */}
-          <label className="flex items-start gap-2 cursor-pointer select-none text-sm text-slate-700">
-            <input
-              type="checkbox"
-              checked={form.agendaSoMarcos}
-              onChange={(e) => set("agendaSoMarcos", e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded"
-            />
-            <span>
-              Na agenda, mostrar só início e fim
-              <span className="block text-xs text-slate-400">
-                Para locações longas (ex.: tablets por meses) — não ocupa todos os dias do calendário.
-              </span>
-            </span>
-          </label>
+          {/* Como este orçamento aparece no calendário / Google Agenda */}
+          <div className="rounded-lg border border-slate-200 p-3 space-y-2">
+            <p className="text-sm font-medium text-slate-700">Como aparece na agenda</p>
+            <div className="flex flex-wrap gap-1.5">
+              {(
+                [
+                  { v: "TODOS", label: "Todos os dias", dica: "Do início ao fim, dia a dia" },
+                  { v: "MARCOS", label: "Só início e fim", dica: "Locações longas (meses)" },
+                  { v: "DATAS", label: "Datas específicas", dica: "Você escolhe os dias" },
+                ] as { v: OrcamentoFormValue["agendaModo"]; label: string; dica: string }[]
+              ).map((o) => (
+                <button
+                  key={o.v}
+                  type="button"
+                  title={o.dica}
+                  onClick={() => set("agendaModo", o.v)}
+                  className={`px-3 py-1.5 rounded-md text-xs border transition-colors ${
+                    form.agendaModo === o.v
+                      ? "bg-slate-900 text-white border-slate-900"
+                      : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+            {form.agendaModo === "DATAS" && (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="date"
+                    value={novaDataAgenda}
+                    min={form.dataMontagem || form.dataInicio || undefined}
+                    onChange={(e) => setNovaDataAgenda(e.target.value)}
+                    className="h-9 rounded-lg border border-slate-200 px-3 text-sm"
+                  />
+                  <Button type="button" variant="outline" size="sm" onClick={adicionarDataAgenda} disabled={!novaDataAgenda}>
+                    <Plus className="h-4 w-4" />
+                    Adicionar dia
+                  </Button>
+                  {form.dataInicio && form.dataFim && (
+                    <button
+                      type="button"
+                      onClick={preencherDatasDoPeriodo}
+                      className="text-xs text-blue-700 underline"
+                      title="Coloca todos os dias entre início e fim para você tirar os que não quer"
+                    >
+                      usar o período todo e ajustar
+                    </button>
+                  )}
+                </div>
+                {form.agendaDatas.length === 0 ? (
+                  <p className="text-xs text-amber-700">
+                    Nenhum dia escolhido ainda — sem datas, o evento não aparece na agenda.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {form.agendaDatas.map((d) => (
+                      <span
+                        key={d}
+                        className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-100 px-2.5 py-1 text-xs text-blue-800"
+                      >
+                        {formatarDataCurta(d)}
+                        <button
+                          type="button"
+                          onClick={() => set("agendaDatas", form.agendaDatas.filter((x) => x !== d))}
+                          className="text-blue-400 hover:text-red-600"
+                          title="Remover"
+                          aria-label={`Remover ${formatarDataCurta(d)}`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            <p className="text-xs text-slate-400">
+              {form.agendaModo === "TODOS" && "O evento ocupa todos os dias entre início e fim no calendário e no Google Agenda."}
+              {form.agendaModo === "MARCOS" && "Aparece só no 1º e no último dia — bom para locações de semanas ou meses."}
+              {form.agendaModo === "DATAS" && "Aparece só nos dias escolhidos — ex.: orçou 7 dias, mas o totem roda em 3."}
+            </p>
+          </div>
         </div>
       </Section>
 
