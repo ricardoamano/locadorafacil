@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { RevisaoDivergencias, type Decisao } from "@/components/ui/revisao-divergencias";
 import { ArrowLeft, Sparkles, Trash2, Plus, PackagePlus, FileSpreadsheet } from "lucide-react";
 
 // Importação em massa de itens: cole a lista (do Bubble, planilha ou digitada),
@@ -28,6 +29,13 @@ export default function ImportarItensPage() {
   const [linhas, setLinhas] = useState<Linha[] | null>(null);
   const [analisando, setAnalisando] = useState(false);
   const [criando, setCriando] = useState(false);
+  // Comparação com o que já existe (novos / iguais / divergentes) + decisões
+  const [comparacao, setComparacao] = useState<{
+    novos: number;
+    iguais: number;
+    divergentes: { chave: string; titulo: string; existenteResumo: string; diffs: { campo: string; label: string; atual: string; novo: string }[] }[];
+  } | null>(null);
+  const [decisoes, setDecisoes] = useState<Record<string, Decisao>>({});
   // Modo planilha/CSV: cabeçalho + linhas + mapa coluna→campo
   const [csv, setCsv] = useState<{ cabecalho: string[]; dados: string[][] } | null>(null);
   const [mapa, setMapa] = useState<Record<string, number>>({});
@@ -151,6 +159,8 @@ export default function ImportarItensPage() {
     ]);
   }
 
+  // 1º clique: compara com o que já existe. Se houver divergências, mostra a
+  // revisão; senão (ou no 2º clique, já com as decisões) grava.
   async function criar() {
     const validas = (linhas || []).filter((l) => l.nome.trim());
     if (validas.length === 0) {
@@ -159,19 +169,41 @@ export default function ImportarItensPage() {
     }
     setCriando(true);
     try {
+      if (!comparacao) {
+        const resC = await fetch("/api/itens/importar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ itens: validas, modo: "comparar" }),
+        });
+        const c = await resC.json();
+        if (!resC.ok) throw new Error(c.error);
+        if (c.divergentes.length > 0) {
+          setComparacao(c);
+          toast(
+            `${c.divergentes.length} item(ns) já existem com dados diferentes — decida abaixo antes de gravar.`,
+            "info"
+          );
+          return;
+        }
+      }
       const res = await fetch("/api/itens/importar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itens: validas }),
+        body: JSON.stringify({ itens: validas, decisoes }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);
       toast(
-        `${d.criados} itens criados${d.atualizados ? ` e ${d.atualizados} já existentes atualizados (quantidade/diária)` : ""}. Revise-os quando puder.`,
+        `${d.criados} itens criados` +
+          (d.atualizados ? ` · ${d.atualizados} atualizados` : "") +
+          (d.mantidos ? ` · ${d.mantidos} mantidos como estavam` : "") +
+          ". Revise-os quando puder.",
         "success"
       );
       setLinhas(null);
       setTexto("");
+      setComparacao(null);
+      setDecisoes({});
     } catch (e) {
       toast(e instanceof Error ? e.message : "Erro ao criar.", "error");
     } finally {
@@ -375,6 +407,17 @@ export default function ImportarItensPage() {
             </table>
           </div>
 
+          {comparacao && (
+            <RevisaoDivergencias
+              divergentes={comparacao.divergentes}
+              decisoes={decisoes}
+              onChange={(chave, d) => setDecisoes((p) => ({ ...p, [chave]: d }))}
+              onTodos={(d) =>
+                setDecisoes(Object.fromEntries(comparacao.divergentes.map((x) => [x.chave, d])))
+              }
+            />
+          )}
+
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={addLinha}>
@@ -391,7 +434,7 @@ export default function ImportarItensPage() {
               </span>
               <Button onClick={criar} loading={criando}>
                 <PackagePlus className="h-4 w-4" />
-                Criar todos
+                {comparacao ? "Confirmar importação" : "Criar todos"}
               </Button>
             </div>
           </div>

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { clienteIa, extrairJson, MODELO_PROPOSTA } from "@/lib/ia";
 import { calcularPrecos } from "@/lib/precos";
 import { sincronizarUnidades } from "@/lib/unidades";
+import { compararRegistros, type Decisao } from "@/lib/importar-revisao";
 
 // Cadastro rápido de itens em lote — usado pela tela de importação (colar /
 // planilha) e pelo assistente de WhatsApp ("cadastra 4 TVs 55 Samsung...").
@@ -84,6 +85,46 @@ Regras:
 export interface ResultadoImport {
   criados: { codigo: string; nome: string; quantidade: number }[];
   atualizados: { codigo: string; nome: string; de: number; para: number }[];
+  mantidos: { codigo: string; nome: string }[];
+}
+
+/**
+ * Compara as linhas com os itens existentes (chave: nome + modelo, ou código
+ * quando informado) e separa novos / iguais / divergentes para revisão.
+ */
+export async function compararItens(companyId: string, linhas: LinhaItem[]) {
+  const existentes = await prisma.item.findMany({
+    where: { companyId },
+    select: {
+      id: true,
+      codigo: true,
+      nome: true,
+      modelo: true,
+      quantidade: true,
+      valorAluguel: true,
+      marca: { select: { nome: true } },
+      categoria: { select: { nome: true } },
+    },
+  });
+  const porCodigo = new Map(existentes.map((e) => [e.codigo, e]));
+  return compararRegistros(linhas, existentes, {
+    chaveNovo: (l) =>
+      l.codigo && porCodigo.has(l.codigo) ? `cod:${l.codigo}` : chaveItem(l.nome, l.modelo),
+    chaveExistente: (e) => chaveItem(e.nome, e.modelo),
+    idExistente: (e) => e.id,
+    resumoExistente: (e) =>
+      `[${e.codigo}] ${e.nome}${e.modelo ? ` ${e.modelo}` : ""} · ${e.quantidade} un. · diária R$ ${e.valorAluguel}`,
+    campos: [
+      { campo: "quantidade", label: "Quantidade", novo: (l) => l.quantidade || null, atual: (e) => e.quantidade },
+      { campo: "valorAluguel", label: "Diária (R$)", novo: (l) => l.valorAluguel || null, atual: (e) => e.valorAluguel || null },
+      { campo: "marca", label: "Marca", novo: (l) => l.marca || null, atual: (e) => e.marca?.nome || null },
+      { campo: "categoria", label: "Categoria", novo: (l) => l.categoria || null, atual: (e) => e.categoria?.nome || null },
+    ],
+  });
+}
+
+export function chaveDaLinha(l: LinhaItem): string {
+  return chaveItem(l.nome, l.modelo);
 }
 
 function chaveItem(nome: string, modelo: string | null | undefined): string {
@@ -98,7 +139,8 @@ function chaveItem(nome: string, modelo: string | null | undefined): string {
 /** Cria (ou atualiza, se já existir) cada linha. Marca/categoria por nome. */
 export async function importarItens(
   companyId: string,
-  linhas: LinhaItem[]
+  linhas: LinhaItem[],
+  decisoes: Record<string, Decisao> = {}
 ): Promise<ResultadoImport> {
   const empresa = await prisma.company.findUnique({ where: { id: companyId } });
   const precoCfg = {
@@ -146,10 +188,17 @@ export async function importarItens(
     return c.id;
   }
 
-  const resultado: ResultadoImport = { criados: [], atualizados: [] };
+  const resultado: ResultadoImport = { criados: [], atualizados: [], mantidos: [] };
 
   for (const l of linhas) {
-    const existente = porChave.get(chaveItem(l.nome, l.modelo));
+    const chave = chaveItem(l.nome, l.modelo);
+    const decisao = decisoes[chave] ?? (l.codigo ? decisoes[`cod:${l.codigo}`] : undefined);
+    // Revisão: "criar" força um registro novo mesmo existindo igual
+    const existente = decisao === "criar" ? undefined : porChave.get(chave);
+    if (existente && decisao === "manter") {
+      resultado.mantidos.push({ codigo: existente.codigo, nome: existente.nome });
+      continue;
+    }
     if (existente) {
       // Já existe → ajusta quantidade (e diária, se veio) sem duplicar
       const data: Record<string, unknown> = {};

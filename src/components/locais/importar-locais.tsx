@@ -4,12 +4,14 @@ import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
+import { RevisaoDivergencias, type Decisao } from "@/components/ui/revisao-divergencias";
 import { Upload, FileUp, CheckCircle2 } from "lucide-react";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 // Importa os espaços de evento (Locais) exportados do Bubble, cruzando com o
-// arquivo de endereços (opcional) para completar CEP/número quando possível.
+// arquivo de endereços (opcional). Não duplica: compara com os existentes e,
+// havendo divergência, você decide item a item antes de gravar.
 
 export function ImportarLocais({ onImportado }: { onImportado?: () => void }) {
   const { toast } = useToast();
@@ -19,6 +21,7 @@ export function ImportarLocais({ onImportado }: { onImportado?: () => void }) {
   const [nomeLocais, setNomeLocais] = useState("");
   const [nomeEnd, setNomeEnd] = useState("");
   const [previa, setPrevia] = useState<any | null>(null);
+  const [decisoes, setDecisoes] = useState<Record<string, Decisao>>({});
   const [carregando, setCarregando] = useState(false);
   const refLoc = useRef<HTMLInputElement>(null);
   const refEnd = useRef<HTMLInputElement>(null);
@@ -29,6 +32,7 @@ export function ImportarLocais({ onImportado }: { onImportado?: () => void }) {
     setNomeLocais("");
     setNomeEnd("");
     setPrevia(null);
+    setDecisoes({});
   }
 
   async function lerArquivo(file: File, alvo: "locais" | "enderecos") {
@@ -41,6 +45,7 @@ export function ImportarLocais({ onImportado }: { onImportado?: () => void }) {
       setNomeEnd(file.name);
     }
     setPrevia(null);
+    setDecisoes({});
   }
 
   async function chamar(confirmar: boolean) {
@@ -49,7 +54,12 @@ export function ImportarLocais({ onImportado }: { onImportado?: () => void }) {
       const res = await fetch("/api/import/locais", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ locaisCsv, enderecosCsv: enderecosCsv || undefined, confirmar }),
+        body: JSON.stringify({
+          locaisCsv,
+          enderecosCsv: enderecosCsv || undefined,
+          confirmar,
+          decisoes: confirmar ? decisoes : undefined,
+        }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);
@@ -57,9 +67,9 @@ export function ImportarLocais({ onImportado }: { onImportado?: () => void }) {
         setPrevia(d);
       } else {
         toast(
-          `✅ ${d.criados} local(is) importado(s)` +
-            (d.comEndereco ? ` (${d.comEndereco} com endereço completo)` : "") +
-            (d.pulados ? ` · ${d.pulados} já existiam` : ""),
+          `✅ ${d.criados} local(is) novo(s)` +
+            (d.atualizados ? ` · ${d.atualizados} atualizado(s)` : "") +
+            (d.mantidos ? ` · ${d.mantidos} já existiam (mantidos)` : ""),
           "success"
         );
         setAberto(false);
@@ -72,6 +82,8 @@ export function ImportarLocais({ onImportado }: { onImportado?: () => void }) {
       setCarregando(false);
     }
   }
+
+  const comp = previa?.comparacao;
 
   return (
     <>
@@ -88,9 +100,9 @@ export function ImportarLocais({ onImportado }: { onImportado?: () => void }) {
       >
         <ModalBody>
           <p className="text-sm text-slate-500 mb-4">
-            Envie o arquivo de <strong>Locais</strong> exportado do Bubble. Se enviar
-            também o de <strong>Endereços</strong>, o sistema completa CEP/número quando a
-            rua é única. Cada local guarda o id de origem para cruzar orçamentos depois.
+            Envie o arquivo de <strong>Locais</strong> exportado do Bubble (e, opcional, o de{" "}
+            <strong>Endereços</strong>). Nada duplica: o que já existe é reconhecido e, se os
+            dados forem diferentes, você decide um a um.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -135,39 +147,36 @@ export function ImportarLocais({ onImportado }: { onImportado?: () => void }) {
           </div>
 
           {previa && (
-            <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50/50 p-4">
-              <p className="text-sm font-semibold text-slate-900 mb-2 flex items-center gap-1.5">
-                <CheckCircle2 className="h-4 w-4 text-blue-600" />
-                Prévia
-              </p>
-              <div className="grid grid-cols-3 gap-2 text-center mb-3">
-                {[
-                  ["Locais", previa.stats.locais],
-                  ["Endereço completo", previa.stats.comEndereco],
-                  ["Só nome/rua", previa.stats.semEndereco],
-                ].map(([label, v]) => (
-                  <div key={label as string} className="bg-white rounded-lg border border-slate-100 py-2">
-                    <p className="text-lg font-bold text-slate-900">{v as number}</p>
-                    <p className="text-[11px] text-slate-500">{label as string}</p>
-                  </div>
-                ))}
+            <div className="mt-4 space-y-3">
+              <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-4">
+                <p className="text-sm font-semibold text-slate-900 mb-2 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                  Prévia
+                </p>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  {[
+                    ["Novos", comp?.novos ?? previa.stats.locais],
+                    ["Já existem (iguais)", comp?.iguais ?? 0],
+                    ["Divergentes", comp?.divergentes?.length ?? 0],
+                  ].map(([label, v]) => (
+                    <div key={label as string} className="bg-white rounded-lg border border-slate-100 py-2">
+                      <p className="text-lg font-bold text-slate-900">{v as number}</p>
+                      <p className="text-[11px] text-slate-500">{label as string}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="space-y-1 max-h-40 overflow-y-auto">
-                {previa.amostra.map((l: any, i: number) => (
-                  <div key={i} className="text-xs text-slate-600">
-                    <span className="font-medium text-slate-800">{l.nome}</span>
-                    {l.rua && (
-                      <span className="text-slate-400">
-                        {" "}
-                        — {l.rua}
-                        {l.numero ? `, ${l.numero}` : ""}
-                        {l.cidade ? ` (${l.cidade})` : ""}
-                      </span>
-                    )}
-                    {l.completo && <span className="ml-1 text-emerald-600">✓</span>}
-                  </div>
-                ))}
-              </div>
+
+              {comp?.divergentes?.length > 0 && (
+                <RevisaoDivergencias
+                  divergentes={comp.divergentes}
+                  decisoes={decisoes}
+                  onChange={(chave, d) => setDecisoes((p) => ({ ...p, [chave]: d }))}
+                  onTodos={(d) =>
+                    setDecisoes(Object.fromEntries(comp.divergentes.map((x: any) => [x.chave, d])))
+                  }
+                />
+              )}
             </div>
           )}
         </ModalBody>
@@ -181,7 +190,7 @@ export function ImportarLocais({ onImportado }: { onImportado?: () => void }) {
             </Button>
           ) : (
             <Button onClick={() => chamar(true)} loading={carregando}>
-              Importar {previa.stats.locais} local(is)
+              Importar ({comp?.novos ?? previa.stats.locais} novo(s))
             </Button>
           )}
         </ModalFooter>
