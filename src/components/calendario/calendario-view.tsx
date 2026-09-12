@@ -46,6 +46,7 @@ interface Evento {
   dataInicio: string | null;
   dataFim: string | null;
   cliente: { nomeFantasia: string };
+  agendaSoMarcos?: boolean; // marcado no orçamento: locação longa, só início/fim
   os?: { horarioMontagem: string | null; horarioDesmontagem: string | null } | null;
 }
 
@@ -143,7 +144,8 @@ export function CalendarioView() {
       const ini = soDia(ev.dataInicio);
       const fim = ev.dataFim ? soDia(ev.dataFim) : ini;
 
-      if (modo === "marcos") {
+      // O orçamento pode pedir "só início e fim" por conta própria (locações longas)
+      if (modo === "marcos" || ev.agendaSoMarcos) {
         const montagem = ev.dataMontagem || ev.os?.horarioMontagem;
         const desmontagem = ev.os?.horarioDesmontagem;
         if (montagem) {
@@ -252,7 +254,7 @@ export function CalendarioView() {
               title={
                 o.v === "marcos"
                   ? "Mostra só montagem, 1º dia, último dia e desmontagem"
-                  : "Mostra o evento em todos os dias entre início e fim"
+                  : "Mostra o evento em todos os dias entre início e fim (exceto orçamentos marcados 'só início e fim')"
               }
               className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
                 modo === o.v ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"

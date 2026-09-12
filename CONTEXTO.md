@@ -83,7 +83,10 @@ Sistema multiempresa de gestão de locação de equipamentos e serviços para ev
   do período + eventos separados de 🔧 montagem (`Orcamento.dataMontagem` ou `OS.horarioMontagem`) e
   📦 desmontagem (`OS.horarioDesmontagem`) quando caem fora do período.
 - Calendário interno (`calendario-view.tsx`): alternador **"Todos os dias" / "Só marcos"** (montagem · 1º dia ·
-  último dia · desmontagem), preferência salva por aparelho em localStorage. `/api/orcamentos` inclui
+  último dia · desmontagem), preferência salva por aparelho em localStorage. Além disso, cada orçamento tem
+  `Orcamento.agendaSoMarcos` (checkbox "Na agenda, mostrar só início e fim", seção 2 do formulário) para
+  locações longas (ex.: tablets por meses): esse orçamento só aparece no 1º e no último dia, no calendário e
+  no feed iCal, mesmo em "Todos os dias". `/api/orcamentos` inclui
   `os.horarioMontagem/horarioDesmontagem` para isso.
 - Tarefas por USUÁRIO: `User.tarefasIcsToken` → /api/ics-tarefas/[token] (botão no módulo Tarefas).
 

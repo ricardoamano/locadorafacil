@@ -140,6 +140,7 @@ export async function POST(req: NextRequest) {
       descontoTipo: body.descontoTipo || "valor",
       total,
       projetoEspecial: ehProjeto,
+      agendaSoMarcos: Boolean(body.agendaSoMarcos),
       conteudoProjeto: ehProjeto ? body.conteudoProjeto || null : null,
       valorProjeto,
       companyId,

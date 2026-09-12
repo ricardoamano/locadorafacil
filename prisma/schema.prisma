@@ -436,6 +436,7 @@ model Orcamento {
   total          Float    @default(0)
   // Projeto especial: proposta em texto livre (Markdown) em vez de itens/salas
   projetoEspecial Boolean @default(false)
+  agendaSoMarcos  Boolean @default(false) // na agenda, mostrar só início/fim (locações longas)
   conteudoProjeto String? // Markdown/texto colado pelo usuário
   valorProjeto    Float?  // valor total do projeto (antes do desconto)
   // Posto de serviço: consolidação mensal — qual fatura mensal já absorveu este orçamento

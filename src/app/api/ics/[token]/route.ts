@@ -71,19 +71,28 @@ export async function GET(
           .join(", ")
       : "";
 
-    linhas.push(
-      "BEGIN:VEVENT",
-      `UID:orc-${orc.id}@locadorafacil.app`,
-      `DTSTAMP:${dtstamp}`,
-      `DTSTART;VALUE=DATE:${icsDate(inicio)}`,
-      `DTEND;VALUE=DATE:${icsDate(addDays(fim, 1))}`,
-      `SUMMARY:${icsEscape(titulo)}`,
-      ...(local ? [`LOCATION:${icsEscape(local)}`] : []),
-      `DESCRIPTION:${icsEscape(
-        `Orçamento #${orc.numero} (${orc.status})${orc.tipoEvento ? ` · ${orc.tipoEvento}` : ""}`
-      )}`,
-      "END:VEVENT"
-    );
+    const descricao = `Orçamento #${orc.numero} (${orc.status})${orc.tipoEvento ? ` · ${orc.tipoEvento}` : ""}`;
+    const evento = (uid: string, de: Date, ate: Date, sumario: string) =>
+      linhas.push(
+        "BEGIN:VEVENT",
+        `UID:${uid}-${orc.id}@locadorafacil.app`,
+        `DTSTAMP:${dtstamp}`,
+        `DTSTART;VALUE=DATE:${icsDate(de)}`,
+        `DTEND;VALUE=DATE:${icsDate(addDays(ate, 1))}`,
+        `SUMMARY:${icsEscape(sumario)}`,
+        ...(local ? [`LOCATION:${icsEscape(local)}`] : []),
+        `DESCRIPTION:${icsEscape(descricao)}`,
+        "END:VEVENT"
+      );
+
+    // Locação longa marcada "só início e fim": dois eventos de 1 dia em vez de
+    // um bloco ocupando semanas/meses da agenda
+    if (orc.agendaSoMarcos && icsDate(inicio) !== icsDate(fim)) {
+      evento("orc", inicio, inicio, `▶ Início · ${titulo}`);
+      evento("orc-fim", fim, fim, `⏹ Fim · ${titulo}`);
+    } else {
+      evento("orc", inicio, fim, titulo);
+    }
 
     // Eventos separados para montagem e desmontagem (quando caem fora do período)
     const marcos: { uid: string; data: Date | null | undefined; titulo: string; ref: Date }[] = [

@@ -168,6 +168,7 @@ export async function PUT(
         descontoTipo: body.descontoTipo || "valor",
         total,
         projetoEspecial: ehProjeto,
+        ...(body.agendaSoMarcos !== undefined ? { agendaSoMarcos: Boolean(body.agendaSoMarcos) } : {}),
         ...(ehProjeto && body.conteudoProjeto !== undefined
           ? { conteudoProjeto: body.conteudoProjeto || null }
           : {}),

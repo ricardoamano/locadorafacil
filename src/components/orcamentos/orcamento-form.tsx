@@ -79,6 +79,7 @@ export interface OrcamentoFormValue {
   dataMontagem: string;
   dataInicio: string;
   dataFim: string;
+  agendaSoMarcos: boolean;
   observacoes: string;
   obsInternas: string;
   formaPagamento: string;
@@ -117,6 +118,7 @@ function emptyValue(): OrcamentoFormValue {
     dataMontagem: "",
     dataInicio: "",
     dataFim: "",
+    agendaSoMarcos: false,
     observacoes: "",
     obsInternas: "",
     formaPagamento: "",
@@ -291,6 +293,7 @@ export function OrcamentoForm({
         dataMontagem: initial.dataMontagem ? initial.dataMontagem.slice(0, 10) : "",
         dataInicio: initial.dataInicio ? initial.dataInicio.slice(0, 10) : "",
         dataFim: initial.dataFim ? initial.dataFim.slice(0, 10) : "",
+        agendaSoMarcos: Boolean(initial.agendaSoMarcos),
         observacoes: initial.observacoes || "",
         obsInternas: initial.obsInternas || "",
         formaPagamento: initial.formaPagamento || "",
@@ -775,6 +778,21 @@ export function OrcamentoForm({
               </Button>
             </div>
           </div>
+          {/* Locações longas (meses): na agenda só o 1º e o último dia */}
+          <label className="flex items-start gap-2 cursor-pointer select-none text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={form.agendaSoMarcos}
+              onChange={(e) => set("agendaSoMarcos", e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded"
+            />
+            <span>
+              Na agenda, mostrar só início e fim
+              <span className="block text-xs text-slate-400">
+                Para locações longas (ex.: tablets por meses) — não ocupa todos os dias do calendário.
+              </span>
+            </span>
+          </label>
         </div>
       </Section>
 
