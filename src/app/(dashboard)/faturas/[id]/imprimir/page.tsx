@@ -103,13 +103,13 @@ export default function ImprimirFaturaPage() {
       {/* Folha A4 */}
       <div className="mx-auto my-6 print:my-0 bg-white shadow-lg print:shadow-none max-w-[210mm] w-full">
         <div className="p-[10mm] print:p-[8mm]">
-          <div className="border-2 border-slate-900 rounded-sm">
+          <div className="border border-slate-800 rounded-lg overflow-hidden">
             {/* ── Cabeçalho ── */}
-            <div className="grid grid-cols-[45%_55%] border-b-2 border-slate-900">
+            <div className="grid grid-cols-[42%_58%] border-b border-slate-800">
               <div className="p-3 flex flex-col items-center justify-center text-center border-r border-slate-300">
                 {e.logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={e.logoUrl} alt={e.nome} className="max-h-14 object-contain mb-1" />
+                  <img src={e.logoUrl} alt={e.nome} className="max-h-16 object-contain mb-1.5" />
                 ) : (
                   <p className="text-xl font-black text-slate-900 mb-1">{e.nome}</p>
                 )}
@@ -159,41 +159,41 @@ export default function ImprimirFaturaPage() {
             </div>
 
             {/* ── Destinatário ── */}
-            <div className="px-4 py-3 border-b-2 border-slate-900 text-xs">
+            <div className="px-4 py-3 border-b border-slate-800 text-xs">
               <div className="grid grid-cols-[140px_1fr] gap-y-2">
-                <span className="text-slate-500">RAZÃO SOCIAL</span>
-                <span className="font-bold text-slate-900">{c.razaoSocial}</span>
-                <span className="text-slate-500">CNPJ (MF)</span>
+                <span className="text-slate-700">RAZÃO SOCIAL</span>
+                <span className="font-bold text-slate-900 uppercase">{c.razaoSocial}</span>
+                <span className="text-slate-700">CNPJ (MF)</span>
                 <span className="font-bold text-slate-900">{c.cnpj || "—"}</span>
-                <span className="text-slate-500">ENDEREÇO</span>
-                <span className="font-bold text-slate-900">{c.endereco || "—"}</span>
-                <span className="text-slate-500">BAIRRO</span>
-                <span className="font-bold text-slate-900">{c.bairro || "—"}</span>
+                <span className="text-slate-700">ENDEREÇO</span>
+                <span className="font-bold text-slate-900 uppercase">{c.endereco || "—"}</span>
+                <span className="text-slate-700">BAIRRO</span>
+                <span className="font-bold text-slate-900 uppercase">{c.bairro || "—"}</span>
               </div>
               <div className="grid grid-cols-[140px_1fr_70px_50px_50px_1fr] gap-y-2 mt-2 items-baseline">
-                <span className="text-slate-500">MUNICÍPIO</span>
-                <span className="font-bold text-slate-900">{c.municipio || "—"}</span>
-                <span className="text-slate-500">ESTADO</span>
+                <span className="text-slate-700">MUNICÍPIO</span>
+                <span className="font-bold text-slate-900 uppercase">{c.municipio || "—"}</span>
+                <span className="text-slate-700">ESTADO</span>
                 <span className="font-bold text-slate-900">{c.estado || "—"}</span>
-                <span className="text-slate-500">CEP</span>
+                <span className="text-slate-700">CEP</span>
                 <span className="font-bold text-slate-900">{c.cep || "—"}</span>
               </div>
               <div className="grid grid-cols-[200px_1fr_180px_1fr] gap-y-2 mt-2">
-                <span className="text-slate-500">INSCRIÇÃO ESTADUAL Nº</span>
+                <span className="text-slate-700">INSCRIÇÃO ESTADUAL Nº</span>
                 <span className="font-bold text-slate-900">{c.inscricaoEstadual || ""}</span>
-                <span className="text-slate-500">INSCRIÇÃO MUNICIPAL</span>
+                <span className="text-slate-700">INSCRIÇÃO MUNICIPAL</span>
                 <span className="font-bold text-slate-900">{c.inscricaoMunicipal || ""}</span>
               </div>
             </div>
 
             {/* ── Código operação + vencimento ── */}
             <div className="grid grid-cols-[160px_1fr_220px] border-b border-slate-300 text-xs">
-              <div className="px-4 py-2 text-slate-500 border-r border-slate-200">
+              <div className="px-4 py-2 text-slate-700 border-r border-slate-200">
                 CÓDIGO OPERAÇÃO:
               </div>
-              <div className="px-4 py-2 font-bold text-slate-900">{e.naturezaOperacao}</div>
-              <div className="px-4 py-2 bg-yellow-200 font-bold text-slate-900 flex justify-between">
-                <span className="text-slate-600 font-semibold">VENCIMENTO</span>
+              <div className="px-4 py-2 font-bold text-slate-900 text-center">{e.naturezaOperacao}</div>
+              <div className="px-4 py-2 bg-yellow-300 font-bold text-slate-900 flex justify-center gap-3">
+                <span className="text-slate-700 font-semibold">VENCIMENTO</span>
                 <span>{fmtData(dados.dataVencimento)}</span>
               </div>
             </div>
@@ -213,22 +213,35 @@ export default function ImprimirFaturaPage() {
                 </span>
               </div>
 
-              {/* Dados para pagamento */}
-              {(e.banco || e.pix) && (
-                <div className="mt-4 border border-slate-200 bg-slate-50 rounded-xl p-3 text-xs">
-                  <p className="font-bold text-slate-900 mb-1.5">DADOS PARA PAGAMENTO</p>
-                  {e.banco && <p className="text-slate-800">Banco {e.banco}</p>}
-                  {e.agencia && <p className="text-slate-800">Agência {e.agencia}</p>}
-                  {e.conta && <p className="text-slate-800">Conta Corrente {e.conta}</p>}
-                  {e.pix && <p className="text-slate-800">PIX: {e.pix}</p>}
-                </div>
-              )}
+              {/* Dados para pagamento — padrão "Banco X / Agência / Conta Corrente / PIX (E-mail)" */}
+              {(() => {
+                const linhas: string[] =
+                  Array.isArray(e.pagamento) && e.pagamento.length > 0
+                    ? e.pagamento
+                    : [
+                        e.banco && `Banco ${e.banco}`,
+                        e.agencia && `Agência ${e.agencia}`,
+                        e.conta && `Conta Corrente ${e.conta}`,
+                        e.pix && `PIX${String(e.pix).includes("@") ? " (E-mail)" : ""}: ${e.pix}`,
+                      ].filter(Boolean);
+                if (linhas.length === 0) return null;
+                return (
+                  <div className="mt-4 border border-slate-200 bg-slate-50 rounded-xl p-3 text-xs">
+                    <p className="font-bold text-slate-900 mb-1.5">DADOS PARA PAGAMENTO</p>
+                    {linhas.map((l, i) => (
+                      <p key={i} className="text-slate-800">
+                        {l}
+                      </p>
+                    ))}
+                  </div>
+                );
+              })()}
 
               {/* Observação */}
               {e.observacao && (
-                <div className="mt-3 bg-yellow-200 rounded-xl p-3 text-xs">
+                <div className="mt-3 bg-yellow-300 rounded-xl p-3 text-xs">
                   <p className="font-bold text-slate-900 mb-1">OBSERVAÇÃO</p>
-                  <p className="text-slate-900">{e.observacao}</p>
+                  <p className="text-slate-900 whitespace-pre-line">{e.observacao}</p>
                 </div>
               )}
             </div>

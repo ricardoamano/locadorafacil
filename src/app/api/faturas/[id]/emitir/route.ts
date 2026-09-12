@@ -29,10 +29,13 @@ export async function GET(
     });
   }
 
-  const empresa = await prisma.company.findUnique({ where: { id: companyId } });
+  const [empresa, conta] = await Promise.all([
+    prisma.company.findUnique({ where: { id: companyId } }),
+    prisma.contaBancaria.findFirst({ where: { companyId }, orderBy: { ordem: "asc" } }),
+  ]);
   return NextResponse.json({
     emitida: false,
-    dados: buildDados(fatura, empresa),
+    dados: buildDados(fatura, empresa, conta),
   });
 }
 
@@ -61,8 +64,11 @@ export async function POST(
     });
   }
 
-  const empresa = await prisma.company.findUnique({ where: { id: companyId } });
-  const dados = buildDados(fatura, empresa);
+  const [empresa, conta] = await Promise.all([
+    prisma.company.findUnique({ where: { id: companyId } }),
+    prisma.contaBancaria.findFirst({ where: { companyId }, orderBy: { ordem: "asc" } }),
+  ]);
+  const dados = buildDados(fatura, empresa, conta);
 
   const updated = await prisma.fatura.update({
     where: { id },
@@ -76,8 +82,31 @@ export async function POST(
   return NextResponse.json({ emitida: true, emitidaEm: updated.emitidaEm, dados });
 }
 
+/**
+ * Linhas do bloco "DADOS PARA PAGAMENTO" no padrão do recibo oficial:
+ * Banco X (cod) / Agência / Conta Corrente N / PIX (E-mail): chave
+ */
+function linhasPagamento(src: {
+  banco?: string | null;
+  agencia?: string | null;
+  conta?: string | null;
+  tipoConta?: string | null;
+  pix?: string | null;
+  pixTipo?: string | null;
+}): string[] {
+  const l: string[] = [];
+  if (src.banco?.trim()) l.push(`Banco ${src.banco.trim()}`);
+  if (src.agencia?.trim()) l.push(`Agência ${src.agencia.trim()}`);
+  if (src.conta?.trim()) l.push(`Conta ${src.tipoConta?.trim() || "Corrente"} ${src.conta.trim()}`);
+  if (src.pix?.trim()) {
+    const tipo = src.pixTipo?.trim() || (src.pix.includes("@") ? "E-mail" : "");
+    l.push(`PIX${tipo ? ` (${tipo})` : ""}: ${src.pix.trim()}`);
+  }
+  return l;
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
-function buildDados(fatura: any, empresaPrincipal: any) {
+function buildDados(fatura: any, empresaPrincipal: any, contaPrincipal?: any) {
   // Fatura por outro CNPJ do grupo: a empresa emissora assina o documento
   // (razão social, CNPJ, endereço, logo e dados bancários dela)
   const em = fatura.emissora;
@@ -133,7 +162,19 @@ function buildDados(fatura: any, empresaPrincipal: any) {
       agencia: empresa?.agencia || "",
       conta: empresa?.conta || "",
       pix: empresa?.pix || "",
-      observacao: empresa?.observacaoFatura || "",
+      // Emissora usa os próprios dados; principal usa a 1ª conta cadastrada
+      // (Configurações → Empresa → Contas bancárias), com tipo de conta e de PIX
+      pagamento: em
+        ? linhasPagamento(em)
+        : linhasPagamento(
+            contaPrincipal || {
+              banco: empresa?.banco,
+              agencia: empresa?.agencia,
+              conta: empresa?.conta,
+              pix: empresa?.pix,
+            }
+          ),
+      observacao: (empresa?.observacaoFatura || "").trim(),
     },
     destinatario: {
       razaoSocial: c?.razaoSocial || fatura.clienteNome,
