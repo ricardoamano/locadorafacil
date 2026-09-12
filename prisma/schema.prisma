@@ -335,6 +335,7 @@ model Item {
   especificacoesPublicas String?
   observacaoInterna      String?
   revisarCadastro Boolean      @default(false) // cadastro rápido/importado, falta completar
+  bubbleId       String?      // id do item no catálogo do Bubble (cruzamento na migração)
   fotoCapaUrl    String?
   videoUrl       String?
   mostrarCodigo  Boolean      @default(false)
@@ -443,6 +444,7 @@ model Orcamento {
   aprovadoOnlineEm  DateTime?
   aprovadoOnlinePor String?
   aprovadoOnlineIp  String?
+  bubbleId       String?  // id de origem (Bubble) — importação idempotente
   companyId      String
   company        Company  @relation(fields: [companyId], references: [id])
   createdAt      DateTime @default(now())
@@ -502,6 +504,7 @@ model OrdemServico {
   orcamentoId        String   @unique
   orcamento          Orcamento @relation(fields: [orcamentoId], references: [id])
   publicToken        String?  @unique // link público simplificado da OS (sem valores)
+  bubbleId           String?  // id de origem (Bubble) — importação idempotente
   produtores         Json?    // contatos do evento [{nome, telefone, funcao}] — clicáveis p/ WhatsApp
   infoEvento         String?  // texto livre do responsável sobre o evento (aparece na OS pública)
   infoEventoEm       DateTime? // quando as informações do evento mudaram pela última vez
@@ -883,6 +886,7 @@ model Fatura {
   origem           String    @default("ORCAMENTO")
   justificativa    String?
   isPostoServico Boolean   @default(false)
+  bubbleId       String?   // id de origem (Bubble) — importação idempotente
   emissoraId     String?   // outro CNPJ do grupo assinando a fatura (null = empresa principal)
   emissora       EmpresaEmissora? @relation(fields: [emissoraId], references: [id])
   orcamentoId    String?
