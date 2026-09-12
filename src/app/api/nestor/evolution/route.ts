@@ -54,9 +54,13 @@ export async function POST(req: NextRequest) {
       evolutionApiKey: true,
       evolutionInstance: true,
       nestorNumeros: true,
+      nestorPausadoAte: true,
     },
   });
   if (!empresa) return NextResponse.json({ ok: true });
+  // Assistente pausado (ex.: número emprestado a outro projeto): ignora tudo, sem responder
+  if (empresa.nestorPausadoAte && empresa.nestorPausadoAte > new Date())
+    return NextResponse.json({ ok: true, pausado: true });
 
   let body: { event?: string; data?: EvoData | EvoData[] };
   try {

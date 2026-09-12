@@ -40,6 +40,7 @@ export async function GET() {
       evolutionUrl: true,
       evolutionApiKey: true,
       evolutionInstance: true,
+      nestorPausadoAte: true,
     },
   });
   return NextResponse.json({
@@ -56,6 +57,8 @@ export async function GET() {
     evolutionUrl: c?.evolutionUrl || "",
     evolutionInstance: c?.evolutionInstance || "",
     evolutionApiKeyConfigurada: Boolean(c?.evolutionApiKey),
+    pausadoAte:
+      c?.nestorPausadoAte && c.nestorPausadoAte > new Date() ? c.nestorPausadoAte : null,
   });
 }
 
@@ -78,10 +81,12 @@ export async function POST(req: NextRequest) {
       evolutionInstance?: string;
       evolutionApiKey?: string;
     };
-  const { evolutionUrl, evolutionInstance, evolutionApiKey } = body as {
+  const { evolutionUrl, evolutionInstance, evolutionApiKey, pausarDias, retomar } = body as {
     evolutionUrl?: string;
     evolutionInstance?: string;
     evolutionApiKey?: string;
+    pausarDias?: number;
+    retomar?: boolean;
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -95,6 +100,10 @@ export async function POST(req: NextRequest) {
   else if (token?.trim()) data.whatsappToken = token.trim();
 
   if (verifyToken !== undefined) data.whatsappVerifyToken = verifyToken.trim() || null;
+  // Pausa do assistente (ignora mensagens recebidas até a data)
+  if (retomar) data.nestorPausadoAte = null;
+  else if (pausarDias && Number(pausarDias) > 0)
+    data.nestorPausadoAte = new Date(Date.now() + Number(pausarDias) * 86_400_000);
   if (evolutionUrl !== undefined) data.evolutionUrl = evolutionUrl.trim().replace(/\/$/, "") || null;
   if (evolutionInstance !== undefined) data.evolutionInstance = evolutionInstance.trim() || null;
   // apikey vazia = manter a atual; "REMOVER" = apagar

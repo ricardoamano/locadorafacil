@@ -55,6 +55,8 @@ export default function ConfigWhatsappPage() {
   const [evoApiKey, setEvoApiKey] = useState("");
   const [evoKeyConfigurada, setEvoKeyConfigurada] = useState(false);
   const [ativando, setAtivando] = useState(false);
+  const [pausadoAte, setPausadoAte] = useState<string | null>(null);
+  const [pausando, setPausando] = useState(false);
   const [evoStatus, setEvoStatus] = useState<{
     conexao: string | null;
     webhookConfigurado: boolean;
@@ -86,6 +88,7 @@ export default function ConfigWhatsappPage() {
         setEvoUrl(d.evolutionUrl || "");
         setEvoInstance(d.evolutionInstance || "");
         setEvoKeyConfigurada(Boolean(d.evolutionApiKeyConfigurada));
+        setPausadoAte(d.pausadoAte || null);
       })
       .catch(() => {});
   }, []);
@@ -124,6 +127,26 @@ export default function ConfigWhatsappPage() {
       toast(e instanceof Error && e.message ? e.message : "Erro ao salvar.", "error");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function alternarPausa(dias: number | null) {
+    setPausando(true);
+    try {
+      const res = await fetch("/api/empresa/whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dias ? { pausarDias: dias } : { retomar: true }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      const st = await fetch("/api/empresa/whatsapp").then((r) => r.json());
+      setPausadoAte(st.pausadoAte || null);
+      toast(dias ? `Assistente pausado por ${dias} dias.` : "Assistente retomado!", "success");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Erro.", "error");
+    } finally {
+      setPausando(false);
     }
   }
 
@@ -189,6 +212,33 @@ export default function ConfigWhatsappPage() {
         {configurado
           ? `✅ Envio automático ativo: ${nomeExibicao} manda as mensagens direto no WhatsApp da equipe, incluindo os lembretes diários automáticos.`
           : `⚠️ Sem credenciais, ${nomeExibicao} funciona em modo manual: prepara as mensagens e abre o WhatsApp para você enviar com um clique. Configure abaixo para ativar o envio 100% automático.`}
+      </div>
+
+      {/* Pausa do assistente (ex.: número emprestado a outro projeto) */}
+      <div
+        className={`rounded-lg border px-4 py-3 text-sm flex flex-wrap items-center gap-3 ${
+          pausadoAte ? "border-red-200 bg-red-50 text-red-800" : "border-slate-200 bg-white text-slate-600"
+        }`}
+      >
+        <p className="flex-1 min-w-56">
+          {pausadoAte
+            ? `⏸️ Assistente PAUSADO até ${new Date(pausadoAte).toLocaleDateString("pt-BR")} — toda mensagem recebida no WhatsApp é ignorada, sem resposta. O chat ⚡ Rápido no app segue funcionando.`
+            : "▶️ Assistente ativo no WhatsApp. Precisa emprestar o número para outro uso? Pause aqui — ele não responde nada até a data."}
+        </p>
+        {pausadoAte ? (
+          <Button variant="outline" onClick={() => alternarPausa(null)} loading={pausando}>
+            Retomar agora
+          </Button>
+        ) : (
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => alternarPausa(7)} loading={pausando}>
+              Pausar 7 dias
+            </Button>
+            <Button variant="outline" onClick={() => alternarPausa(30)} loading={pausando}>
+              Pausar 30 dias
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Identidade + credenciais */}

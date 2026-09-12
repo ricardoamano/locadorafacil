@@ -73,9 +73,12 @@ export async function POST(req: NextRequest) {
         whatsappPhoneId: true,
         whatsappToken: true,
         nestorNumeros: true,
+        nestorPausadoAte: true,
       },
     });
     if (!empresa) continue;
+    // Assistente pausado: ignora tudo que chega, sem responder
+    if (empresa.nestorPausadoAte && empresa.nestorPausadoAte > new Date()) continue;
     const assistente = empresa.whatsappAssistente?.trim() || ASSISTENTE_PADRAO;
 
     for (const msg of mensagens) {

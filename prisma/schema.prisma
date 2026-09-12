@@ -60,6 +60,7 @@ model Company {
   whatsappTemplates  Json?    // textos das mensagens (ESCALA/ALTERACAO/LEMBRETE) editáveis pelo admin
   whatsappVerifyToken String? // token de verificação do webhook (recebimento de mensagens)
   nestorNumeros      Json?    // telefones extras autorizados a pedir orçamento rápido ao assistente
+  nestorPausadoAte   DateTime? // assistente de WhatsApp pausado até esta data (ignora tudo que chega)
   // Conexão alternativa via Evolution API (QR code — número segue no celular, aceita grupos)
   evolutionUrl       String?  // URL do servidor Evolution (ex.: https://evo.suaempresa.com)
   evolutionApiKey    String?  // apikey global ou da instância
