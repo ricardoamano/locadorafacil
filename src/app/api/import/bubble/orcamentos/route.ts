@@ -3,7 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { auditar } from "@/lib/auditoria";
 import { bubbleConfigurado } from "@/lib/bubble-api";
-import { carregarDadosBubble, montarPrevia, executarMigracao, completarCadastros } from "@/lib/bubble-migracao";
+import {
+  carregarDadosBubble, montarPrevia, executarMigracao, completarCadastros, TIPOS_CADASTROS,
+} from "@/lib/bubble-migracao";
 
 // Migração de orçamentos, OS e faturas do Bubble (só superadmin).
 // POST { anoMinimo?, confirmar? } → sem confirmar: prévia (nada gravado);
@@ -31,9 +33,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Configure a conexão com o Bubble primeiro." }, { status: 400 });
 
   try {
-    const dados = await carregarDadosBubble(c!);
-    // Só completar cadastros (endereço/CNPJ/contatos de clientes e locais)
+    // Só completar cadastros (endereço/CNPJ/contatos de clientes e locais):
+    // baixa apenas clientes, contatos, endereços e locais — muito mais rápido
     if (body.acao === "cadastros") {
+      const dados = await carregarDadosBubble(c!, TIPOS_CADASTROS);
       const cad = await completarCadastros(u.companyId, dados);
       await auditar(session.user as never, {
         tipo: "ALTERACAO",
@@ -42,6 +45,7 @@ export async function POST(req: NextRequest) {
       });
       return NextResponse.json({ cadastros: cad });
     }
+    const dados = await carregarDadosBubble(c!);
     if (!body.confirmar) {
       const previa = await montarPrevia(u.companyId, dados, { anoMinimo });
       return NextResponse.json({ previa });

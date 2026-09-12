@@ -57,16 +57,39 @@ export default function ConfigBubblePage() {
     }
   }
 
-  async function completarCadastrosBubble() {
-    setMigrando(true);
+  // POST com tempo limite: se o servidor não responder (ou devolver HTML de
+  // timeout), o botão sai do "carregando" com uma mensagem clara em vez de
+  // ficar girando para sempre.
+  async function postarMigracao(body: unknown, limiteMs = 240_000) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), limiteMs);
     try {
       const res = await fetch("/api/import/bubble/orcamentos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ acao: "cadastros" }),
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
       });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error);
+      const d = await res.json().catch(() => ({
+        error: res.status === 504 || res.status === 502
+          ? "O servidor demorou demais e desistiu (timeout). Tente de novo — a segunda vez costuma ser mais rápida."
+          : `Resposta inesperada do servidor (${res.status}).`,
+      }));
+      if (!res.ok) throw new Error(d.error || `Erro ${res.status}`);
+      return d;
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError")
+        throw new Error("Passou de 4 minutos sem resposta. Tente de novo; se persistir, me avise.");
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function completarCadastrosBubble() {
+    setMigrando(true);
+    try {
+      const d = await postarMigracao({ acao: "cadastros" });
       setCadastros(d.cadastros);
       toast(`✅ ${d.cadastros.clientesAtualizados} clientes e ${d.cadastros.locaisAtualizados} locais completados.`, "success");
     } catch (e) {
@@ -80,13 +103,7 @@ export default function ConfigBubblePage() {
     setMigrando(true);
     if (confirmar) setRelatorio(null);
     try {
-      const res = await fetch("/api/import/bubble/orcamentos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ anoMinimo: anoMinimo || undefined, confirmar }),
-      });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error);
+      const d = await postarMigracao({ anoMinimo: anoMinimo || undefined, confirmar });
       if (!confirmar) {
         setPrevia(d.previa);
         toast("Prévia pronta — confira antes de importar.", "success");
@@ -242,6 +259,9 @@ export default function ConfigBubblePage() {
                 complemento, bairro, CEP, cidade, UF) e locais (endereço), e cria os contatos-pessoa
                 que faltam. Não sobrescreve nada que já esteja preenchido aqui.
               </p>
+              {migrando && (
+                <p className="mt-1 text-amber-700">Lendo o Bubble… costuma levar de 10 a 60 segundos.</p>
+              )}
               {cadastros && (
                 <p className="mt-1 text-emerald-700">
                   ✅ {cadastros.clientesAtualizados} clientes atualizados · {cadastros.clientesCriados} criados ·{" "}
@@ -306,7 +326,7 @@ export default function ConfigBubblePage() {
                 </div>
                 <div className="rounded-lg border border-slate-100 p-3 space-y-1">
                   <p className="text-slate-600">👤 Clientes: {previa.clientes.encontrados} encontrados · <strong>{previa.clientes.novos.length} serão criados</strong></p>
-                  <p className="text-slate-600">📦 Itens: {previa.itens.encontrados} encontrados · <strong>{previa.itens.novos.length} serão criados "a revisar"</strong></p>
+                  <p className="text-slate-600">📦 Itens: {previa.itens.encontrados} encontrados · <strong>{previa.itens.novos.length} serão criados &ldquo;a revisar&rdquo;</strong></p>
                   <p className="text-slate-600">📍 Locais: {previa.locais.encontrados} encontrados · {previa.locais.naoEncontrados.length} sem correspondência (ficam sem local)</p>
                   <p className="text-slate-400">Faturas inválidas no Bubble ignoradas: {previa.faturas.invalidas}</p>
                 </div>

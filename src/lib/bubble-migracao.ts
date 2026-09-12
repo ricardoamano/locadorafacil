@@ -33,20 +33,36 @@ export interface DadosBubble {
   locais: R[];
 }
 
-export async function carregarDadosBubble(c: BubbleConfig): Promise<DadosBubble> {
-  const tipos = [
-    "orcamento", "objsalas", "objitemorcamento", "objevento", "ativo", "objitemcatalogo",
-    "objitemativo", "objmarca", "cliente", "objcontatoscliente", "obj_desconto", "fatura",
-    "ordemdeservico", "objendereco", "local",
-  ];
-  // Em duplas para não estourar o limite de requisições do Bubble
-  const out: R[][] = [];
-  for (let i = 0; i < tipos.length; i += 2) {
-    const lote = await Promise.all(tipos.slice(i, i + 2).map((t) => lerTodos<R>(c, t, 10000)));
-    out.push(...lote);
+const TIPOS_BUBBLE: Record<keyof DadosBubble, string> = {
+  orcamentos: "orcamento", salas: "objsalas", itensOrc: "objitemorcamento", eventos: "objevento",
+  ativos: "ativo", catalogo: "objitemcatalogo", itensAtivo: "objitemativo", marcas: "objmarca",
+  clientes: "cliente", contatos: "objcontatoscliente", descontos: "obj_desconto", faturas: "fatura",
+  ordens: "ordemdeservico", enderecos: "objendereco", locais: "local",
+};
+
+/** Só o que "Completar cadastros" precisa — evita baixar orçamentos/itens à toa. */
+export const TIPOS_CADASTROS: (keyof DadosBubble)[] = ["clientes", "contatos", "enderecos", "locais"];
+
+/**
+ * Baixa os tipos pedidos (todos por padrão). Tipos não pedidos voltam como
+ * lista vazia. 3 tipos por vez para respeitar o limite de requisições do Bubble.
+ */
+export async function carregarDadosBubble(
+  c: BubbleConfig,
+  apenas?: (keyof DadosBubble)[]
+): Promise<DadosBubble> {
+  const chaves = (Object.keys(TIPOS_BUBBLE) as (keyof DadosBubble)[]).filter(
+    (k) => !apenas || apenas.includes(k)
+  );
+  const dados = Object.fromEntries(
+    (Object.keys(TIPOS_BUBBLE) as (keyof DadosBubble)[]).map((k) => [k, [] as R[]])
+  ) as unknown as DadosBubble;
+  for (let i = 0; i < chaves.length; i += 3) {
+    const lote = chaves.slice(i, i + 3);
+    const res = await Promise.all(lote.map((k) => lerTodos<R>(c, TIPOS_BUBBLE[k], 10000)));
+    lote.forEach((k, j) => (dados[k] = res[j]));
   }
-  const [orcamentos, salas, itensOrc, eventos, ativos, catalogo, itensAtivo, marcas, clientes, contatos, descontos, faturas, ordens, enderecos, locais] = out;
-  return { orcamentos, salas, itensOrc, eventos, ativos, catalogo, itensAtivo, marcas, clientes, contatos, descontos, faturas, ordens, enderecos, locais };
+  return dados;
 }
 
 // ── Cadastros: completa clientes, locais e contatos-pessoa com o que o Bubble tem ──

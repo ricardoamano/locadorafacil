@@ -75,19 +75,30 @@ export async function lerPagina<T = Record<string, unknown>>(
   return r.response;
 }
 
-/** Todos os registros de um tipo, paginando (limite de segurança configurável). */
+/**
+ * Todos os registros de um tipo (limite de segurança configurável).
+ * A 1ª página informa quantos faltam; as demais são baixadas em paralelo
+ * (lotes de 5 páginas) — tipos grandes saem em segundos, não em minutos.
+ */
 export async function lerTodos<T = Record<string, unknown>>(
   c: BubbleConfig,
   tipo: string,
   maximo = 5000
 ): Promise<T[]> {
-  const todos: T[] = [];
-  let cursor = 0;
-  for (;;) {
-    const p = await lerPagina<T>(c, tipo, cursor, 100);
-    todos.push(...p.results);
-    if (p.remaining <= 0 || todos.length >= maximo || p.results.length === 0) break;
-    cursor += p.results.length;
+  const primeira = await lerPagina<T>(c, tipo, 0, 100);
+  const todos: T[] = [...primeira.results];
+  if (primeira.remaining <= 0 || primeira.results.length === 0) return todos;
+
+  const total = Math.min(primeira.results.length + primeira.remaining, maximo);
+  const cursores: number[] = [];
+  for (let cur = primeira.results.length; cur < total; cur += 100) cursores.push(cur);
+
+  const PARALELO = 5;
+  for (let i = 0; i < cursores.length; i += PARALELO) {
+    const paginas = await Promise.all(
+      cursores.slice(i, i + PARALELO).map((cur) => lerPagina<T>(c, tipo, cur, 100))
+    );
+    for (const p of paginas) todos.push(...p.results);
   }
-  return todos;
+  return todos.slice(0, maximo);
 }
