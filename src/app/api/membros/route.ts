@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
       tipo: body.tipo || "FREELANCER",
       pix: body.pix || null,
       cache: body.cache != null && body.cache !== "" ? Number(body.cache) : null,
+      observacoes: body.observacoes || null,
       userId,
       companyId,
       especialidades: {

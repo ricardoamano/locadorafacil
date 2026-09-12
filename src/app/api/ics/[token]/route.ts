@@ -42,6 +42,7 @@ export async function GET(
     include: {
       cliente: { select: { nomeFantasia: true } },
       local: { select: { nome: true, rua: true, numero: true, cidade: true } },
+      os: { select: { horarioMontagem: true, horarioDesmontagem: true } },
     },
   });
 
@@ -84,16 +85,22 @@ export async function GET(
       "END:VEVENT"
     );
 
-    // Evento separado para a montagem
-    if (orc.dataMontagem) {
-      const mont = new Date(orc.dataMontagem);
+    // Eventos separados para montagem e desmontagem (quando caem fora do período)
+    const marcos: { uid: string; data: Date | null | undefined; titulo: string; ref: Date }[] = [
+      { uid: "mont", data: orc.dataMontagem || orc.os?.horarioMontagem, titulo: "🔧 Montagem", ref: inicio },
+      { uid: "desm", data: orc.os?.horarioDesmontagem, titulo: "📦 Desmontagem", ref: fim },
+    ];
+    for (const m of marcos) {
+      if (!m.data) continue;
+      const d = new Date(m.data);
+      if (icsDate(d) === icsDate(m.ref)) continue;
       linhas.push(
         "BEGIN:VEVENT",
-        `UID:mont-${orc.id}@locadorafacil.app`,
+        `UID:${m.uid}-${orc.id}@locadorafacil.app`,
         `DTSTAMP:${dtstamp}`,
-        `DTSTART;VALUE=DATE:${icsDate(mont)}`,
-        `DTEND;VALUE=DATE:${icsDate(addDays(mont, 1))}`,
-        `SUMMARY:${icsEscape(`🔧 Montagem — #${orc.numero} ${orc.eventoNome || ""}`)}`,
+        `DTSTART;VALUE=DATE:${icsDate(d)}`,
+        `DTEND;VALUE=DATE:${icsDate(addDays(d, 1))}`,
+        `SUMMARY:${icsEscape(`${m.titulo} — #${orc.numero} ${orc.eventoNome || ""}`)}`,
         ...(local ? [`LOCATION:${icsEscape(local)}`] : []),
         "END:VEVENT"
       );

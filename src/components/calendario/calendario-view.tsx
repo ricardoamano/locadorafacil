@@ -42,9 +42,33 @@ interface Evento {
   numero: number;
   status: string;
   eventoNome: string | null;
+  dataMontagem: string | null;
   dataInicio: string | null;
   dataFim: string | null;
   cliente: { nomeFantasia: string };
+  os?: { horarioMontagem: string | null; horarioDesmontagem: string | null } | null;
+}
+
+// Modo de exibição: todos os dias do evento, ou só os marcos
+// (montagem · 1º dia · último dia · desmontagem)
+type Modo = "todos" | "marcos";
+type Marco = "montagem" | "inicio" | "fim" | "unico" | "desmontagem";
+interface Chip {
+  ev: Evento;
+  marco?: Marco;
+}
+const MARCO_LABEL: Record<Marco, { icone: string; label: string }> = {
+  montagem: { icone: "🔧", label: "Montagem" },
+  inicio: { icone: "▶", label: "1º dia" },
+  fim: { icone: "⏹", label: "Último dia" },
+  unico: { icone: "●", label: "Evento" },
+  desmontagem: { icone: "📦", label: "Desmontagem" },
+};
+const CHAVE_MODO = "calendario.modo";
+
+function soDia(s: string): Date {
+  const d = new Date(s);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
 const MESES = [
@@ -75,6 +99,23 @@ export function CalendarioView() {
     REPROVADO: true,
     CANCELADO: false,
   });
+  const [modo, setModo] = useState<Modo>("todos");
+
+  // Preferência por aparelho (celular x desktop podem diferir)
+  useEffect(() => {
+    try {
+      const salvo = localStorage.getItem(CHAVE_MODO);
+      // lido só no cliente (localStorage) para não divergir da renderização no servidor
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (salvo === "marcos" || salvo === "todos") setModo(salvo);
+    } catch {}
+  }, []);
+  function trocarModo(m: Modo) {
+    setModo(m);
+    try {
+      localStorage.setItem(CHAVE_MODO, m);
+    } catch {}
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -88,26 +129,49 @@ export function CalendarioView() {
   const ano = cursor.getFullYear();
   const mes = cursor.getMonth();
 
-  // Mapa dia -> eventos (evento aparece em todos os dias entre início e fim)
+  // Mapa dia -> chips. "todos": o evento aparece em cada dia entre início e
+  // fim. "marcos": só montagem, 1º dia, último dia e desmontagem.
   const eventosPorDia = useMemo(() => {
-    const map: Record<string, Evento[]> = {};
+    const map: Record<string, Chip[]> = {};
+    const poe = (d: Date, chip: Chip) => {
+      const key = ymd(d);
+      (map[key] = map[key] || []).push(chip);
+    };
     for (const ev of eventos) {
       if (!ev.dataInicio) continue;
       if (!filtros[ev.status]) continue;
-      const ini = new Date(ev.dataInicio);
-      const fim = ev.dataFim ? new Date(ev.dataFim) : ini;
-      const d = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate());
-      const end = new Date(fim.getFullYear(), fim.getMonth(), fim.getDate());
+      const ini = soDia(ev.dataInicio);
+      const fim = ev.dataFim ? soDia(ev.dataFim) : ini;
+
+      if (modo === "marcos") {
+        const montagem = ev.dataMontagem || ev.os?.horarioMontagem;
+        const desmontagem = ev.os?.horarioDesmontagem;
+        if (montagem) {
+          const m = soDia(montagem);
+          if (ymd(m) !== ymd(ini)) poe(m, { ev, marco: "montagem" });
+        }
+        if (ymd(ini) === ymd(fim)) poe(ini, { ev, marco: "unico" });
+        else {
+          poe(ini, { ev, marco: "inicio" });
+          poe(fim, { ev, marco: "fim" });
+        }
+        if (desmontagem) {
+          const dm = soDia(desmontagem);
+          if (ymd(dm) !== ymd(fim)) poe(dm, { ev, marco: "desmontagem" });
+        }
+        continue;
+      }
+
+      const d = new Date(ini);
       let guard = 0;
-      while (d <= end && guard < 62) {
-        const key = ymd(d);
-        (map[key] = map[key] || []).push(ev);
+      while (d <= fim && guard < 62) {
+        poe(d, { ev });
         d.setDate(d.getDate() + 1);
         guard++;
       }
     }
     return map;
-  }, [eventos, filtros]);
+  }, [eventos, filtros, modo]);
 
   // Grade do mês
   const dias = useMemo(() => {
@@ -165,6 +229,38 @@ export function CalendarioView() {
           >
             Hoje
           </Button>
+        </div>
+
+        {/* Modo de exibição */}
+        <div
+          className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs"
+          role="radiogroup"
+          aria-label="Modo de exibição"
+        >
+          {(
+            [
+              { v: "todos", label: "Todos os dias" },
+              { v: "marcos", label: "Só marcos" },
+            ] as { v: Modo; label: string }[]
+          ).map((o) => (
+            <button
+              key={o.v}
+              type="button"
+              role="radio"
+              aria-checked={modo === o.v}
+              onClick={() => trocarModo(o.v)}
+              title={
+                o.v === "marcos"
+                  ? "Mostra só montagem, 1º dia, último dia e desmontagem"
+                  : "Mostra o evento em todos os dias entre início e fim"
+              }
+              className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
+                modo === o.v ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
         </div>
 
         {/* Legenda / filtros */}
@@ -231,18 +327,21 @@ export function CalendarioView() {
                       {date.getDate()}
                     </span>
                     <div className="mt-1 space-y-1">
-                      {evts.slice(0, 3).map((ev) => {
+                      {evts.slice(0, 3).map(({ ev, marco }) => {
                         const cfg = statusConfig[ev.status] || statusConfig.PENDENTE;
+                        const m = marco ? MARCO_LABEL[marco] : null;
+                        const nome = ev.eventoNome || ev.cliente?.nomeFantasia || `#${ev.numero}`;
                         return (
                           <button
-                            key={ev.id + key}
+                            key={ev.id + key + (marco || "")}
                             onClick={() => router.push(`/orcamentos/${ev.id}`)}
                             className={`w-full text-left px-1.5 py-0.5 rounded text-[11px] font-medium truncate transition-colors ${cfg.chip}`}
-                            title={`#${ev.numero} · ${ev.cliente?.nomeFantasia}${
+                            title={`${m ? `${m.label} · ` : ""}#${ev.numero} · ${ev.cliente?.nomeFantasia}${
                               ev.eventoNome ? ` · ${ev.eventoNome}` : ""
                             }`}
                           >
-                            {ev.eventoNome || ev.cliente?.nomeFantasia || `#${ev.numero}`}
+                            {m ? `${m.icone} ` : ""}
+                            {nome}
                           </button>
                         );
                       })}
@@ -259,6 +358,17 @@ export function CalendarioView() {
           </>
         )}
       </div>
+
+      {!loading && modo === "marcos" && (
+        <p className="mt-2 text-[11px] text-slate-500 flex flex-wrap gap-x-3 gap-y-1">
+          {(Object.keys(MARCO_LABEL) as Marco[]).map((k) => (
+            <span key={k}>
+              {MARCO_LABEL[k].icone} {MARCO_LABEL[k].label}
+            </span>
+          ))}
+          <span className="text-slate-400">· desmontagem vem do horário lançado na OS</span>
+        </p>
+      )}
 
       {!loading && eventos.length === 0 && (
         <div className="flex flex-col items-center gap-2 text-slate-400 mt-6">

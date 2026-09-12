@@ -79,7 +79,12 @@ Sistema multiempresa de gestão de locação de equipamentos e serviços para ev
   recorrência (k/N), headers ordenáveis, CSV, bancos por empresa, banco por transação.
 
 ### Integrações Google (sem OAuth — feeds iCal privados)
-- Agenda por EMPRESA: `Company.icsToken` → /api/ics/[token] (admin gerencia no Calendário).
+- Agenda por EMPRESA: `Company.icsToken` → /api/ics/[token] (admin gerencia no Calendário). Gera o evento
+  do período + eventos separados de 🔧 montagem (`Orcamento.dataMontagem` ou `OS.horarioMontagem`) e
+  📦 desmontagem (`OS.horarioDesmontagem`) quando caem fora do período.
+- Calendário interno (`calendario-view.tsx`): alternador **"Todos os dias" / "Só marcos"** (montagem · 1º dia ·
+  último dia · desmontagem), preferência salva por aparelho em localStorage. `/api/orcamentos` inclui
+  `os.horarioMontagem/horarioDesmontagem` para isso.
 - Tarefas por USUÁRIO: `User.tarefasIcsToken` → /api/ics-tarefas/[token] (botão no módulo Tarefas).
 
 ### Backup e exportação
@@ -220,6 +225,10 @@ Botões/telas cobertos pelo interruptor:
 5. **Menu Configurações → "Migração do Bubble"** (`/configuracoes/bubble`: conexão, ler estrutura,
    completar cadastros, prévia/importar orçamentos-OS-faturas) — `sidebar.tsx` (item filtrado).
    A página continua acessível por URL para religar o interruptor.
+6. **Equipe → Membros → "Importar"** (direto do Bubble — tipos `equipe` + `especialidade_tecnicos` — ou CSV
+   genérico com coluna Nome; cruza por `Membro.bubbleId`, CPF ou nome; revisão de divergências; cria
+   especialidades que faltam) — `equipe/membros/page.tsx` / `importar-membros.tsx` / `src/lib/membros-importar.ts`
+   / `/api/import/membros`.
 Ficam SEMPRE (são operação, não migração): filtro/selo **"A revisar"** nos itens, cadastro de itens pelo
 WhatsApp ("cadastra 4 TVs..."), Exportar CSV, Backup.
 

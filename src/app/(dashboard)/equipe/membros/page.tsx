@@ -13,6 +13,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { formatCurrency, formatPhone, formatRG, formatCPF } from "@/lib/utils";
 import { Plus, Pencil, Trash2, UserCheck, Copy, Star, X } from "lucide-react";
+import { ImportarMembros } from "@/components/equipe/importar-membros";
+import { useFerramentasMigracao } from "@/lib/use-migracao";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -32,6 +34,7 @@ interface Membro {
   tipo: string;
   pix: string | null;
   cache: number | null;
+  observacoes?: string | null;
   user: { id: string; name: string | null; email: string } | null;
   especialidades: { especialidade: { id: string; nome: string } }[];
   avaliacaoMedia: number | null;
@@ -48,13 +51,14 @@ interface FormData {
   tipo: string;
   pix: string;
   cache: string;
+  observacoes: string;
   userId: string;
   especialidades: string[];
 }
 
 const empty = (): FormData => ({
   nome: "", telefone: "", email: "", rg: "", cpf: "", tipo: "FREELANCER", pix: "", cache: "",
-  userId: "", especialidades: [],
+  observacoes: "", userId: "", especialidades: [],
 });
 
 // ── Estrelas ──────────────────────────────────────────────────────────────────
@@ -98,6 +102,7 @@ const CRITERIOS: { key: "postura" | "tecnica" | "pontualidade" | "proatividade";
 
 export default function MembrosPage() {
   const { toast } = useToast();
+  const migracao = useFerramentasMigracao();
   const [membros, setMembros] = useState<Membro[]>([]);
   const [usuarios, setUsuarios] = useState<{ id: string; name: string | null; email: string }[]>([]);
   const [especialidades, setEspecialidades] = useState<{ id: string; nome: string }[]>([]);
@@ -214,6 +219,7 @@ export default function MembrosPage() {
       tipo: m.tipo,
       pix: m.pix || "",
       cache: m.cache != null ? String(m.cache) : "",
+      observacoes: m.observacoes || "",
       userId: m.user?.id || "",
       especialidades: (m.especialidades || []).map((e) => e.especialidade.id),
     });
@@ -397,6 +403,7 @@ export default function MembrosPage() {
               </Button>
             )}
             <ExportarCsv tipo="membros" />
+            {migracao && <ImportarMembros onImportado={fetchMembros} />}
             <Button onClick={openCreate}>
               <Plus className="h-4 w-4" />
               Novo Membro
@@ -624,6 +631,14 @@ export default function MembrosPage() {
                   clearable
                 />
               </div>
+
+              <Textarea
+                label="Observações"
+                value={form.observacoes}
+                onChange={(e) => setForm((p) => ({ ...p, observacoes: e.target.value }))}
+                placeholder="Disponibilidade, restrições, histórico..."
+                rows={2}
+              />
 
               {/* Especialidades */}
               <div>

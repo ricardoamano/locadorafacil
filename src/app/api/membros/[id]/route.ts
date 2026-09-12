@@ -48,6 +48,7 @@ export async function PUT(
       tipo: body.tipo || existing.tipo,
       pix: body.pix || null,
       cache: body.cache != null && body.cache !== "" ? Number(body.cache) : null,
+      ...(body.observacoes !== undefined ? { observacoes: body.observacoes || null } : {}),
       userId,
       ...(especialidadeIds
         ? {

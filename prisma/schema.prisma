@@ -727,6 +727,8 @@ model Membro {
   pix       String?
   cache     Float?
   fotoUrl   String?
+  observacoes String?
+  bubbleId  String?  // id do registro "equipe" no Bubble (importação idempotente)
   userId    String?  @unique // usuário do sistema vinculado (ex.: Well é usuário E membro)
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   companyId String

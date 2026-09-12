@@ -42,7 +42,7 @@ export interface ResultadoImportacao {
 }
 
 /** Parser CSV (RFC 4180) — lida com aspas, vírgulas e quebras dentro do campo. */
-export function parseCsv(text: string): string[][] {
+export function parseCsv(text: string, sep = ","): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let field = "";
@@ -58,7 +58,7 @@ export function parseCsv(text: string): string[][] {
       } else field += c;
     } else {
       if (c === '"') inQ = true;
-      else if (c === ",") {
+      else if (c === sep) {
         row.push(field);
         field = "";
       } else if (c === "\r") {

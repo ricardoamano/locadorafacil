@@ -57,6 +57,8 @@ export async function GET(req: NextRequest) {
         cliente2: { select: { id: true, nomeFantasia: true } },
         local: { select: { id: true, nome: true } },
         _count: { select: { salas: true } },
+        // horários da OS (montagem/desmontagem) — usados pelo calendário em "só marcos"
+        os: { select: { horarioMontagem: true, horarioDesmontagem: true } },
       },
       orderBy: { numero: "desc" },
       skip,
