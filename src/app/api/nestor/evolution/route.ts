@@ -4,6 +4,7 @@ import { enviarEvolution, ASSISTENTE_PADRAO } from "@/lib/nestor";
 import { identificarRemetente, auditarRemetente } from "@/lib/nestor-auth";
 import { responderOrcamentoRapido, conversaDesdeReset } from "@/lib/nestor-orcamento";
 import { tratarComandoFormalizar, tratarComandoAtualizar } from "@/lib/nestor-formalizar";
+import { ehPedidoDeCadastro, tratarCadastroItens } from "@/lib/nestor-itens";
 
 const APP_URL = (process.env.NEXTAUTH_URL || "https://locadorafacil.app").replace(/\/$/, "");
 
@@ -129,6 +130,17 @@ export async function POST(req: NextRequest) {
         key.remoteJid,
         `🤖 *${assistente}*\n\nConversa reiniciada! Me manda o briefing do próximo orçamento. 🚀`
       );
+      continue;
+    }
+
+    // "cadastra 4 TVs 55..." → cria/atualiza itens do inventário
+    if (ehPedidoDeCadastro(texto)) {
+      const corpoC = await tratarCadastroItens(empresa.id, texto, assistente, APP_URL);
+      await prisma.nestorConversa.create({
+        data: { companyId: empresa.id, telefone: chaveConversa, papel: "ASSISTENTE", texto: corpoC, autorNome: assistente },
+      });
+      await enviarEvolution(empresa, key.remoteJid, corpoC);
+      await auditarRemetente(empresa.id, remetente, assistente, "Cadastro de itens via WhatsApp");
       continue;
     }
 
