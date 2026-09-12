@@ -110,6 +110,15 @@ export function ItemFormModal({
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [marcas, setMarcas] = useState<Categoria[]>([]);
   const [confirmarQtd, setConfirmarQtd] = useState(false);
+  // Renomeou o item? Pergunta se o novo nome vale para "todos" (itens iguais,
+  // faturas não emitidas e orçamentos pendentes que copiaram o nome)
+  const [renomearInfo, setRenomearInfo] = useState<{
+    de: string;
+    para: string;
+    itens: number;
+    faturas: number;
+    orcamentos: number;
+  } | null>(null);
   const [fotos, setFotos] = useState<string[]>([]);
   // Acessórios avulsos: checklist de separação (sem código/QR)
   const [avulsos, setAvulsos] = useState<{ nome: string; quantidade: number }[]>([]);
@@ -304,8 +313,36 @@ export function ItemFormModal({
     setConfirmarQtd(true);
   }
 
+  // Ao editar com o nome mudado, verifica onde mais o nome antigo aparece e
+  // pergunta se a alteração vale para todos; senão salva direto.
   async function salvar() {
     setConfirmarQtd(false);
+    const nomeAntigo = String(initial?.nome || "").trim();
+    const nomeNovo = form.nome.trim();
+    if (form.id && nomeAntigo && nomeNovo && nomeAntigo.toLowerCase() !== nomeNovo.toLowerCase()) {
+      try {
+        const q = new URLSearchParams({ nome: nomeAntigo, id: form.id });
+        const imp = await fetch(`/api/itens/impacto-nome?${q}`).then((r) => r.json());
+        const total = (imp.itens || 0) + (imp.faturas || 0) + (imp.orcamentos || 0);
+        if (total > 0) {
+          setRenomearInfo({
+            de: nomeAntigo,
+            para: nomeNovo,
+            itens: imp.itens || 0,
+            faturas: imp.faturas || 0,
+            orcamentos: imp.orcamentos || 0,
+          });
+          return;
+        }
+      } catch {
+        // sem verificação, segue salvando só este item
+      }
+    }
+    await executarSalvar(false);
+  }
+
+  async function executarSalvar(renomearTodos: boolean) {
+    setRenomearInfo(null);
     setLoading(true);
     try {
       const url = form.id ? `/api/itens/${form.id}` : "/api/itens";
@@ -315,6 +352,7 @@ export function ItemFormModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          renomearTodos,
           valorAluguel: parseFloat(form.valorAluguel) || 0,
           precoManual: form.precoManual,
           valorSemana: form.precoManual ? parseFloat(form.valorSemana) || 0 : undefined,
@@ -332,8 +370,12 @@ export function ItemFormModal({
         toast(data.error || "Erro ao salvar. Tente novamente.", "error");
         return;
       }
+      const r = data.renomeados;
+      const extra = r
+        ? ` Nome alterado também em ${r.itens} item(ns), ${r.orcamentos} linha(s) de orçamento e ${r.faturas} de fatura.`
+        : "";
       toast(
-        form.id ? "Item atualizado com sucesso!" : "Item criado com sucesso!",
+        form.id ? `Item atualizado com sucesso!${extra}` : "Item criado com sucesso!",
         "success"
       );
       onSuccess(data);
@@ -1287,6 +1329,56 @@ export function ItemFormModal({
         </Button>
         <Button onClick={salvar} loading={loading}>
           Confirmar e {form.id ? "salvar" : "criar"}
+        </Button>
+      </ModalFooter>
+    </Modal>
+
+    {/* Nome alterado — aplicar em todos os lugares onde o nome antigo aparece? */}
+    <Modal
+      open={!!renomearInfo}
+      onClose={() => setRenomearInfo(null)}
+      title="Alterar o nome em todos?"
+      size="sm"
+    >
+      <ModalBody>
+        {renomearInfo && (
+          <div className="space-y-3 text-sm text-slate-600">
+            <p>
+              Você mudou <strong>&quot;{renomearInfo.de}&quot;</strong> para{" "}
+              <strong>&quot;{renomearInfo.para}&quot;</strong>. O nome antigo também aparece em:
+            </p>
+            <ul className="space-y-1 text-sm">
+              {renomearInfo.itens > 0 && (
+                <li>
+                  📦 <strong>{renomearInfo.itens}</strong> outro{renomearInfo.itens > 1 ? "s" : ""} item
+                  {renomearInfo.itens > 1 ? "ns" : ""} com o mesmo nome
+                </li>
+              )}
+              {renomearInfo.orcamentos > 0 && (
+                <li>
+                  📄 <strong>{renomearInfo.orcamentos}</strong> linha{renomearInfo.orcamentos > 1 ? "s" : ""} de
+                  orçamentos pendentes
+                </li>
+              )}
+              {renomearInfo.faturas > 0 && (
+                <li>
+                  🧾 <strong>{renomearInfo.faturas}</strong> linha{renomearInfo.faturas > 1 ? "s" : ""} de
+                  faturas ainda não emitidas
+                </li>
+              )}
+            </ul>
+            <p className="text-xs text-slate-400">
+              Faturas já emitidas e orçamentos aprovados não mudam (são documentos fechados).
+            </p>
+          </div>
+        )}
+      </ModalBody>
+      <ModalFooter>
+        <Button variant="outline" onClick={() => executarSalvar(false)} loading={loading}>
+          Só neste item
+        </Button>
+        <Button onClick={() => executarSalvar(true)} loading={loading}>
+          Alterar em todos
         </Button>
       </ModalFooter>
     </Modal>

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { vincularAcessorios } from "@/lib/acessorios";
 import { auth } from "@/lib/auth";
@@ -148,7 +149,35 @@ export async function PUT(
     acessoriosInfo = await vincularAcessorios(companyId, item.id, body.acessorios);
   }
 
-  return NextResponse.json({ ...item, acessoriosInfo });
+  // "Alterar em todos": renomeia outros itens com o mesmo nome antigo e as
+  // descrições copiadas em faturas não emitidas / orçamentos pendentes
+  let renomeados: { itens: number; faturas: number; orcamentos: number } | null = null;
+  const nomeNovo = String(data.nome || "").trim();
+  if (data.renomearTodos && nomeNovo && nomeNovo !== existing.nome) {
+    const [ri, rf, ro] = await Promise.all([
+      prisma.item.updateMany({
+        where: { companyId, NOT: { id }, nome: { equals: existing.nome, mode: "insensitive" } },
+        data: { nome: nomeNovo },
+      }),
+      prisma.faturaItem.updateMany({
+        where: {
+          descricao: { equals: existing.nome, mode: "insensitive" },
+          fatura: { companyId, snapshot: { equals: Prisma.DbNull } },
+        },
+        data: { descricao: nomeNovo },
+      }),
+      prisma.salaItem.updateMany({
+        where: {
+          descricaoComercial: { equals: existing.nome, mode: "insensitive" },
+          sala: { orcamento: { companyId, status: "PENDENTE" } },
+        },
+        data: { descricaoComercial: nomeNovo },
+      }),
+    ]);
+    renomeados = { itens: ri.count, faturas: rf.count, orcamentos: ro.count };
+  }
+
+  return NextResponse.json({ ...item, acessoriosInfo, renomeados });
 }
 
 export async function DELETE(
