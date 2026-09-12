@@ -61,6 +61,10 @@ model Company {
   whatsappVerifyToken String? // token de verificação do webhook (recebimento de mensagens)
   nestorNumeros      Json?    // telefones extras autorizados a pedir orçamento rápido ao assistente
   nestorPausadoAte   DateTime? // assistente de WhatsApp pausado até esta data (ignora tudo que chega)
+  // Migração do Bubble via Data API (lida pelo servidor; token nunca volta à tela)
+  bubbleAppUrl       String?  // ex.: https://meuapp.bubbleapps.io ou domínio próprio
+  bubbleApiToken     String?  // Settings → API → Private key
+  bubbleMeta         Json?    // estrutura descoberta (tipos, campos, amostras) para montar o mapeamento
   // Conexão alternativa via Evolution API (QR code — número segue no celular, aceita grupos)
   evolutionUrl       String?  // URL do servidor Evolution (ex.: https://evo.suaempresa.com)
   evolutionApiKey    String?  // apikey global ou da instância

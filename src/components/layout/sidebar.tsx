@@ -114,6 +114,7 @@ const navItems: NavEntry[] = [
       { href: "/configuracoes/whatsapp", label: "WhatsApp (Assistente)", icon: Bot },
       { href: "/configuracoes/os-publica", label: "OS Pública", icon: Share2 },
       { href: "/configuracoes/backup", label: "Backup dos Dados", icon: DatabaseBackup },
+      { href: "/configuracoes/bubble", label: "Migração do Bubble", icon: DatabaseBackup },
       { href: "/configuracoes/ia", label: "Inteligência Artificial", icon: Sparkles },
       { href: "/configuracoes/menu", label: "Personalização do Menu", icon: Menu },
       { href: "/configuracoes/logs", label: "Log de Acessos", icon: History },
