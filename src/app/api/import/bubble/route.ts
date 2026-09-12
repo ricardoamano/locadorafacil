@@ -27,13 +27,14 @@ export async function GET() {
   if (!ctx) return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
   const c = await prisma.company.findUnique({
     where: { id: ctx.companyId },
-    select: { bubbleAppUrl: true, bubbleApiToken: true, bubbleMeta: true },
+    select: { bubbleAppUrl: true, bubbleApiToken: true, bubbleMeta: true, ferramentasMigracao: true },
   });
   return NextResponse.json({
     appUrl: c?.bubbleAppUrl || "",
     tokenConfigurado: Boolean(c?.bubbleApiToken),
     configurado: bubbleConfigurado(c),
     meta: c?.bubbleMeta || null,
+    ferramentasMigracao: c?.ferramentasMigracao !== false,
   });
 }
 
@@ -47,6 +48,8 @@ export async function POST(req: NextRequest) {
   if (body.appUrl !== undefined) data.bubbleAppUrl = String(body.appUrl).trim() || null;
   if (body.token === "REMOVER") data.bubbleApiToken = null;
   else if (body.token?.trim()) data.bubbleApiToken = String(body.token).trim();
+  // Interruptor único dos botões de importação/migração em todo o sistema
+  if (typeof body.ferramentasMigracao === "boolean") data.ferramentasMigracao = body.ferramentasMigracao;
   if (Object.keys(data).length > 0)
     await prisma.company.update({ where: { id: ctx.companyId }, data });
 

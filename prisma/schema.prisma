@@ -65,6 +65,7 @@ model Company {
   bubbleAppUrl       String?  // ex.: https://meuapp.bubbleapps.io ou domínio próprio
   bubbleApiToken     String?  // Settings → API → Private key
   bubbleMeta         Json?    // estrutura descoberta (tipos, campos, amostras) para montar o mapeamento
+  ferramentasMigracao Boolean @default(true) // mostra os botões de importação/migração (desligar quando o sistema estiver em uso pleno)
   // Conexão alternativa via Evolution API (QR code — número segue no celular, aceita grupos)
   evolutionUrl       String?  // URL do servidor Evolution (ex.: https://evo.suaempresa.com)
   evolutionApiKey    String?  // apikey global ou da instância

@@ -328,13 +328,22 @@ export function Sidebar() {
     fetch("/api/me")
       .then((r) => r.json())
       .then((me) => {
+        const configurados = aplicarConfig(
+          navItems,
+          me.menuConfig || null,
+          me.role || "USER",
+          me.modulos || null
+        );
+        // Ferramentas de migração desligadas → some o item do menu (a página
+        // continua acessível por URL para religar)
         setItems(
-          aplicarConfig(
-            navItems,
-            me.menuConfig || null,
-            me.role || "USER",
-            me.modulos || null
-          )
+          me.empresa?.ferramentasMigracao === false
+            ? configurados.map((i) =>
+                i.children
+                  ? { ...i, children: i.children.filter((c) => c.href !== "/configuracoes/bubble") }
+                  : i
+              )
+            : configurados
         );
         if (me.empresa) setEmpresa(me.empresa);
       })

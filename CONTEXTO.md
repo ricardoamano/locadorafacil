@@ -198,12 +198,35 @@ Guardamos o id de origem em `Contact.bubbleId` e `Local.bubbleId` (índice por c
 - **Locais/espaços** (`/api/import/locais`, `ImportarLocais` em Locais): CSV de Locais (nome + endereco[rua]
   + `unique id`) + CSV de Endereços opcional (cruza rua→CEP/número quando única). 129 espaços, todos com id,
   83 com endereço completo. Grava `Local.bubbleId` = unique id.
-- Arquivos salvos no scratchpad `.../scratchpad/import/` (clientes.csv, contatos.csv, enderecos.csv, locais.csv).
-- **PRÓXIMO: orçamentos e faturas.** No Bubble eles referenciam o cliente (clienteId) e o local (local id).
-  Como já guardamos `Contact.bubbleId` e `Local.bubbleId`, o cruzamento será direto por esses ids.
-  Pedir export de Orçamentos/Faturas COM as colunas de referência (cliente id, local id) + unique id próprio.
+- **Orçamentos, OS e faturas — FEITO via Data API do Bubble** (12/09/2026). Conexão em
+  `Company.bubbleAppUrl/bubbleApiToken` (app `neostore-17880.bubbleapps.io/version-test`), estrutura
+  descoberta em `Company.bubbleMeta`. Libs: `src/lib/bubble-api.ts` (meta/paginação) e
+  `src/lib/bubble-migracao.ts` (mapeamento). Idempotente por `bubbleId` em Orcamento/Fatura/OrdemServico/Item.
+  Cruzamentos: local por bubbleId; cliente por bubbleId ou nome fantasia; item por bubbleId, nome+modelo ou nome
+  (cria "a revisar"). Campos do Bubble vêm pelo *display name* ("Cliente 1", "Codigo-num", "Nome Fantasia"...).
+  Status mapeado em `mapearStatus()`. Numeração inicial de orçamento/fatura avança após o maior importado.
+  Resultado da 1ª rodada: 192 orçamentos, 106 OS, 130 faturas, 165 itens novos.
+  Não importado (por decisão): `objfinanceiro` (236 lançamentos) e PDFs antigos.
+
+### 🧰 Ferramentas de migração — INVENTÁRIO (ocultar quando o sistema estiver em uso pleno)
+Interruptor único: `Company.ferramentasMigracao` (default true). Superadmin desliga em
+**Configurações → Migração do Bubble → "Ocultar ferramentas"**. Hook `useFerramentasMigracao()`
+(`src/lib/use-migracao.ts`) lê `/api/me` → `empresa.ferramentasMigracao`. Nada é apagado; só some da UI.
+Botões/telas cobertos pelo interruptor:
+1. **Ativos → "Importar"** (`/ativos/importar`: colar lista + IA, CSV com mapeamento, revisão de divergências) — `itens-list.tsx`.
+2. **Clientes → "Importar"** (CSV do Bubble + revisão) — `contacts-list.tsx` / `importar-clientes.tsx`.
+3. **Clientes → "Completar endereços (CNPJ)"** (BrasilAPI) — `contacts-list.tsx`.
+4. **Locais → "Importar"** (CSV do Bubble + revisão) — `locais-list.tsx` / `importar-locais.tsx`.
+5. **Menu Configurações → "Migração do Bubble"** (`/configuracoes/bubble`: conexão, ler estrutura,
+   completar cadastros, prévia/importar orçamentos-OS-faturas) — `sidebar.tsx` (item filtrado).
+   A página continua acessível por URL para religar o interruptor.
+Ficam SEMPRE (são operação, não migração): filtro/selo **"A revisar"** nos itens, cadastro de itens pelo
+WhatsApp ("cadastra 4 TVs..."), Exportar CSV, Backup.
 
 ## Convenções de comunicação com o Ricardo
 - Relatórios em pt-BR, liderando com o resultado, com seção "🧪 Teste:" no final.
 - Sempre honesto sobre limitações (ex.: Meta 24h, fotos dependem da web).
 - Multiempresa é requisito permanente; "quanto mais simples, melhor".
+- **Mobile first, sempre**: o sistema é usado no celular e no tablet (galpão, evento, deslocamento).
+  Toda tela/botão novo precisa funcionar bem a ~400px (empilhar colunas, botões alcançáveis, tabelas
+  com rolagem horizontal própria, nada dependente de hover).

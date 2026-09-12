@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { LocalFormModal } from "./local-form-modal";
 import { ImportarLocais } from "./importar-locais";
+import { useFerramentasMigracao } from "@/lib/use-migracao";
 import { useToast } from "@/components/ui/toast";
 import {
   Plus,
@@ -52,6 +53,7 @@ function mapsUrl(l: Local): string {
 
 export function LocaisList() {
   const { toast } = useToast();
+  const migracao = useFerramentasMigracao();
   const [locais, setLocais] = useState<Local[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -155,7 +157,7 @@ export function LocaisList() {
           )}
         </form>
 
-        <ImportarLocais onImportado={fetchLocais} />
+        {migracao && <ImportarLocais onImportado={fetchLocais} />}
         <Button
           onClick={() => {
             setEditLocal(null);

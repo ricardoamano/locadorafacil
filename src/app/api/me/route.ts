@@ -16,14 +16,19 @@ export async function GET() {
   const u = session.user as SessionUser;
 
   let menuConfig = null;
-  let empresaInfo: { nome: string; logoUrl: string | null } | null = null;
+  let empresaInfo: { nome: string; logoUrl: string | null; ferramentasMigracao: boolean } | null = null;
   if (u.companyId) {
     const empresa = await prisma.company.findUnique({
       where: { id: u.companyId },
-      select: { menuConfig: true, name: true, logoUrl: true },
+      select: { menuConfig: true, name: true, logoUrl: true, ferramentasMigracao: true },
     });
     menuConfig = empresa?.menuConfig ?? null;
-    if (empresa) empresaInfo = { nome: empresa.name, logoUrl: empresa.logoUrl };
+    if (empresa)
+      empresaInfo = {
+        nome: empresa.name,
+        logoUrl: empresa.logoUrl,
+        ferramentasMigracao: empresa.ferramentasMigracao,
+      };
   }
 
   // Celular do vendedor: vem do perfil de membro vinculado ao usuário

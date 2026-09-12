@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { ExportarCsv } from "@/components/ui/exportar-csv";
+import { useFerramentasMigracao } from "@/lib/use-migracao";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -54,6 +55,7 @@ interface Item {
 export function ItensList() {
   const [empresaSlug, setEmpresaSlug] = React.useState<string>("");
   const { toast } = useToast();
+  const migracao = useFerramentasMigracao();
   const [itens, setItens] = useState<Item[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -277,12 +279,14 @@ export function ItensList() {
             A revisar
           </button>
           <ExportarCsv tipo="itens" />
-          <Link href="/ativos/importar">
-            <Button variant="outline">
-              <PackagePlus className="h-4 w-4" />
-              Importar
-            </Button>
-          </Link>
+          {migracao && (
+            <Link href="/ativos/importar">
+              <Button variant="outline">
+                <PackagePlus className="h-4 w-4" />
+                Importar
+              </Button>
+            </Link>
+          )}
           <Button onClick={openCreate}>
             <Plus className="h-4 w-4" />
             Novo Item

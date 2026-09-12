@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { Database, Search } from "lucide-react";
+import { limparCacheMigracao } from "@/lib/use-migracao";
 
 // Migração do Bubble via Data API: guarda URL + Private key (só superadmin) e
 // lê a estrutura do app antigo (tipos, campos, amostras) para montar a
@@ -33,6 +34,28 @@ export default function ConfigBubblePage() {
   const [relatorio, setRelatorio] = useState<any | null>(null);
   const [migrando, setMigrando] = useState(false);
   const [cadastros, setCadastros] = useState<any | null>(null);
+  const [ferramentas, setFerramentas] = useState(true);
+
+  async function alternarFerramentas(valor: boolean) {
+    try {
+      const res = await fetch("/api/import/bubble", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ferramentasMigracao: valor }),
+      });
+      if (!res.ok) throw new Error("Falha ao salvar");
+      setFerramentas(valor);
+      limparCacheMigracao();
+      toast(
+        valor
+          ? "Ferramentas de migração visíveis de novo."
+          : "Ferramentas de migração ocultas em todo o sistema. Esta página continua acessível pelo endereço /configuracoes/bubble.",
+        "success"
+      );
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Erro.", "error");
+    }
+  }
 
   async function completarCadastrosBubble() {
     setMigrando(true);
@@ -92,6 +115,7 @@ export default function ConfigBubblePage() {
         if (!d) return;
         setAppUrl(d.appUrl || "");
         setTokenConfigurado(!!d.tokenConfigurado);
+        setFerramentas(d.ferramentasMigracao !== false);
         if (d.meta?.tipos) {
           setLidoEm(d.meta.lidoEm || null);
           setTipos(
@@ -148,6 +172,22 @@ export default function ConfigBubblePage() {
             (cliente, local, itens) preservados.
           </p>
         </div>
+      </div>
+
+      {/* Interruptor único: some com todos os botões de importação quando o sistema estiver em uso pleno */}
+      <div
+        className={`rounded-lg border px-4 py-3 text-sm flex flex-wrap items-center gap-3 ${
+          ferramentas ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-200 bg-white text-slate-600"
+        }`}
+      >
+        <p className="flex-1 min-w-56">
+          {ferramentas
+            ? "🧰 Ferramentas de migração VISÍVEIS: Importar (Ativos, Clientes, Locais), Completar endereços, este menu. Quando o sistema estiver rodando por conta própria, desligue aqui — some tudo de uma vez."
+            : "🧹 Ferramentas de migração OCULTAS em todo o sistema. Nada foi apagado — é só religar se precisar importar de novo."}
+        </p>
+        <Button variant="outline" onClick={() => alternarFerramentas(!ferramentas)}>
+          {ferramentas ? "Ocultar ferramentas" : "Mostrar ferramentas"}
+        </Button>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 space-y-4">

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ContactFormModal } from "./contact-form-modal";
 import { ImportarClientes, CompletarEnderecos } from "./importar-clientes";
+import { useFerramentasMigracao } from "@/lib/use-migracao";
 import { useToast } from "@/components/ui/toast";
 import {
   Plus,
@@ -53,6 +54,7 @@ interface ContactsListProps {
 
 export function ContactsList({ type }: ContactsListProps) {
   const { toast } = useToast();
+  const migracao = useFerramentasMigracao();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -174,8 +176,8 @@ export function ContactsList({ type }: ContactsListProps) {
           )}
         </form>
 
-        {type === "CLIENTE" && <CompletarEnderecos onCompletado={fetchContacts} />}
-        {type === "CLIENTE" && <ImportarClientes onImportado={fetchContacts} />}
+        {type === "CLIENTE" && migracao && <CompletarEnderecos onCompletado={fetchContacts} />}
+        {type === "CLIENTE" && migracao && <ImportarClientes onImportado={fetchContacts} />}
         <ExportarCsv tipo={type === "CLIENTE" ? "clientes" : "fornecedores"} />
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4" />
