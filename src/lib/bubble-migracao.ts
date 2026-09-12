@@ -425,6 +425,7 @@ export interface Relatorio {
   ordensCriadas: number;
   faturasCriadas: number;
   faturasPuladas: number;
+  receitasCriadas: number; // faturas em aberto que viraram receita pendente
   clientesCriados: number;
   itensCriados: number;
   contatosCriados: number;
@@ -436,8 +437,10 @@ export async function executarMigracao(companyId: string, d: DadosBubble, filtro
   const { orcs, fats } = filtrar(d, ix, filtro);
   const rel: Relatorio = {
     orcamentosCriados: 0, orcamentosPulados: 0, ordensCriadas: 0, faturasCriadas: 0, faturasPuladas: 0,
-    clientesCriados: 0, itensCriados: 0, contatosCriados: 0, avisos: [],
+    receitasCriadas: 0, clientesCriados: 0, itensCriados: 0, contatosCriados: 0, avisos: [],
   };
+  const hoje0 = new Date();
+  hoje0.setHours(0, 0, 0, 0);
 
   // Primeiro os cadastros de apoio (endereços, CNPJ, contatos) — assim os
   // orçamentos/faturas já nascem apontando para clientes completos
@@ -697,7 +700,8 @@ export async function executarMigracao(companyId: string, d: DadosBubble, filtro
     const orc = f.orcamento ? orcPorBubble.get(f.orcamento) : null;
     const clienteNome = cliente?.nomeFantasia || txt(ix.clientes.get(f.cliente)?.["Nome Fantasia"]) || "Cliente";
     const posto = f["PostodeServiço?"] === true;
-    await prisma.fatura.create({
+    const vencimento = data(f.dataVencimento) || data(f.dataEmissao) || new Date();
+    const nova = await prisma.fatura.create({
       data: {
         companyId,
         numero: Number(f.numeroNota) || 0,
@@ -710,7 +714,7 @@ export async function executarMigracao(companyId: string, d: DadosBubble, filtro
         isPostoServico: posto,
         mesRef: [txt(f["MêsEmissão"]), txt(f.Ano)].filter(Boolean).join("/"),
         dataEmissao: data(f.dataEmissao) || data(f["Created Date"]) || new Date(),
-        dataVencimento: data(f.dataVencimento) || data(f.dataEmissao) || new Date(),
+        dataVencimento: vencimento,
         valor: num(f.ValorTotal),
         descritivo: txt(f.descritivo) || null,
         emitidaEm: data(f.dataEmissao) || undefined,
@@ -720,6 +724,26 @@ export async function executarMigracao(companyId: string, d: DadosBubble, filtro
     });
     fatJa.add(f._id);
     rel.faturasCriadas++;
+
+    // Fatura ainda em aberto (vence de hoje em diante) → receita pendente no
+    // Financeiro. As já vencidas ficam de fora: o histórico de caixa antigo
+    // está no Bubble (objfinanceiro) e não foi migrado.
+    if (vencimento >= hoje0 && num(f.ValorTotal) > 0) {
+      await prisma.transacao.create({
+        data: {
+          companyId,
+          nome: `Fatura #${nova.numero} — ${clienteNome}`,
+          tipo: "RECEITA",
+          valor: nova.valor,
+          dataRecebimento: vencimento,
+          faturaId: nova.id,
+          orcamentoId: nova.orcamentoId,
+          status: "PENDENTE",
+          observacao: `Gerada a partir da fatura #${nova.numero} importada do Bubble (em aberto na migração)`,
+        },
+      });
+      rel.receitasCriadas++;
+    }
   }
 
   // Numeração: o próximo documento continua depois do maior importado

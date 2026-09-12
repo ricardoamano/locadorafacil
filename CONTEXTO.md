@@ -215,6 +215,10 @@ Guardamos o id de origem em `Contact.bubbleId` e `Local.bubbleId` (índice por c
   Status mapeado em `mapearStatus()`. Numeração inicial de orçamento/fatura avança após o maior importado.
   Resultado da 1ª rodada: 192 orçamentos, 106 OS, 130 faturas, 165 itens novos.
   Não importado (por decisão): `objfinanceiro` (236 lançamentos) e PDFs antigos.
+  **Financeiro:** as faturas importadas não geravam receita. Em 12/09/2026 foram criadas (SQL) 16 receitas
+  PENDENTES para as faturas com vencimento de hoje em diante (R$ 179.380, data = vencimento, `faturaId` ligado);
+  faturas já vencidas ficaram fora (caixa antigo está no Bubble). A migração agora faz isso sozinha
+  (`rel.receitasCriadas`).
 
 ### 🧰 Ferramentas de migração — INVENTÁRIO (ocultar quando o sistema estiver em uso pleno)
 Interruptor único: `Company.ferramentasMigracao` (default true). Superadmin desliga em

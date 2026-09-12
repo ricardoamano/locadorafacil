@@ -358,7 +358,7 @@ export default function ConfigBubblePage() {
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900 space-y-1">
               <p className="font-semibold">✅ Migração concluída</p>
               <p>Orçamentos: {relatorio.orcamentosCriados} criados · {relatorio.orcamentosPulados} pulados (já existiam/sem cliente)</p>
-              <p>OS: {relatorio.ordensCriadas} · Faturas: {relatorio.faturasCriadas} criadas · {relatorio.faturasPuladas} puladas</p>
+              <p>OS: {relatorio.ordensCriadas} · Faturas: {relatorio.faturasCriadas} criadas · {relatorio.faturasPuladas} puladas · {relatorio.receitasCriadas ?? 0} receitas em aberto no Financeiro</p>
               <p>Cadastros criados de apoio: {relatorio.clientesCriados} clientes · {relatorio.contatosCriados} contatos · {relatorio.itensCriados} itens (a revisar)</p>
               {relatorio.avisos.length > 0 && (
                 <details>
