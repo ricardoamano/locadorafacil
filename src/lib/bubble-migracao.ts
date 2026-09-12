@@ -29,13 +29,15 @@ export interface DadosBubble {
   descontos: R[];
   faturas: R[];
   ordens: R[];
+  enderecos: R[];
+  locais: R[];
 }
 
 export async function carregarDadosBubble(c: BubbleConfig): Promise<DadosBubble> {
   const tipos = [
     "orcamento", "objsalas", "objitemorcamento", "objevento", "ativo", "objitemcatalogo",
     "objitemativo", "objmarca", "cliente", "objcontatoscliente", "obj_desconto", "fatura",
-    "ordemdeservico",
+    "ordemdeservico", "objendereco", "local",
   ];
   // Em duplas para não estourar o limite de requisições do Bubble
   const out: R[][] = [];
@@ -43,8 +45,140 @@ export async function carregarDadosBubble(c: BubbleConfig): Promise<DadosBubble>
     const lote = await Promise.all(tipos.slice(i, i + 2).map((t) => lerTodos<R>(c, t, 10000)));
     out.push(...lote);
   }
-  const [orcamentos, salas, itensOrc, eventos, ativos, catalogo, itensAtivo, marcas, clientes, contatos, descontos, faturas, ordens] = out;
-  return { orcamentos, salas, itensOrc, eventos, ativos, catalogo, itensAtivo, marcas, clientes, contatos, descontos, faturas, ordens };
+  const [orcamentos, salas, itensOrc, eventos, ativos, catalogo, itensAtivo, marcas, clientes, contatos, descontos, faturas, ordens, enderecos, locais] = out;
+  return { orcamentos, salas, itensOrc, eventos, ativos, catalogo, itensAtivo, marcas, clientes, contatos, descontos, faturas, ordens, enderecos, locais };
+}
+
+// ── Cadastros: completa clientes, locais e contatos-pessoa com o que o Bubble tem ──
+
+export interface RelatorioCadastros {
+  clientesAtualizados: number;
+  clientesCriados: number;
+  contatosCriados: number;
+  locaisAtualizados: number;
+}
+
+/**
+ * Preenche campos EM BRANCO de clientes (razão social, CNPJ, IE/IM, endereço
+ * completo) e locais (endereço) a partir do Bubble, cruzando por bubbleId ou
+ * nome. Cria os contatos-pessoa que faltarem. Nunca sobrescreve o que já
+ * está preenchido aqui.
+ */
+export async function completarCadastros(companyId: string, d: DadosBubble): Promise<RelatorioCadastros> {
+  const rel: RelatorioCadastros = { clientesAtualizados: 0, clientesCriados: 0, contatosCriados: 0, locaisAtualizados: 0 };
+  const enderecos = porId(d.enderecos);
+  const contatosBubble = porId(d.contatos);
+  const vazio = (v: string | null | undefined) => !v || !String(v).trim();
+
+  const endereco = (id: any) => {
+    const e = id ? enderecos.get(id) : null;
+    if (!e) return null;
+    return {
+      rua: txt(e.rua) || null,
+      numero: txt(e.numero) || null,
+      complemento: txt(e.complemento) || null,
+      bairro: txt(e.bairro) || null,
+      cep: txt(e.cep) || null,
+      cidade: txt(e.cidade) || null,
+      estado: txt(e.estado).toUpperCase() || null,
+    };
+  };
+
+  // Clientes
+  const contatosDb = await prisma.contact.findMany({
+    where: { companyId },
+    include: { subContacts: { select: { id: true, nome: true } } },
+  });
+  const porBubble = new Map(contatosDb.filter((c) => c.bubbleId).map((c) => [c.bubbleId!, c]));
+  const porNome = new Map(contatosDb.map((c) => [normalizarChave(c.nomeFantasia), c]));
+
+  for (const cli of d.clientes) {
+    const nome = txt(cli["Nome Fantasia"] || cli.nomeEmpresa);
+    if (!nome) continue;
+    const nosso = porBubble.get(cli._id) || porNome.get(normalizarChave(nome));
+    const end = endereco(cli.endereco);
+    const dados: Record<string, unknown> = {};
+    const candidatos: Record<string, string | null> = {
+      razaoSocial: txt(cli.nomeEmpresa) || null,
+      cnpj: txt(cli.cnpj) || null,
+      inscricaoEstadual: txt(cli.inscricaoEstadual) || null,
+      inscricaoMunicipal: txt(cli.inscricaoMunicipal) || null,
+      ...(end || {}),
+    };
+
+    if (!nosso) {
+      const novo = await prisma.contact.create({
+        data: {
+          companyId,
+          type: "CLIENTE",
+          nomeFantasia: nome,
+          razaoSocial: candidatos.razaoSocial || nome,
+          cnpj: candidatos.cnpj,
+          inscricaoEstadual: candidatos.inscricaoEstadual,
+          inscricaoMunicipal: candidatos.inscricaoMunicipal,
+          rua: candidatos.rua, numero: candidatos.numero, complemento: candidatos.complemento,
+          bairro: candidatos.bairro, cep: candidatos.cep, cidade: candidatos.cidade, estado: candidatos.estado,
+          isPostoServico: normalizarChave(cli["É posto?"]) === "sim",
+          bubbleId: cli._id,
+        },
+        include: { subContacts: { select: { id: true, nome: true } } },
+      });
+      rel.clientesCriados++;
+      porBubble.set(cli._id, novo);
+      porNome.set(normalizarChave(nome), novo);
+      continue;
+    }
+
+    for (const [k, v] of Object.entries(candidatos)) {
+      if (v && vazio((nosso as any)[k])) dados[k] = v;
+    }
+    // razão social igual ao fantasia = placeholder do import anterior → melhora
+    if (candidatos.razaoSocial && nosso.razaoSocial === nosso.nomeFantasia && candidatos.razaoSocial !== nosso.nomeFantasia)
+      dados.razaoSocial = candidatos.razaoSocial;
+    if (!nosso.bubbleId) dados.bubbleId = cli._id;
+
+    // Contatos-pessoa que faltam
+    const nomesJa = new Set(nosso.subContacts.map((s) => normalizarChave(s.nome)));
+    const novosSubs: { nome: string; email: string | null; telefone: string | null }[] = [];
+    for (const cid of (cli.contatos as string[]) || []) {
+      const c = contatosBubble.get(cid);
+      const n = txt(c?.nome);
+      if (!n || nomesJa.has(normalizarChave(n))) continue;
+      nomesJa.add(normalizarChave(n));
+      novosSubs.push({ nome: n, email: txt(c?.email) || null, telefone: txt(c?.telefone) || null });
+    }
+    if (novosSubs.length > 0) {
+      dados.subContacts = { create: novosSubs };
+      rel.contatosCriados += novosSubs.length;
+    }
+
+    if (Object.keys(dados).length > 0) {
+      await prisma.contact.update({ where: { id: nosso.id }, data: dados });
+      rel.clientesAtualizados++;
+    }
+  }
+
+  // Locais
+  const locaisDb = await prisma.local.findMany({ where: { companyId } });
+  const locPorBubble = new Map(locaisDb.filter((l) => l.bubbleId).map((l) => [l.bubbleId!, l]));
+  const locPorNome = new Map(locaisDb.map((l) => [normalizarChave(l.nome), l]));
+  for (const loc of d.locais) {
+    const nome = txt(loc.nome);
+    if (!nome) continue;
+    const nosso = locPorBubble.get(loc._id) || locPorNome.get(normalizarChave(nome));
+    if (!nosso) continue;
+    const end = endereco(loc.endereco);
+    if (!end) continue;
+    const dados: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(end)) if (v && vazio((nosso as any)[k])) dados[k] = v;
+    if (!nosso.bubbleId) dados.bubbleId = loc._id;
+    if (Object.keys(dados).length > 0) {
+      await prisma.local.update({ where: { id: nosso.id }, data: dados });
+      rel.locaisAtualizados++;
+    }
+  }
+
+  return rel;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -288,6 +422,12 @@ export async function executarMigracao(companyId: string, d: DadosBubble, filtro
     orcamentosCriados: 0, orcamentosPulados: 0, ordensCriadas: 0, faturasCriadas: 0, faturasPuladas: 0,
     clientesCriados: 0, itensCriados: 0, contatosCriados: 0, avisos: [],
   };
+
+  // Primeiro os cadastros de apoio (endereços, CNPJ, contatos) — assim os
+  // orçamentos/faturas já nascem apontando para clientes completos
+  const cad = await completarCadastros(companyId, d);
+  rel.clientesCriados += cad.clientesCriados;
+  rel.contatosCriados += cad.contatosCriados;
 
   const empresa = await prisma.company.findUnique({ where: { id: companyId } });
   const precoCfg = {

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { auditar } from "@/lib/auditoria";
 import { bubbleConfigurado } from "@/lib/bubble-api";
-import { carregarDadosBubble, montarPrevia, executarMigracao } from "@/lib/bubble-migracao";
+import { carregarDadosBubble, montarPrevia, executarMigracao, completarCadastros } from "@/lib/bubble-migracao";
 
 // Migração de orçamentos, OS e faturas do Bubble (só superadmin).
 // POST { anoMinimo?, confirmar? } → sem confirmar: prévia (nada gravado);
@@ -32,6 +32,16 @@ export async function POST(req: NextRequest) {
 
   try {
     const dados = await carregarDadosBubble(c!);
+    // Só completar cadastros (endereço/CNPJ/contatos de clientes e locais)
+    if (body.acao === "cadastros") {
+      const cad = await completarCadastros(u.companyId, dados);
+      await auditar(session.user as never, {
+        tipo: "ALTERACAO",
+        modulo: "clientes",
+        acao: `Completou cadastros pelo Bubble: ${cad.clientesAtualizados} clientes, ${cad.locaisAtualizados} locais, ${cad.contatosCriados} contatos`,
+      });
+      return NextResponse.json({ cadastros: cad });
+    }
     if (!body.confirmar) {
       const previa = await montarPrevia(u.companyId, dados, { anoMinimo });
       return NextResponse.json({ previa });

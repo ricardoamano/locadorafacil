@@ -32,6 +32,26 @@ export default function ConfigBubblePage() {
   const [previa, setPrevia] = useState<any | null>(null);
   const [relatorio, setRelatorio] = useState<any | null>(null);
   const [migrando, setMigrando] = useState(false);
+  const [cadastros, setCadastros] = useState<any | null>(null);
+
+  async function completarCadastrosBubble() {
+    setMigrando(true);
+    try {
+      const res = await fetch("/api/import/bubble/orcamentos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acao: "cadastros" }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setCadastros(d.cadastros);
+      toast(`✅ ${d.cadastros.clientesAtualizados} clientes e ${d.cadastros.locaisAtualizados} locais completados.`, "success");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Erro.", "error");
+    } finally {
+      setMigrando(false);
+    }
+  }
 
   async function migrar(confirmar: boolean) {
     setMigrando(true);
@@ -174,6 +194,26 @@ export default function ConfigBubblePage() {
               salas e itens. Pode rodar quantas vezes quiser — o que já veio não duplica.
             </p>
           </div>
+          <div className="rounded-lg border border-emerald-100 bg-emerald-50/50 p-3 flex flex-wrap items-center gap-3">
+            <div className="flex-1 min-w-56 text-xs text-slate-600">
+              <p className="font-semibold text-slate-800">Completar cadastros pelo Bubble</p>
+              <p>
+                Preenche o que está em branco em clientes (razão social, CNPJ, IE/IM, rua, número,
+                complemento, bairro, CEP, cidade, UF) e locais (endereço), e cria os contatos-pessoa
+                que faltam. Não sobrescreve nada que já esteja preenchido aqui.
+              </p>
+              {cadastros && (
+                <p className="mt-1 text-emerald-700">
+                  ✅ {cadastros.clientesAtualizados} clientes atualizados · {cadastros.clientesCriados} criados ·{" "}
+                  {cadastros.contatosCriados} contatos · {cadastros.locaisAtualizados} locais
+                </p>
+              )}
+            </div>
+            <Button variant="outline" onClick={completarCadastrosBubble} loading={migrando}>
+              Completar cadastros
+            </Button>
+          </div>
+
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-44">
               <label className="block text-xs font-medium text-slate-500 mb-1.5">Trazer a partir do ano</label>
