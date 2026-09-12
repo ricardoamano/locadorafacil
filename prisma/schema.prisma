@@ -329,6 +329,7 @@ model Item {
   descricaoComercial     String?
   especificacoesPublicas String?
   observacaoInterna      String?
+  revisarCadastro Boolean      @default(false) // cadastro rápido/importado, falta completar
   fotoCapaUrl    String?
   videoUrl       String?
   mostrarCodigo  Boolean      @default(false)

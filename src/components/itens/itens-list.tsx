@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { ExportarCsv } from "@/components/ui/exportar-csv";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +21,8 @@ import {
   Globe,
   QrCode,
   Link2,
+  PackagePlus,
+  AlertCircle,
 } from "lucide-react";
 
 const tipoLabels: Record<string, string> = {
@@ -39,6 +42,7 @@ interface Item {
   quantidade: number;
   unidades?: { id: string; codigo: string; numero: number; status: string }[];
   emCatalogo: boolean;
+  revisarCadastro?: boolean;
   publicado?: boolean;
   slug?: string | null;
   categoria: { id: string; nome: string } | null;
@@ -62,6 +66,7 @@ export function ItensList() {
   const [searchInput, setSearchInput] = useState(buscaInicial);
   const [etiquetaItem, setEtiquetaItem] = useState<Item | null>(null);
   const [soCatalogo, setSoCatalogo] = useState(true);
+  const [soRevisar, setSoRevisar] = useState(false);
   const [naturezaFilter, setNaturezaFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -80,6 +85,7 @@ export function ItensList() {
         limit: String(limit),
         search,
         natureza: naturezaFilter,
+        ...(soRevisar ? { revisar: "1" } : {}),
       });
       const res = await fetch(`/api/itens?${params}`);
       const data = await res.json();
@@ -90,7 +96,7 @@ export function ItensList() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, naturezaFilter, toast]);
+  }, [page, search, naturezaFilter, soRevisar, toast]);
 
   useEffect(() => {
     fetchItens();
@@ -254,7 +260,29 @@ export function ItensList() {
               Estoque
             </button>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              setPage(1);
+              setSoRevisar((v) => !v);
+            }}
+            title="Itens importados/criados rápido que ainda faltam completar"
+            className={`inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border text-sm font-medium transition-colors ${
+              soRevisar
+                ? "bg-amber-500 text-white border-amber-500"
+                : "bg-white text-amber-700 border-amber-200 hover:bg-amber-50"
+            }`}
+          >
+            <AlertCircle className="h-4 w-4" />
+            A revisar
+          </button>
           <ExportarCsv tipo="itens" />
+          <Link href="/ativos/importar">
+            <Button variant="outline">
+              <PackagePlus className="h-4 w-4" />
+              Importar
+            </Button>
+          </Link>
           <Button onClick={openCreate}>
             <Plus className="h-4 w-4" />
             Novo Item
@@ -365,6 +393,11 @@ export function ItensList() {
                           {qtdAcessorios > 0 && (
                             <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full align-middle">
                               {qtdAcessorios} acessório{qtdAcessorios > 1 ? "s" : ""}
+                            </span>
+                          )}
+                          {item.revisarCadastro && (
+                            <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full align-middle">
+                              a revisar
                             </span>
                           )}
                         </p>

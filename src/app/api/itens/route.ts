@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search") || "";
   const natureza = searchParams.get("natureza") || "";
+  const revisar = searchParams.get("revisar") === "1";
   const page = parseInt(searchParams.get("page") || "1");
   const limit = parseInt(searchParams.get("limit") || "20");
   const skip = (page - 1) * limit;
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest) {
   const where = {
     companyId,
     ...(natureza ? { natureza } : {}),
+    ...(revisar ? { revisarCadastro: true } : {}),
     ...(search
       ? {
           OR: [

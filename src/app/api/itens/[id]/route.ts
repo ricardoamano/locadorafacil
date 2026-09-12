@@ -80,6 +80,8 @@ export async function PUT(
   const item = await prisma.item.update({
     where: { id },
     data: {
+      // Editar/salvar pelo formulário completo = cadastro revisado
+      revisarCadastro: false,
       codigo: codigoFinal,
       nome: data.nome,
       natureza: data.natureza === "SERVICO" ? "SERVICO" : "EQUIPAMENTO",
