@@ -16,7 +16,20 @@ import {
   ChevronRight,
   ClipboardList,
   Users,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from "lucide-react";
+
+// Colunas ordenáveis (clique no título alterna ▲/▼). Padrão: data do evento.
+type Coluna = "numero" | "cliente" | "data" | "equipe" | "status";
+const COLUNAS: { key: Coluna; label: string; align: "left" | "center" }[] = [
+  { key: "numero", label: "OS / Orçamento", align: "left" },
+  { key: "cliente", label: "Cliente / Evento", align: "left" },
+  { key: "data", label: "Data", align: "left" },
+  { key: "equipe", label: "Equipe", align: "center" },
+  { key: "status", label: "Status", align: "left" },
+];
 
 const statusConfig: Record<string, { label: string; variant: "success" | "warning" | "danger" | "info" | "neutral" }> = {
   ABERTA: { label: "Aberta", variant: "info" },
@@ -53,7 +66,18 @@ export function OsList() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("");
+  const [sort, setSort] = useState<Coluna>("data");
+  const [dir, setDir] = useState<"asc" | "desc">("asc");
   const [loading, setLoading] = useState(true);
+
+  function ordenarPor(col: Coluna) {
+    if (col === sort) setDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSort(col);
+      setDir("asc");
+    }
+    setPage(1);
+  }
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
@@ -73,6 +97,8 @@ export function OsList() {
         page: String(page),
         limit: String(limit),
         status: statusFilter,
+        sort,
+        dir,
       });
       const res = await fetch(`/api/ordens-servico?${params}`);
       const data = await res.json();
@@ -83,7 +109,7 @@ export function OsList() {
     } finally {
       setLoading(false);
     }
-  }, [page, statusFilter, toast]);
+  }, [page, statusFilter, sort, dir, toast]);
 
   useEffect(() => {
     fetchOrdens();
@@ -189,21 +215,29 @@ export function OsList() {
           <table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  OS / Orçamento
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Cliente / Evento
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Data
-                </th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Equipe
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Status
-                </th>
+                {COLUNAS.map((c) => {
+                  const ativa = sort === c.key;
+                  const Icone = !ativa ? ArrowUpDown : dir === "asc" ? ArrowUp : ArrowDown;
+                  return (
+                    <th
+                      key={c.key}
+                      aria-sort={ativa ? (dir === "asc" ? "ascending" : "descending") : "none"}
+                      className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider ${
+                        c.align === "center" ? "text-center" : "text-left"
+                      } ${ativa ? "text-slate-900" : "text-slate-500"}`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => ordenarPor(c.key)}
+                        className="inline-flex items-center gap-1 hover:text-slate-900 min-h-8"
+                        title={`Ordenar por ${c.label.toLowerCase()}`}
+                      >
+                        {c.label}
+                        <Icone className={`h-3 w-3 ${ativa ? "" : "opacity-40"}`} />
+                      </button>
+                    </th>
+                  );
+                })}
                 <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   Ações
                 </th>

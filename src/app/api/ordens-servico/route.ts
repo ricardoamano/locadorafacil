@@ -22,6 +22,23 @@ export async function GET(req: NextRequest) {
     ...(status ? { status } : {}),
   };
 
+  // Ordenação pelo cabeçalho da tabela. Padrão: data do evento (mais próximo
+  // primeiro), OS sem data no fim.
+  const sort = searchParams.get("sort") || "data";
+  const dir: "asc" | "desc" = searchParams.get("dir") === "desc" ? "desc" : "asc";
+  const orderBy =
+    sort === "numero"
+      ? { orcamento: { numero: dir } }
+      : sort === "cliente"
+        ? { orcamento: { cliente: { nomeFantasia: dir } } }
+        : sort === "equipe"
+          ? { escala: { _count: dir } }
+          : sort === "status"
+            ? { status: dir }
+            : sort === "criacao"
+              ? { createdAt: dir }
+              : { orcamento: { dataInicio: { sort: dir, nulls: "last" as const } } };
+
   const [ordens, total] = await Promise.all([
     prisma.ordemServico.findMany({
       where,
@@ -40,7 +57,7 @@ export async function GET(req: NextRequest) {
         },
         _count: { select: { escala: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy,
       skip,
       take: limit,
     }),
